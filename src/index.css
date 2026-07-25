@@ -1,0 +1,457 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   阿山股市終端機 - 全局深色玻璃擬物化樣式
+   ───────────────────────────────────────────────────────────────────────────── */
+
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=Inter:wght@300;400;500;600;700&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg-deep: #09090f;
+  --bg-surface: #111118;
+  --bg-card: rgba(20, 20, 32, 0.85);
+  --bg-card-hover: rgba(30, 30, 48, 0.9);
+  --border-subtle: rgba(255, 255, 255, 0.07);
+  --border-active: rgba(100, 160, 255, 0.4);
+
+  --accent-blue: #4d94ff;
+  --accent-blue-light: #a6d1ff;
+  --accent-green: #4caf50;
+  --accent-red: #ff5252;
+  --accent-amber: #ffd740;
+  --accent-purple: #ce93d8;
+  --accent-cyan: #4dd0e1;
+
+  --text-primary: rgba(255, 255, 255, 0.93);
+  --text-secondary: rgba(255, 255, 255, 0.6);
+  --text-muted: rgba(255, 255, 255, 0.35);
+
+  --font-main: 'Noto Sans TC', 'Inter', system-ui, sans-serif;
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --shadow-glow: 0 0 20px rgba(77, 148, 255, 0.15);
+  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.5);
+  --transition: 0.18s ease;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  font-family: var(--font-main);
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  overflow: hidden;
+}
+
+/* ─── 捲軸 ─── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
+
+/* ─── 佈局 ─── */
+.app-root { display: flex; flex-direction: column; height: 100vh; }
+
+/* ─── 頂部標題列 ─── */
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  height: 54px;
+  background: rgba(10, 10, 20, 0.9);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+  z-index: 100;
+}
+
+.app-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  background: linear-gradient(90deg, var(--accent-blue-light), var(--accent-blue));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: 0.03em;
+}
+
+.header-tabs {
+  display: flex;
+  gap: 2px;
+}
+
+.tab-btn {
+  padding: 7px 16px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-main);
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: var(--transition);
+  white-space: nowrap;
+}
+.tab-btn:hover { background: rgba(255,255,255,0.06); color: var(--text-primary); }
+.tab-btn.active {
+  background: rgba(77, 148, 255, 0.15);
+  color: var(--accent-blue-light);
+  box-shadow: inset 0 -2px 0 var(--accent-blue);
+}
+
+/* ─── 主內容區 ─── */
+.app-main {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.tab-content { height: 100%; display: none; }
+.tab-content.active { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+
+/* ─── 玻璃卡片 ─── */
+.glass-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  backdrop-filter: blur(12px);
+  box-shadow: var(--shadow-card);
+}
+.glass-card:hover { border-color: rgba(255,255,255,0.12); }
+
+/* ─── 輸入框 ─── */
+.input-field {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--font-main);
+  font-size: 0.92rem;
+  padding: 8px 12px;
+  outline: none;
+  transition: var(--transition);
+  width: 100%;
+}
+.input-field:focus {
+  border-color: var(--accent-blue);
+  background: rgba(77, 148, 255, 0.06);
+  box-shadow: 0 0 0 3px rgba(77, 148, 255, 0.12);
+}
+.input-field::placeholder { color: var(--text-muted); }
+
+/* ─── 按鈕 ─── */
+.btn {
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-main);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  padding: 8px 16px;
+  white-space: nowrap;
+}
+.btn-primary {
+  background: linear-gradient(135deg, #4d94ff, #2962ff);
+  color: #fff;
+  box-shadow: 0 2px 12px rgba(77, 148, 255, 0.3);
+}
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(77, 148, 255, 0.45); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.btn-success { background: linear-gradient(135deg, #43a047, #2e7d32); color: #fff; box-shadow: 0 2px 10px rgba(67,160,71,0.3); }
+.btn-success:hover { transform: translateY(-1px); }
+.btn-danger { background: linear-gradient(135deg, #ef5350, #c62828); color: #fff; box-shadow: 0 2px 10px rgba(239,83,80,0.3); }
+.btn-danger:hover { transform: translateY(-1px); }
+.btn-amber { background: linear-gradient(135deg, #ffd740, #f9a825); color: #111; box-shadow: 0 2px 10px rgba(255,215,64,0.3); }
+.btn-amber:hover { transform: translateY(-1px); }
+.btn-outline {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.2);
+  color: var(--text-secondary);
+}
+.btn-outline:hover { border-color: var(--accent-blue); color: var(--accent-blue); }
+.btn-sm { padding: 5px 10px; font-size: 0.8rem; }
+
+/* ─── 進度條 ─── */
+.progress-bar {
+  height: 4px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 99px;
+  overflow: hidden;
+  flex: 1;
+}
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-blue), var(--accent-cyan));
+  border-radius: 99px;
+  transition: width 0.3s ease;
+}
+.progress-label { font-size: 0.78rem; color: var(--text-muted); white-space: nowrap; }
+
+/* ─── 表格 ─── */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+.data-table thead th {
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.04);
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.data-table thead th:hover { color: var(--text-secondary); }
+.data-table tbody tr {
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  transition: var(--transition);
+}
+.data-table tbody tr:hover { background: rgba(255,255,255,0.035); }
+.data-table tbody td { padding: 9px 12px; color: var(--text-primary); }
+
+/* ─── 標籤 ─── */
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.badge-green { background: rgba(76,175,80,0.18); color: #81c784; border: 1px solid rgba(76,175,80,0.3); }
+.badge-red { background: rgba(255,82,82,0.18); color: #ef9a9a; border: 1px solid rgba(255,82,82,0.3); }
+.badge-amber { background: rgba(255,215,64,0.15); color: #ffd740; border: 1px solid rgba(255,215,64,0.25); }
+.badge-blue { background: rgba(77,148,255,0.15); color: #90caf9; border: 1px solid rgba(77,148,255,0.3); }
+.badge-gray { background: rgba(255,255,255,0.08); color: var(--text-secondary); border: 1px solid var(--border-subtle); }
+.badge-purple { background: rgba(206,147,216,0.15); color: #ce93d8; border: 1px solid rgba(206,147,216,0.3); }
+
+/* ─── 個股分析頁 ─── */
+.analysis-layout {
+  display: flex;
+  height: 100%;
+  gap: 0;
+  overflow: hidden;
+}
+.analysis-sidebar {
+  width: 340px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border-subtle);
+  overflow: hidden;
+}
+.analysis-chart-area {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: #0a0a12;
+}
+.analysis-search {
+  padding: 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.analysis-info {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px;
+}
+
+/* ─── 資訊面板區塊 ─── */
+.info-section {
+  margin-bottom: 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  overflow: hidden;
+}
+.info-section-header {
+  padding: 8px 12px;
+  background: rgba(255,255,255,0.04);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--accent-blue-light);
+  border-bottom: 1px solid var(--border-subtle);
+  letter-spacing: 0.03em;
+}
+.info-section-body { padding: 10px 12px; }
+.info-row { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; font-size: 0.83rem; }
+.info-label { color: var(--text-muted); }
+.info-value { font-weight: 500; }
+.info-value.positive { color: #81c784; }
+.info-value.negative { color: #ef9a9a; }
+.info-value.warning { color: var(--accent-amber); }
+
+/* ─── 訊號卡片 ─── */
+.signal-card {
+  border-radius: var(--radius-sm);
+  padding: 9px 12px;
+  margin-bottom: 6px;
+  border-left: 3px solid;
+  background: rgba(255,255,255,0.02);
+}
+.signal-title { font-size: 0.85rem; font-weight: 600; margin-bottom: 2px; }
+.signal-desc { font-size: 0.78rem; color: var(--text-secondary); line-height: 1.5; }
+
+/* ─── 評分卡 ─── */
+.score-card {
+  border-radius: var(--radius-md);
+  padding: 12px;
+  margin-bottom: 12px;
+  border: 2px solid;
+}
+.score-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.score-grade { font-size: 1.1rem; font-weight: 700; }
+.score-num { font-size: 0.9rem; }
+.score-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.score-tag { padding: 3px 8px; border-radius: 99px; font-size: 0.72rem; font-weight: 600; border: 1px solid; }
+
+/* ─── 結論卡 ─── */
+.advice-card {
+  border-radius: var(--radius-md);
+  padding: 14px;
+  border: 2px solid;
+  margin-bottom: 12px;
+}
+.advice-title { font-size: 1rem; font-weight: 700; margin-bottom: 6px; }
+.advice-desc { font-size: 0.84rem; line-height: 1.6; }
+
+/* ─── 地雷風險警示 ─── */
+.risk-banner {
+  background: rgba(255, 82, 82, 0.08);
+  border: 1px solid rgba(255, 82, 82, 0.3);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  margin-bottom: 12px;
+}
+.risk-banner-title { font-size: 0.85rem; font-weight: 700; color: #ef9a9a; margin-bottom: 6px; }
+.risk-item { font-size: 0.78rem; color: #ffb4b4; padding: 2px 0; }
+
+/* ─── 新聞 ─── */
+.news-list { list-style: none; }
+.news-item { padding: 6px 0; border-bottom: 1px solid var(--border-subtle); }
+.news-item:last-child { border-bottom: none; }
+.news-link { color: var(--accent-blue); text-decoration: none; font-size: 0.82rem; line-height: 1.4; }
+.news-link:hover { color: var(--accent-blue-light); text-decoration: underline; }
+
+/* ─── 圖表容器 ─── */
+.chart-container { width: 100%; position: relative; }
+.chart-title { font-size: 0.75rem; color: var(--text-muted); padding: 4px 10px; }
+.sub-chart { border-top: 1px solid var(--border-subtle); }
+
+/* ─── 選股掃描頁 ─── */
+.scan-layout { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+.scan-controls { padding: 12px 16px; border-bottom: 1px solid var(--border-subtle); flex-shrink: 0; }
+.scan-controls-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.scan-controls-row:last-child { margin-bottom: 0; }
+.scan-label { font-size: 0.85rem; color: var(--text-secondary); white-space: nowrap; }
+.scan-table-wrap { flex: 1; overflow-y: auto; }
+
+/* ─── 基本面選股條件面板 ─── */
+.criteria-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 12px; }
+.criteria-item { display: flex; flex-direction: column; gap: 4px; }
+.criteria-label { font-size: 0.75rem; color: var(--text-muted); }
+.criteria-input {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--font-main);
+  font-size: 0.88rem;
+  padding: 6px 10px;
+  outline: none;
+  width: 100%;
+}
+.criteria-input:focus { border-color: var(--accent-blue); }
+
+/* ─── 投資組合 ─── */
+.portfolio-layout { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+.portfolio-toolbar { padding: 10px 14px; border-bottom: 1px solid var(--border-subtle); display: flex; gap: 8px; flex-wrap: wrap; align-items: center; flex-shrink: 0; }
+.portfolio-table-wrap { flex: 1; overflow-y: auto; }
+.pnl-positive { color: #81c784; font-weight: 600; }
+.pnl-negative { color: #ef9a9a; font-weight: 600; }
+.pnl-zero { color: var(--text-muted); }
+
+/* ─── 空狀態 ─── */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-muted);
+  gap: 8px;
+}
+.empty-icon { font-size: 2.5rem; opacity: 0.4; }
+.empty-text { font-size: 0.9rem; }
+
+/* ─── 載入中 ─── */
+.loading-spinner {
+  display: inline-block;
+  width: 18px; height: 18px;
+  border: 2px solid rgba(255,255,255,0.15);
+  border-top-color: var(--accent-blue);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ─── 選單 ─── */
+.select-field {
+  background-color: #1a1a28;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius-sm);
+  color: #ffffff;
+  font-family: var(--font-main);
+  font-size: 0.88rem;
+  padding: 7px 10px;
+  padding-right: 30px;
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg fill='white' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/><path d='M0 0h24v24H0z' fill='none'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 18px;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+.select-field:focus {
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 6px rgba(77, 148, 255, 0.4);
+}
+.select-field option {
+  background-color: #1a1a28;
+  color: #ffffff;
+}
+
+/* 移除所有 select 元素的原生外觀，避免 Linux/GTK 樣式干擾 */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+}
+
+/* ─── 響應式 ─── */
+@media (max-width: 900px) {
+  .analysis-sidebar { width: 280px; }
+  .criteria-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* 點選看解說指標樣式 */
+.info-label.clickable-label {
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.25);
+  cursor: help;
+  transition: color var(--transition), border-color var(--transition);
+}
+.info-label.clickable-label:hover {
+  color: var(--accent-blue-light);
+  border-bottom-color: var(--accent-blue-light);
+}

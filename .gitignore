@@ -1,0 +1,41 @@
+# Node.js dependencies
+node_modules/
+package-lock.json
+
+# Production build outputs
+dist/
+dist-ssr/
+
+# Rust/Cargo build outputs
+src-tauri/target/
+
+# System and editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.agents/
+
+# Big archives, installers and compiled binaries
+mingw.zip
+mingw64/
+node-v20.12.2-win-x64/
+node.zip
+node_dist/
+rustup-init.exe
+*.rpm
+*.exe
+*.zip
+*.dll
+
+# Personal Watchlists & Cache Files
+tw_keys.json
+watchlist_*.json
+tw_profile.html
+tw_profile_utf8.html
+isin_decoded_utf8.txt
