@@ -33,6 +33,16 @@ const fmtPrice = (v?: number | null) =>
   v != null && !isNaN(v) ? v.toFixed(2) : "N/A";
 const n2s = (v?: number | null) =>
   v != null && !isNaN(v) ? v.toFixed(2) : "N/A";
+const calcEquityRatio = (info?: StockInfoFull | null): number | null => {
+  if (!info || info.debt_to_equity == null || isNaN(info.debt_to_equity)) return null;
+  const de = info.debt_to_equity / 100;
+  if (de < 0) return null;
+  return (1 / (1 + de)) * 100;
+};
+const fmtEquityRatio = (info?: StockInfoFull | null) => {
+  const er = calcEquityRatio(info);
+  return er != null && !isNaN(er) ? `${er.toFixed(1)}%` : "N/A";
+};
 
 function resolveSymbol(input: string): string {
   const q = input.trim().split(" ")[0].toUpperCase();
@@ -114,6 +124,10 @@ const METRIC_EXPLANATIONS: Record<string, { label: string, explanation: string }
   "負債/權益比": {
     label: "負債對權益比率 (Debt-to-Equity Ratio)",
     explanation: "衡量公司財務槓桿與長期財務安全性的指標。計算公式為「總負債 / 股東權益」。一般低於 50% 屬極低風險，低於 150% 為合理，若大於 300% 則代表高度依賴舉債，財務風險相當高。"
+  },
+  "自有資本率": {
+    label: "自有資本比率 / 股東權益比率 (Equity Ratio)",
+    explanation: "衡量公司總資產中有多少比例是由股東自有資金出資。計算公式為「股東權益 / 總資產 * 100%」。數值越高代表公司自有資金越充裕、財務結構越穩健、破產風險越低。一般而言大於 50% 為良好穩健，低於 30% 則代表高度依賴外部借款。"
   },
   "自由現金流": {
     label: "自由現金流 (Free Cash Flow)",
@@ -550,6 +564,7 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                   <div className="info-row"><span className="info-label clickable-label" onClick={() => showMetricExplanation("流動比率")}>流動比率</span><span className="info-value">{n2s(info.current_ratio)}</span></div>
                   <div className="info-row"><span className="info-label clickable-label" onClick={() => showMetricExplanation("速動比率")}>速動比率</span><span className="info-value">{n2s(info.quick_ratio)}</span></div>
                   <div className="info-row"><span className="info-label clickable-label" onClick={() => showMetricExplanation("負債/權益比")}>負債/權益比</span><span className="info-value" style={{ color: (info.debt_to_equity ?? 0) > 200 ? "var(--accent-red)" : "inherit" }}>{info.debt_to_equity != null && !isNaN(info.debt_to_equity) ? `${info.debt_to_equity.toFixed(1)}%` : "N/A"}</span></div>
+                  <div className="info-row"><span className="info-label clickable-label" onClick={() => showMetricExplanation("自有資本率")}>自有資本率</span><span className="info-value" style={{ color: (calcEquityRatio(info) ?? 0) >= 50 ? "var(--accent-red)" : (calcEquityRatio(info) ?? 100) < 30 ? "var(--accent-green)" : "inherit" }}>{fmtEquityRatio(info)}</span></div>
                 </div>
               </div>
 
@@ -857,6 +872,14 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
             if (ocf !== null && fcf !== null) {
               return fcf - ocf;
             }
+          } else if (rowConfig.calc === "equityRatio") {
+            const eq = getSingleVal(statement, "totalStockholderEquity") ?? getSingleVal(statement, "equity") ?? getSingleVal(statement, "netWorth");
+            const ta = getSingleVal(statement, "totalAssets");
+            if (eq !== null && ta !== null && ta > 0) return (eq / ta) * 100;
+          } else if (rowConfig.calc === "debtRatio") {
+            const tl = getSingleVal(statement, "totalLiabilities");
+            const ta = getSingleVal(statement, "totalAssets");
+            if (tl !== null && ta !== null && ta > 0) return (tl / ta) * 100;
           }
 
           if (rowConfig.sumKeys) {
@@ -910,6 +933,8 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
           { keys: ["longTermDebt", "longTermLiabilities"], label: "長期負債 (Long Term Debt)" },
           { keys: ["totalLiabilities"], label: "負債總額 (Total Liabilities)" },
           { keys: ["totalStockholderEquity", "equity", "netWorth"], label: "權益總額 (股東權益)" },
+          { keys: ["equityRatio"], calc: "equityRatio", isRatio: true, label: "自有資本率 (Equity Ratio, 權益/資產)" },
+          { keys: ["debtRatio"], calc: "debtRatio", isRatio: true, label: "負債比率 (Debt Ratio, 負債/資產)" },
         ];
 
         const cashflowRows = [
@@ -1062,7 +1087,8 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                             </td>
                             {statements.map((statement: any, sIdx: number) => {
                               const rawVal = getVal(statement, row);
-                              const isImportantRow = row.keys.includes("netIncome") || row.keys.includes("totalRevenue") || row.keys.includes("totalAssets") || row.keys.includes("freeCashFlow");
+                              const isImportantRow = row.keys.includes("netIncome") || row.keys.includes("totalRevenue") || row.keys.includes("totalAssets") || row.keys.includes("freeCashFlow") || row.keys.includes("equityRatio");
+                              const isRatio = (row as any).isRatio;
                               return (
                                 <td 
                                   key={sIdx} 
@@ -1073,7 +1099,7 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                                     fontWeight: isImportantRow ? 700 : 400
                                   }}
                                 >
-                                  {fmtNum(rawVal)}
+                                  {rawVal !== null && !isNaN(rawVal) ? (isRatio ? `${rawVal.toFixed(2)}%` : fmtNum(rawVal)) : "N/A"}
                                 </td>
                               );
                             })}
