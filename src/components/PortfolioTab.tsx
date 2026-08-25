@@ -807,10 +807,10 @@ export const PortfolioTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ 
         {rows.length > 0 && (
           <div style={{ textAlign: "right", fontSize: "0.85rem" }}>
             <span style={{ color: "var(--text-muted)" }}>投入成本：</span>
-            <span style={{ fontWeight: 600 }}>{totalCost.toFixed(0)}</span>
+            <span style={{ fontWeight: 600 }}>{(totalCost ?? 0).toFixed(0)}</span>
             <span style={{ margin: "0 12px", color: "var(--text-muted)" }}>總損益：</span>
             <span style={{ fontWeight: 600, color: totalPnl > 0 ? "var(--accent-red)" : totalPnl < 0 ? "var(--accent-green)" : "inherit", fontSize: "1rem" }}>
-              {totalPnl > 0 ? "+" : ""}{totalPnl.toFixed(0)} ({totalPct > 0 ? "+" : ""}{totalPct.toFixed(2)}%)
+              {(totalPnl ?? 0) > 0 ? "+" : ""}{(totalPnl ?? 0).toFixed(0)} ({(totalPct ?? 0) > 0 ? "+" : ""}{(totalPct ?? 0).toFixed(2)}%)
             </span>
           </div>
         )}
@@ -870,7 +870,7 @@ export const PortfolioTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ 
                       onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
                       style={{ width: "70px" }} />
                   </td>
-                  <td style={{ fontWeight: 600 }}>{row.current_price ? row.current_price.toFixed(2) : "-"}</td>
+                  <td style={{ fontWeight: 600 }}>{row.current_price != null && !isNaN(row.current_price) ? row.current_price.toFixed(2) : "-"}</td>
                   <td>
                     <input type="number" className="criteria-input" value={row.sell_price || ""}
                       placeholder="未賣出"
@@ -882,10 +882,10 @@ export const PortfolioTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ 
                   <td>
                     {row.price > 0 && row.shares > 0 ? (
                       <span style={{
-                        color: row.pnl > 0 ? "var(--accent-red)" : row.pnl < 0 ? "var(--accent-green)" : "var(--text-primary)",
+                        color: (row.pnl ?? 0) > 0 ? "var(--accent-red)" : (row.pnl ?? 0) < 0 ? "var(--accent-green)" : "var(--text-primary)",
                         fontWeight: 600
                       }}>
-                        {row.pnl_pct > 0 ? "+" : ""}{row.pnl_pct.toFixed(2)}% ({row.pnl > 0 ? "+" : ""}{row.pnl.toFixed(0)})
+                        {row.pnl_pct != null && !isNaN(row.pnl_pct) ? `${row.pnl_pct > 0 ? "+" : ""}${row.pnl_pct.toFixed(2)}%` : "-"} ({row.pnl != null && !isNaN(row.pnl) ? `${row.pnl > 0 ? "+" : ""}${row.pnl.toFixed(0)}` : "-"})
                       </span>
                     ) : "-"}
                   </td>
@@ -982,7 +982,7 @@ export const PortfolioTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ 
                             {!isDoubleMine && isFundMine && <span style={{ color: "#ff5252", fontSize: "0.8rem", marginLeft: "8px", fontWeight: "bold" }}>[基本面地雷]</span>}
                           </span>
                           <span style={{ color: r.compositeScore !== undefined && r.compositeScore < -3 ? "#ff1744" : "#ff8a65", fontWeight: "bold", fontSize: "0.85rem" }}>
-                            綜合: {r.compositeScore?.toFixed(1)}分 (技術: {r.score.toFixed(1)} | 基本: {r.fundScore ?? 0})
+                            綜合: {r.compositeScore != null ? r.compositeScore.toFixed(1) : "-"}分 (技術: {r.score != null ? r.score.toFixed(1) : "-"} | 基本: {r.fundScore ?? 0})
                           </span>
                         </div>
                         {r.techRisks.length > 0 && (

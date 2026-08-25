@@ -69,9 +69,9 @@ export const HybridScanTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({
   const cancelRef = useRef(false);
 
   const hybridScoreColor = (s: number) => {
-    if (s >= 5) return "var(--accent-green)";
-    if (s >= 2) return "#a5d6a7";
-    if (s <= -3) return "var(--accent-red)";
+    if (s >= 5) return "var(--accent-red)";
+    if (s >= 2) return "#ef9a9a";
+    if (s <= -3) return "var(--accent-green)";
     return "var(--text-secondary)";
   };
 
@@ -200,9 +200,10 @@ export const HybridScanTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({
                   <td>{r.name}</td>
                   <td style={{ color: hybridScoreColor(r.hybridScore), fontWeight: 700, fontSize: "1rem" }}>
                     {(() => {
-                      const stars = Math.max(1, Math.min(5, Math.floor(r.hybridScore / 2) + 2));
-                      return <span title={`綜合分數: ${r.hybridScore.toFixed(2)}`}>
-                        {'★'.repeat(stars)}{'☆'.repeat(5 - stars)} ({r.hybridScore > 0 ? '+' : ''}{r.hybridScore.toFixed(1)})
+                      const score = r.hybridScore ?? 0;
+                      const stars = Math.max(1, Math.min(5, Math.floor(score / 2) + 2));
+                      return <span title={`綜合分數: ${r.hybridScore != null && !isNaN(r.hybridScore) ? r.hybridScore.toFixed(2) : "-"}`}>
+                        {'★'.repeat(stars)}{'☆'.repeat(5 - stars)} ({score > 0 ? '+' : ''}{r.hybridScore != null && !isNaN(r.hybridScore) ? r.hybridScore.toFixed(1) : "-"})
                       </span>;
                     })()}
                   </td>
@@ -211,9 +212,9 @@ export const HybridScanTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({
                       {r.fsGrade}
                     </span>
                   </td>
-                  <td style={{ color: hybridScoreColor(r.fsScore) }}>{r.fsScore > 0 ? "+" : ""}{r.fsScore}</td>
-                  <td style={{ color: r.techScore >= 1.5 ? "var(--accent-red)" : r.techScore <= -1.5 ? "var(--accent-green)" : "var(--text-secondary)", fontWeight: 600 }}>
-                    {r.techRating} ({r.techScore > 0 ? '+' : ''}{r.techScore.toFixed(1)})
+                  <td style={{ color: hybridScoreColor(r.fsScore) }}>{(r.fsScore ?? 0) > 0 ? "+" : ""}{r.fsScore ?? 0}</td>
+                  <td style={{ color: (r.techScore ?? 0) >= 1.5 ? "var(--accent-red)" : (r.techScore ?? 0) <= -1.5 ? "var(--accent-green)" : "var(--text-secondary)", fontWeight: 600 }}>
+                    {r.techRating} ({(r.techScore ?? 0) > 0 ? '+' : ''}{r.techScore != null && !isNaN(r.techScore) ? r.techScore.toFixed(1) : "-"})
                   </td>
                   <td style={{ color: "var(--text-secondary)", fontSize: "0.85rem" }}>PE: {r.pe}</td>
                   <td style={{ color: "var(--text-secondary)", fontSize: "0.85rem" }}>ROE: {r.roe}</td>

@@ -189,7 +189,13 @@ export function calcATR(high: number[], low: number[], close: number[], period =
 // ─── 一次計算所有指標 ─────────────────────────────────────────────────────────
 
 export function calculateAllIndicators(ohlcv: OhlcvData): Indicators {
-  const { high, low, close, volume } = ohlcv;
+  const cleanArr = (arr: (number | null | undefined)[]) =>
+    arr ? arr.map((v) => (v != null && !isNaN(Number(v)) ? Number(v) : NaN)) : [];
+
+  const high = cleanArr(ohlcv.high);
+  const low = cleanArr(ohlcv.low);
+  const close = cleanArr(ohlcv.close);
+  const volume = cleanArr(ohlcv.volume);
 
   const sma5 = calcSMA(close, 5);
   const sma10 = calcSMA(close, 10);

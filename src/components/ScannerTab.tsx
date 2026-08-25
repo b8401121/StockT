@@ -296,29 +296,29 @@ export const ScannerTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ on
                     <td>
                       {r.mode === "landmine" && r.compositeScore !== undefined ? (
                         <>
-                          <span style={{ color: r.compositeScore < -3 ? "#ff1744" : "#ff7043", fontWeight: 700 }}>
-                            綜合: {r.compositeScore.toFixed(1)}分
+                          <span style={{ color: (r.compositeScore ?? 0) < -3 ? "#ff1744" : "#ff7043", fontWeight: 700 }}>
+                            綜合: {r.compositeScore != null && !isNaN(r.compositeScore) ? r.compositeScore.toFixed(1) : "-"}分
                           </span>
                           <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", marginTop: "2px" }}>
-                            技術: {r.numericScore.toFixed(1)} | 基本: {r.fundScore ?? 0} ({getFsGrade(r.fundScore ?? 0)})
+                            技術: {r.numericScore != null && !isNaN(r.numericScore) ? r.numericScore.toFixed(1) : "-"} | 基本: {r.fundScore ?? 0} ({getFsGrade(r.fundScore ?? 0)})
                           </div>
                         </>
                       ) : r.mode === "short" && r.compositeScore !== undefined ? (
                         <>
                           <span style={{ color: "#ab47bc", fontWeight: 700 }}>
-                            放空評估: +{r.compositeScore.toFixed(1)}
+                            放空評估: +{r.compositeScore != null && !isNaN(r.compositeScore) ? r.compositeScore.toFixed(1) : "-"}
                           </span>
                           <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", marginTop: "2px" }}>
-                            技術: +{r.numericScore.toFixed(1)} | 基本: {r.fundScore ?? 0} ({getFsGrade(r.fundScore ?? 0)})
+                            技術: +{r.numericScore != null && !isNaN(r.numericScore) ? r.numericScore.toFixed(1) : "-"} | 基本: {r.fundScore ?? 0} ({getFsGrade(r.fundScore ?? 0)})
                           </div>
                         </>
                       ) : r.mode === "value" && r.compositeScore !== undefined ? (
                         <>
                           <span style={{ color: "var(--accent-blue)", fontWeight: 700 }}>
-                            尋寶指數: +{r.compositeScore.toFixed(1)}
+                            尋寶指數: +{r.compositeScore != null && !isNaN(r.compositeScore) ? r.compositeScore.toFixed(1) : "-"}
                           </span>
                           <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", marginTop: "2px" }}>
-                            基本: {r.fundScore ?? 0} ({getFsGrade(r.fundScore ?? 0)}) | 技術: {r.numericScore.toFixed(1)}
+                            基本: {r.fundScore ?? 0} ({getFsGrade(r.fundScore ?? 0)}) | 技術: {r.numericScore != null && !isNaN(r.numericScore) ? r.numericScore.toFixed(1) : "-"}
                           </div>
                         </>
                       ) : (

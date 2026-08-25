@@ -21,10 +21,10 @@ subscribeStocks((stocks) => {
 const pct = (v?: number | null) => (v != null && !isNaN(v) ? `${(v * 100).toFixed(2)}%` : "N/A");
 const pctColor = (v?: number | null) => {
   if (v == null || isNaN(v)) return "inherit";
-  return v >= 0 ? "var(--accent-green)" : "var(--accent-red)";
+  return v >= 0 ? "var(--accent-red)" : "var(--accent-green)";
 };
 const fmtNum = (v?: number | null) => {
-  if (v == null) return "N/A";
+  if (v == null || isNaN(v)) return "N/A";
   if (Math.abs(v) >= 1e8) return `${(v / 1e8).toFixed(2)}億`;
   if (Math.abs(v) >= 1e4) return `${(v / 1e4).toFixed(2)}萬`;
   return v.toFixed(2);
@@ -402,10 +402,10 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
   // ── 技術建議
   const finalScore = techScore - risks.length;
   const advice = (() => {
-    if (finalScore >= 3) return { title: "🚀 強力買進 (Strong Buy)", color: "#81c784", bg: "rgba(76,175,80,0.08)", border: "rgba(76,175,80,0.35)" };
-    if (finalScore >= 1) return { title: "📈 偏多進場 (Bullish)", color: "#a5d6a7", bg: "rgba(76,175,80,0.05)", border: "rgba(76,175,80,0.2)" };
-    if (finalScore <= -3) return { title: "💀 建議賣出 (Sell)", color: "#ef9a9a", bg: "rgba(255,82,82,0.08)", border: "rgba(255,82,82,0.4)" };
-    if (finalScore <= -1) return { title: "📉 偏空觀望 (Bearish)", color: "#ffab40", bg: "rgba(255,171,64,0.08)", border: "rgba(255,171,64,0.35)" };
+    if (finalScore >= 3) return { title: "🚀 強力買進 (Strong Buy)", color: "#ff5252", bg: "rgba(255,82,82,0.08)", border: "rgba(255,82,82,0.35)" };
+    if (finalScore >= 1) return { title: "📈 偏多進場 (Bullish)", color: "#ff8a80", bg: "rgba(255,82,82,0.05)", border: "rgba(255,82,82,0.2)" };
+    if (finalScore <= -3) return { title: "💀 建議賣出 (Sell)", color: "#4caf50", bg: "rgba(76,175,80,0.08)", border: "rgba(76,175,80,0.4)" };
+    if (finalScore <= -1) return { title: "📉 偏空觀望 (Bearish)", color: "#81c784", bg: "rgba(76,175,80,0.08)", border: "rgba(76,175,80,0.35)" };
     return { title: "⚖️ 中性持有 (Hold)", color: "#b0bec5", bg: "rgba(176,190,197,0.05)", border: "rgba(176,190,197,0.2)" };
   })();
 
@@ -476,11 +476,11 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                 <div style={{ fontSize: "1.15rem", fontWeight: 700, color: "var(--text-primary)" }}>{info.name}</div>
                 <div style={{ fontSize: "0.82rem", color: "var(--text-muted)", marginBottom: "6px" }}>{info.symbol}</div>
                 <div style={{ display: "flex", alignItems: "baseline", gap: "10px" }}>
-                  <span style={{ fontSize: "1.6rem", fontWeight: 700, color: changePct != null && changePct >= 0 ? "var(--accent-green)" : "var(--accent-red)" }}>
+                  <span style={{ fontSize: "1.6rem", fontWeight: 700, color: changePct != null && changePct >= 0 ? "var(--accent-red)" : "var(--accent-green)" }}>
                     {fmtPrice(info.current_price)}
                   </span>
-                  {changePct != null && (
-                    <span style={{ fontSize: "0.9rem", color: changePct >= 0 ? "var(--accent-green)" : "var(--accent-red)", fontWeight: 600 }}>
+                  {changePct != null && !isNaN(changePct) && (
+                    <span style={{ fontSize: "0.9rem", color: changePct >= 0 ? "var(--accent-red)" : "var(--accent-green)", fontWeight: 600 }}>
                       {changePct >= 0 ? "▲" : "▼"} {Math.abs(changePct).toFixed(2)}%
                     </span>
                   )}
@@ -499,7 +499,7 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
               <div className="advice-card" style={{ background: advice.bg, borderColor: advice.border }}>
                 <div className="advice-title" style={{ color: advice.color }}>{advice.title}</div>
                 <div className="advice-desc" style={{ color: "var(--text-secondary)" }}>
-                  綜合評分：<b style={{ color: advice.color }}>{finalScore > 0 ? "+" : ""}{finalScore.toFixed(1)}</b> 分
+                  綜合評分：<b style={{ color: advice.color }}>{(finalScore ?? 0) > 0 ? "+" : ""}{finalScore != null && !isNaN(finalScore) ? finalScore.toFixed(1) : "0.0"}</b> 分
                 </div>
               </div>
 
@@ -545,11 +545,11 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
               <div className="info-section">
                 <div className="info-section-header">二、財務穩健度</div>
                 <div className="info-section-body">
-                  <div className="info-row"><span className="info-label clickable-label" onClick={() => showMetricExplanation("自由現金流")}>自由現金流</span><span className="info-value" style={{ color: (info.free_cashflow ?? 0) > 0 ? "var(--accent-green)" : "var(--accent-red)" }}>{fmtNum(info.free_cashflow)}</span></div>
-                  <div className="info-row"><span className="info-label clickable-label" onClick={() => showMetricExplanation("營業現金流")}>營業現金流</span><span className="info-value">{fmtNum(info.operating_cashflow)}</span></div>
+                  <div className="info-row"><span className="info-label clickable-label" onClick={() => showMetricExplanation("自由現金流")}>自由現金流</span><span className="info-value" style={{ color: (info.free_cashflow ?? 0) >= 0 ? "var(--accent-red)" : "var(--accent-green)" }}>{fmtNum(info.free_cashflow)}</span></div>
+                  <div className="info-row"><span className="info-label clickable-label" onClick={() => showMetricExplanation("營業現金流")}>營業現金流</span><span className="info-value" style={{ color: (info.operating_cashflow ?? 0) >= 0 ? "var(--accent-red)" : "var(--accent-green)" }}>{fmtNum(info.operating_cashflow)}</span></div>
                   <div className="info-row"><span className="info-label clickable-label" onClick={() => showMetricExplanation("流動比率")}>流動比率</span><span className="info-value">{n2s(info.current_ratio)}</span></div>
                   <div className="info-row"><span className="info-label clickable-label" onClick={() => showMetricExplanation("速動比率")}>速動比率</span><span className="info-value">{n2s(info.quick_ratio)}</span></div>
-                  <div className="info-row"><span className="info-label clickable-label" onClick={() => showMetricExplanation("負債/權益比")}>負債/權益比</span><span className="info-value" style={{ color: (info.debt_to_equity ?? 0) > 200 ? "var(--accent-red)" : "inherit" }}>{info.debt_to_equity != null ? `${info.debt_to_equity.toFixed(1)}%` : "N/A"}</span></div>
+                  <div className="info-row"><span className="info-label clickable-label" onClick={() => showMetricExplanation("負債/權益比")}>負債/權益比</span><span className="info-value" style={{ color: (info.debt_to_equity ?? 0) > 200 ? "var(--accent-red)" : "inherit" }}>{info.debt_to_equity != null && !isNaN(info.debt_to_equity) ? `${info.debt_to_equity.toFixed(1)}%` : "N/A"}</span></div>
                 </div>
               </div>
 
@@ -1069,7 +1069,7 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                                   style={{ 
                                     padding: "10px 16px", 
                                     textAlign: "right",
-                                    color: rawVal !== null && rawVal < 0 ? "var(--accent-red)" : isImportantRow ? "var(--accent-blue-light, #80b3ff)" : "rgba(255,255,255,0.75)",
+                                    color: rawVal !== null && rawVal < 0 ? "var(--accent-green)" : isImportantRow ? "var(--accent-red, #ff5252)" : "rgba(255,255,255,0.75)",
                                     fontWeight: isImportantRow ? 700 : 400
                                   }}
                                 >

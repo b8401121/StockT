@@ -51,8 +51,14 @@ export function getAnalysisSuggestions(
   const signals: Signal[] = [];
   let score = 0;
 
-  const latest = (arr: number[]) => arr[n];
-  const prev = (arr: number[]) => arr[n - 1] ?? arr[n];
+  const latest = (arr: number[]) => {
+    const val = arr[n];
+    return val !== null && val !== undefined && !isNaN(val) ? val : NaN;
+  };
+  const prev = (arr: number[]) => {
+    const val = arr[n - 1] !== undefined ? arr[n - 1] : arr[n];
+    return val !== null && val !== undefined && !isNaN(val) ? val : NaN;
+  };
 
   // 1. 長線趨勢 EMA50 vs EMA200
   const ema50 = latest(ind.ema50);
@@ -213,15 +219,16 @@ export function getAnalysisSuggestions(
 
 export function checkLandmineRisks(ind: Indicators, info: StockInfoFull, n: number): string[] {
   const risks: string[] = [];
+  const isValid = (v: any): v is number => v !== null && v !== undefined && typeof v === "number" && !isNaN(v);
 
   const ema50 = ind.ema50[n];
   const ema200 = ind.ema200[n];
-  if (!isNaN(ema50) && !isNaN(ema200) && ema50 < ema200 * 0.95) {
+  if (isValid(ema50) && isValid(ema200) && ema50 < ema200 * 0.95) {
     risks.push("📉 長線趨勢偏弱 (50MA 低於 200MA 5%)");
   }
 
   const rsi = ind.rsi[n];
-  if (!isNaN(rsi) && rsi < 30) {
+  if (isValid(rsi) && rsi < 30) {
     risks.push(`😱 RSI 極度低迷 (${rsi.toFixed(1)})，需注意流動性風險`);
   }
 
@@ -229,57 +236,58 @@ export function checkLandmineRisks(ind: Indicators, info: StockInfoFull, n: numb
   const bbL = ind.bbLower[n];
   const bw = ind.bbBandWidth[n];
   const prevBw = ind.bbBandWidth[n - 1] ?? bw;
-  if (!isNaN(bbL) && !isNaN(closePrice) && closePrice < bbL) {
-    const isExpanding = !isNaN(bw) && !isNaN(prevBw) && bw > prevBw * 1.05;
+  if (isValid(bbL) && isValid(closePrice) && closePrice < bbL) {
+    const isExpanding = isValid(bw) && isValid(prevBw) && bw > prevBw * 1.05;
     risks.push(`🧨 股價跌破布林下軌 (${closePrice.toFixed(1)} < ${bbL.toFixed(1)})${isExpanding ? "，且通道擴張呈弱勢加速" : ""}`);
   }
 
   const atr = ind.atr[n];
   const atrSlice = ind.atr.slice(Math.max(0, n - 20), n);
-  const avgAtr = atrSlice.filter((v) => !isNaN(v)).reduce((a, b) => a + b, 0) / (atrSlice.filter((v) => !isNaN(v)).length || 1);
-  if (!isNaN(atr) && avgAtr > 0 && atr > avgAtr * 2.5) {
+  const validAtrs = atrSlice.filter(isValid);
+  const avgAtr = validAtrs.length ? validAtrs.reduce((a, b) => a + b, 0) / validAtrs.length : 0;
+  if (isValid(atr) && avgAtr > 0 && atr > avgAtr * 2.5) {
     risks.push(`🌪️ 波動率異常飆高 (ATR: ${atr.toFixed(2)})，風險增加`);
   }
 
   // ── 財務基本面地雷 ────────────────────────────────────────────────
   // 虧損
-  if (info.net_income !== undefined && info.net_income !== null && info.net_income < 0) {
+  if (isValid(info.net_income) && info.net_income < 0) {
     risks.push("💸 公司目前財報呈現淨損（虧損中）");
   }
   // EPS 為負
-  if (info.eps !== undefined && info.eps !== null && info.eps < 0) {
+  if (isValid(info.eps) && info.eps < 0) {
     risks.push(`📛 EPS 為負 (${info.eps.toFixed(2)})，每股虧損`);
   }
   // ROE 為負（淨值縮水）
-  if (info.roe !== undefined && info.roe !== null && info.roe < 0) {
+  if (isValid(info.roe) && info.roe < 0) {
     risks.push(`🔴 ROE 為負 (${(info.roe * 100).toFixed(1)}%)，股東權益遭侵蝕`);
   }
   // 毛利率偏低
-  if (info.gross_margins !== undefined && info.gross_margins !== null && info.gross_margins < 0.10) {
+  if (isValid(info.gross_margins) && info.gross_margins < 0.10) {
     risks.push(`📉 毛利率極低 (${(info.gross_margins * 100).toFixed(1)}%)，獲利能力堪憂`);
   }
   // 淨利率為負
-  if (info.profit_margins !== undefined && info.profit_margins !== null && info.profit_margins < 0) {
+  if (isValid(info.profit_margins) && info.profit_margins < 0) {
     risks.push(`🩸 淨利率為負 (${(info.profit_margins * 100).toFixed(1)}%)，本業虧損`);
   }
   // 負自由現金流
-  if (info.free_cashflow !== undefined && info.free_cashflow !== null && info.free_cashflow < 0) {
+  if (isValid(info.free_cashflow) && info.free_cashflow < 0) {
     risks.push(`💧 自由現金流為負 (${(info.free_cashflow / 1e8).toFixed(2)}億)，燒錢警示`);
   }
   // 高負債
-  if (info.debt_to_equity !== undefined && info.debt_to_equity !== null && info.debt_to_equity > 200) {
+  if (isValid(info.debt_to_equity) && info.debt_to_equity > 200) {
     risks.push(`🏗️ 負債比率偏高 (${info.debt_to_equity.toFixed(1)}%)，財務槓桿過大`);
   }
   // 流動比率過低
-  if (info.current_ratio !== undefined && info.current_ratio !== null && info.current_ratio < 1) {
+  if (isValid(info.current_ratio) && info.current_ratio < 1) {
     risks.push(`💦 流動比率偏低 (${info.current_ratio.toFixed(2)})，短期償債壓力大`);
   }
   // 盈餘衰退
-  if (info.earnings_growth !== undefined && info.earnings_growth !== null && info.earnings_growth < -0.20) {
+  if (isValid(info.earnings_growth) && info.earnings_growth < -0.20) {
     risks.push(`📊 盈餘大幅衰退 (YoY: ${(info.earnings_growth * 100).toFixed(1)}%)`);
   }
   // 營收衰退
-  if (info.revenue_growth !== undefined && info.revenue_growth !== null && info.revenue_growth < -0.10) {
+  if (isValid(info.revenue_growth) && info.revenue_growth < -0.10) {
     risks.push(`📊 營收明顯衰退 (YoY: ${(info.revenue_growth * 100).toFixed(1)}%)`);
   }
 
@@ -418,8 +426,14 @@ export function calcTechScanScore(ind: Indicators, n: number): { score: number; 
   const reasons: string[] = [];
   const risks: string[] = [];
 
-  const latest = (arr: number[]) => arr[n];
-  const prev = (arr: number[]) => arr[n - 1] ?? arr[n];
+  const latest = (arr: number[]) => {
+    const val = arr[n];
+    return val !== null && val !== undefined && !isNaN(val) ? val : NaN;
+  };
+  const prev = (arr: number[]) => {
+    const val = arr[n - 1] !== undefined ? arr[n - 1] : arr[n];
+    return val !== null && val !== undefined && !isNaN(val) ? val : NaN;
+  };
 
   // EMA50 vs EMA200
   const ema50 = latest(ind.ema50), ema200 = latest(ind.ema200);

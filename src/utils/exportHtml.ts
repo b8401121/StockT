@@ -72,7 +72,7 @@ export async function exportToHtmlFile(
       const fundG = r.fsGrade;
       const fundS = `${r.fsScore > 0 ? "+" : ""}${r.fsScore}`;
       const techRating = r.techRating;
-      const hybridScore = `${r.hybridScore > 0 ? "+" : ""}${r.hybridScore.toFixed(1)}`;
+      const hybridScore = (r.hybridScore !== null && r.hybridScore !== undefined && !isNaN(r.hybridScore)) ? `${r.hybridScore > 0 ? "+" : ""}${r.hybridScore.toFixed(1)}` : "N/A";
 
       const gradeClass = getGradeClass(fundG);
       const techClass = getTechClass(techRating);
@@ -199,18 +199,18 @@ export async function exportToHtmlFile(
     .badge-na { background: rgba(255, 255, 255, 0.05); color: rgba(255,255,255,0.4); border: 1px solid rgba(255, 255, 255, 0.08); }
 
     /* Technical Rating */
-    .badge-strong-buy { background: rgba(76, 175, 80, 0.2); color: #a5d6a7; border: 1px solid rgba(76, 175, 80, 0.4); }
-    .badge-buy { background: rgba(76, 175, 80, 0.1); color: #a5d6a7; border: 1px solid rgba(76, 175, 80, 0.2); }
+    .badge-strong-buy { background: rgba(244, 67, 54, 0.2); color: #ef9a9a; border: 1px solid rgba(244, 67, 54, 0.4); }
+    .badge-buy { background: rgba(244, 67, 54, 0.1); color: #ef9a9a; border: 1px solid rgba(244, 67, 54, 0.2); }
     .badge-hold { background: rgba(176, 190, 197, 0.1); color: #cfd8dc; border: 1px solid rgba(176, 190, 197, 0.2); }
-    .badge-sell { background: rgba(244, 67, 54, 0.1); color: #ef9a9a; border: 1px solid rgba(244, 67, 54, 0.2); }
-    .badge-strong-sell { background: rgba(244, 67, 54, 0.2); color: #ef9a9a; border: 1px solid rgba(244, 67, 54, 0.4); }
+    .badge-sell { background: rgba(76, 175, 80, 0.1); color: #a5d6a7; border: 1px solid rgba(76, 175, 80, 0.2); }
+    .badge-strong-sell { background: rgba(76, 175, 80, 0.2); color: #a5d6a7; border: 1px solid rgba(76, 175, 80, 0.4); }
     .badge-tech-default { background: rgba(255, 255, 255, 0.06); color: rgba(255,255,255,0.7); }
 
     /* Modes */
-    .badge-mode-buy { background: rgba(76, 175, 80, 0.15); color: #81c784; padding: 3px 6px; border-radius: 4px; }
+    .badge-mode-buy { background: rgba(244, 67, 54, 0.15); color: #ef5350; padding: 3px 6px; border-radius: 4px; }
     .badge-mode-value { background: rgba(33, 150, 243, 0.15); color: #64b5f6; padding: 3px 6px; border-radius: 4px; }
-    .badge-mode-landmine { background: rgba(244, 67, 54, 0.15); color: #e57373; padding: 3px 6px; border-radius: 4px; }
-    .badge-mode-short { background: rgba(171, 71, 188, 0.15); color: #ba68c8; padding: 3px 6px; border-radius: 4px; }
+    .badge-mode-landmine { background: rgba(255, 152, 0, 0.15); color: #ffb74d; padding: 3px 6px; border-radius: 4px; }
+    .badge-mode-short { background: rgba(76, 175, 80, 0.15); color: #81c784; padding: 3px 6px; border-radius: 4px; }
 
     .badge-hybrid { background: rgba(255, 215, 64, 0.15); color: #ffd740; border: 1px solid rgba(255, 215, 64, 0.35); }
   </style>
