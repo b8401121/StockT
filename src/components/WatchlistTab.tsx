@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { User } from "firebase/auth";
-import { loadWatchlistFromCloud, saveWatchlistToCloud } from "../utils/firebase";
+import { subscribeWatchlist, saveWatchlistToCloud, loadWatchlistFromCloud } from "../utils/firebase";
+import { getCachedStocks, subscribeStocks, StockEntry } from "../utils/stocks";
 
 interface WatchlistTabProps {
   user: User | null;
@@ -17,20 +18,33 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [loading, setLoading] = useState(false);
+  const [stockDb, setStockDb] = useState<StockEntry[]>(getCachedStocks());
 
-  // 載入雲端資料
+  useEffect(() => {
+    return subscribeStocks((s) => setStockDb(s));
+  }, []);
+
+  // 實時監聽雲端資料 (Firestore onSnapshot)
   useEffect(() => {
     if (!user) return;
     setLoading(true);
-    loadWatchlistFromCloud(user.uid)
-      .then(({ lists: cloudLists }) => {
-        if (Object.keys(cloudLists).length > 0) {
-          setLists(cloudLists);
-          setActiveList(Object.keys(cloudLists)[0]);
-        }
-      })
-      .catch((e) => console.error("Load watchlist error:", e))
-      .finally(() => setLoading(false));
+    // 優先立即載入一次
+    loadWatchlistFromCloud(user.uid).then(({ lists: cloudLists }) => {
+      if (cloudLists && Object.keys(cloudLists).length > 0) {
+        setLists(cloudLists);
+        setActiveList((prev) => (cloudLists[prev] ? prev : Object.keys(cloudLists)[0]));
+      }
+      setLoading(false);
+    }).catch(() => setLoading(false));
+
+    // 建立即時監聽
+    const unsub = subscribeWatchlist(user.uid, ({ lists: cloudLists }) => {
+      if (cloudLists && Object.keys(cloudLists).length > 0) {
+        setLists(cloudLists);
+        setActiveList((prev) => (cloudLists[prev] ? prev : Object.keys(cloudLists)[0]));
+      }
+    });
+    return () => unsub();
   }, [user]);
 
   // 儲存到雲端
@@ -53,8 +67,12 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
   const addSymbol = async () => {
     const sym = newSymbol.trim().toUpperCase();
     if (!sym || !activeList) return;
-    if (currentSymbols.includes(sym)) { setNewSymbol(""); return; }
-    const updated = { ...lists, [activeList]: [...currentSymbols, sym] };
+    // 解析正確代號格式 (如 2330 -> 2330.TW)
+    const match = stockDb.find(s => s.symbol.split(".")[0] === sym || s.symbol === sym || s.name === sym);
+    const finalSym = match ? match.symbol : (sym.includes(".") ? sym : `${sym}.TW`);
+
+    if (currentSymbols.includes(finalSym)) { setNewSymbol(""); return; }
+    const updated = { ...lists, [activeList]: [...currentSymbols, finalSym] };
     setLists(updated);
     setNewSymbol("");
     await saveToCloud(updated);
@@ -180,8 +198,8 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
           {/* 新增股票欄 */}
           <input
             className="input-field"
-            style={{ width: "130px", padding: "6px 10px", fontSize: "0.88rem" }}
-            placeholder="輸入代號，如 2330"
+            style={{ width: "140px", padding: "6px 10px", fontSize: "0.88rem" }}
+            placeholder="代號/名稱，如 2330"
             value={newSymbol}
             onChange={(e) => setNewSymbol(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") addSymbol(); }}
@@ -199,20 +217,23 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
             <div style={{ textAlign: "center", color: "var(--text-muted)", marginTop: "60px", lineHeight: 2 }}>
               <div style={{ fontSize: "2.5rem" }}>📋</div>
               <div>此清單尚無股票</div>
-              <div style={{ fontSize: "0.82rem" }}>在上方輸入股票代號後按 Enter 加入</div>
+              <div style={{ fontSize: "0.82rem" }}>在上方輸入股票代號後按 Enter 加入，或在各分析/選股頁面點擊「⭐ 收藏」</div>
             </div>
           ) : (
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ fontSize: "0.78rem", color: "var(--text-muted)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                  <th style={{ textAlign: "left", padding: "6px 12px", fontWeight: 600 }}>代號</th>
-                  <th style={{ textAlign: "left", padding: "6px 12px", fontWeight: 600 }}>名稱</th>
-                  <th style={{ textAlign: "right", padding: "6px 12px", fontWeight: 600 }}>操作</th>
+                  <th style={{ textAlign: "left", padding: "8px 12px", fontWeight: 600 }}>代號</th>
+                  <th style={{ textAlign: "left", padding: "8px 12px", fontWeight: 600 }}>股票名稱</th>
+                  <th style={{ textAlign: "right", padding: "8px 12px", fontWeight: 600 }}>操作</th>
                 </tr>
               </thead>
               <tbody>
                 {currentSymbols.map((sym) => {
                   const code = sym.replace(/\.(TW|TWO)$/, "");
+                  const match = stockDb.find(s => s.symbol === sym || s.symbol.split(".")[0] === code);
+                  const stockName = match ? match.name : sym;
+
                   return (
                     <tr key={sym} style={{
                       borderBottom: "1px solid rgba(255,255,255,0.04)",
@@ -221,11 +242,11 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                       onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.03)")}
                       onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                     >
-                      <td style={{ padding: "10px 12px", fontWeight: 700, color: "var(--accent-blue)", fontFamily: "monospace", fontSize: "0.92rem" }}>
+                      <td style={{ padding: "10px 12px", fontWeight: 700, color: "var(--accent-blue)", fontFamily: "monospace", fontSize: "0.95rem" }}>
                         {code}
                       </td>
-                      <td style={{ padding: "10px 12px", color: "var(--text-secondary)", fontSize: "0.88rem" }}>
-                        {sym}
+                      <td style={{ padding: "10px 12px", color: "var(--text-primary)", fontWeight: 600, fontSize: "0.92rem" }}>
+                        {stockName} <span style={{ fontSize: "0.78rem", color: "var(--text-muted)", fontWeight: 400 }}>({sym})</span>
                       </td>
                       <td style={{ padding: "10px 12px", textAlign: "right" }}>
                         <button

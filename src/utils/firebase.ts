@@ -16,6 +16,7 @@ import {
   doc,
   setDoc,
   getDoc,
+  onSnapshot,
   Firestore,
 } from "firebase/firestore";
 
@@ -131,4 +132,29 @@ export async function addStockToUserWatchlist(symbol: string, listName = "我的
     console.error("Add to watchlist error:", err);
     return { success: false, message: `收藏失敗：${err?.message || err}` };
   }
+}
+
+/** 實時監聽用戶收藏名單變更 */
+export function subscribeWatchlist(
+  uid: string,
+  callback: (data: { lists: Record<string, string[]>; username: string }) => void
+): () => void {
+  const unsub = onSnapshot(
+    doc(db, "watchlists", uid),
+    (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        callback({
+          lists: data.lists ?? { "我的自選股": [] },
+          username: data.username ?? "",
+        });
+      } else {
+        callback({ lists: { "我的自選股": [] }, username: "" });
+      }
+    },
+    (err) => {
+      console.error("Watchlist snapshot error:", err);
+    }
+  );
+  return unsub;
 }
