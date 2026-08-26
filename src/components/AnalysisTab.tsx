@@ -10,6 +10,7 @@ import {
 } from "../utils/analysis";
 
 import { getCachedStocks, subscribeStocks, StockEntry } from "../utils/stocks";
+import { getCompanyBusinessSummary } from "../utils/companyProfiles";
 
 // ─── 股票資料庫 (taiwan_stocks.json) ─────────────────────────────────────────
 let STOCK_DB: StockEntry[] = getCachedStocks();
@@ -545,14 +546,21 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
               </div>
 
               {/* 業務介紹 */}
-              {info.long_business_summary && (
-                <div className="info-section">
-                  <div className="info-section-header">四、公司業務介紹</div>
-                  <div className="info-section-body" style={{ fontSize: "0.78rem", color: "var(--text-secondary)", lineHeight: 1.6 }}>
-                    {info.long_business_summary.slice(0, 400)}{info.long_business_summary.length > 400 ? "…" : ""}
+              {(() => {
+                const coId = info.symbol.split(".")[0];
+                const rawSum = info.long_business_summary;
+                const summary = (rawSum && rawSum.length > 25 && !rawSum.includes("近期營運狀況"))
+                  ? rawSum
+                  : getCompanyBusinessSummary(coId, info.symbol, info.name || info.symbol, info.sector || undefined);
+                return (
+                  <div className="info-section">
+                    <div className="info-section-header">🏢 四、公司業務與營業項目介紹</div>
+                    <div className="info-section-body" style={{ fontSize: "0.82rem", color: "var(--text-secondary)", lineHeight: 1.6 }}>
+                      {summary}
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* 智慧診斷細節 */}
               <div style={{ marginBottom: "8px" }}>

@@ -2,6 +2,7 @@
  * Platform Compatibility Adapter (Tauri Desktop <-> Web / GitHub Pages)
  */
 import { invoke as tauriInvoke } from "@tauri-apps/api/core";
+import { getCompanyBusinessSummary } from "./companyProfiles";
 
 export function isTauri(): boolean {
   return (
@@ -224,7 +225,7 @@ function getDeterministicFundamentals(coId: string, normSym: string, curPrice: n
   const de = Number((18 + rand(10) * 85).toFixed(1));
   const cr = Number((1.1 + rand(11) * 2.8).toFixed(2));
   const fcf = (isHealthy ? 1 : -1) * Math.floor((curPrice > 0 ? curPrice : 50) * 1500000 * (0.5 + rand(12)));
-  const summary = `個股 ${normSym} (${stockName}) 近期營運狀況${isHealthy ? "穩健成長" : "處於調整週期"}。`;
+  const summary = getCompanyBusinessSummary(coId, normSym, stockName);
 
   return { pe, pb, dy, roe, gm, nm, revGrowth, earnGrowth, de, cr, fcf, summary };
 }
