@@ -1,6 +1,7 @@
 import { AddToWatchlistBtn } from "./AddToWatchlistBtn";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "../utils/platform";
+import twseFundamentals from "../utils/twse_mops_fundamentals.json";
 import { ChartPanel } from "./Chart";
 import { calculateAllIndicators, OhlcvData } from "../utils/indicators";
 import {
@@ -534,16 +535,29 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
               </div>
 
               {/* 估值指標 */}
-              <div className="info-section">
-                <div className="info-section-header"><span style={{ color: "#ffffff", fontWeight: 700 }}>三、估值指標</span> <span style={{ fontSize: "0.80rem", color: "#93c5fd", fontWeight: 600 }}>(每日收盤結算)</span></div>
-                <div className="info-section-body">
-                  <div className="info-row"><span className="info-label clickable-label" style={{ color: "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("PE")}>本益比 (PE)</span><span className="info-value" style={{ color: "#60a5fa", fontWeight: 800, fontSize: "1.02rem" }}>{n2s(info.tw_pe ?? info.pe)}</span></div>
-                  <div className="info-row"><span className="info-label clickable-label" style={{ color: "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("PB")}>股價淨值比 (PB)</span><span className="info-value" style={{ color: "#60a5fa", fontWeight: 800, fontSize: "1.02rem" }}>{n2s(info.tw_pb ?? info.pb)}</span></div>
-                  <div className="info-row"><span className="info-label clickable-label" style={{ color: "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("殖利率")}>殖利率</span><span className="info-value" style={{ color: "#facc15", fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.tw_yield ?? info.dividend_yield)}</span></div>
-                  <div className="info-row"><span className="info-label clickable-label" style={{ color: "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("市值")}>市值</span><span className="info-value" style={{ color: "#ffffff", fontWeight: 800, fontSize: "1.02rem" }}>{fmtNum(info.market_cap)}</span></div>
-                  <div className="info-row"><span className="info-label clickable-label" style={{ color: "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("所屬產業")}>所屬產業</span><span className="info-value" style={{ color: "#67e8f9", fontWeight: 700, fontSize: "0.92rem" }}>{info.sector ?? "N/A"}</span></div>
-                </div>
-              </div>
+              {(() => {
+                const coId = info.symbol.split(".")[0];
+                const fund = (twseFundamentals as Record<string, any>)[coId];
+                const cashDiv = fund?.cash_dividend != null ? Number(fund.cash_dividend) : 0;
+                const stockDiv = fund?.stock_dividend != null ? Number(fund.stock_dividend) : 0;
+                const exType = stockDiv > 0 && cashDiv > 0 ? "除權息" : stockDiv > 0 ? "除權" : cashDiv > 0 ? "除息" : "無配息";
+
+                return (
+                  <div className="info-section">
+                    <div className="info-section-header"><span style={{ color: "#ffffff", fontWeight: 700 }}>三、估值與除權息指標</span> <span style={{ fontSize: "0.80rem", color: "#93c5fd", fontWeight: 600 }}>(最新公佈 / 每日收盤)</span></div>
+                    <div className="info-section-body">
+                      <div className="info-row"><span className="info-label clickable-label" style={{ color: "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("PE")}>本益比 (PE)</span><span className="info-value" style={{ color: "#60a5fa", fontWeight: 800, fontSize: "1.02rem" }}>{n2s(info.tw_pe ?? info.pe)}</span></div>
+                      <div className="info-row"><span className="info-label clickable-label" style={{ color: "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("PB")}>股價淨值比 (PB)</span><span className="info-value" style={{ color: "#60a5fa", fontWeight: 800, fontSize: "1.02rem" }}>{n2s(info.tw_pb ?? info.pb)}</span></div>
+                      <div className="info-row"><span className="info-label clickable-label" style={{ color: "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("殖利率")}>現金殖利率</span><span className="info-value" style={{ color: "#facc15", fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.tw_yield ?? info.dividend_yield)}</span></div>
+                      <div className="info-row"><span className="info-label" style={{ color: "#ffffff", fontWeight: 700, fontSize: "0.95rem" }}>每股現金股利 (除息)</span><span className="info-value" style={{ color: "#facc15", fontWeight: 800, fontSize: "1.02rem" }}>{cashDiv > 0 ? `${cashDiv.toFixed(2)} 元` : "無配息"}</span></div>
+                      <div className="info-row"><span className="info-label" style={{ color: "#ffffff", fontWeight: 700, fontSize: "0.95rem" }}>每股股票股利 (除權)</span><span className="info-value" style={{ color: stockDiv > 0 ? "#c084fc" : "#94a3b8", fontWeight: 800, fontSize: "1.02rem" }}>{stockDiv > 0 ? `${stockDiv.toFixed(2)} 元` : "0.00 元 (未除權)"}</span></div>
+                      <div className="info-row"><span className="info-label" style={{ color: "#ffffff", fontWeight: 700, fontSize: "0.95rem" }}>除權息性質</span><span className="info-value" style={{ color: "#38bdf8", fontWeight: 800, fontSize: "0.95rem" }}>{exType}</span></div>
+                      <div className="info-row"><span className="info-label clickable-label" style={{ color: "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("市值")}>市值</span><span className="info-value" style={{ color: "#ffffff", fontWeight: 800, fontSize: "1.02rem" }}>{fmtNum(info.market_cap)}</span></div>
+                      <div className="info-row"><span className="info-label clickable-label" style={{ color: "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("所屬產業")}>所屬產業</span><span className="info-value" style={{ color: "#67e8f9", fontWeight: 700, fontSize: "0.92rem" }}>{info.sector ?? "N/A"}</span></div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* 業務介紹 */}
               {(() => {

@@ -3,6 +3,7 @@ import { User } from "firebase/auth";
 import { subscribeWatchlist, saveWatchlistToCloud, loadWatchlistFromCloud } from "../utils/firebase";
 import { getCachedStocks, subscribeStocks, StockEntry } from "../utils/stocks";
 import { invoke } from "../utils/platform";
+import twseFundamentals from "../utils/twse_mops_fundamentals.json";
 
 /** 原始交易紀錄 */
 export interface TradeRecord {
@@ -31,6 +32,10 @@ export interface UnrealizedHolding {
   buyFee: number;
   estSellFee: number;
   estTax: number;
+  cashDividend: number;
+  stockDividend: number;
+  estTotalDividend: number;
+  exType: string;
   buyLots: {
     id: string;
     date: string;
@@ -344,6 +349,13 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
         const pnl = netMarketValue - totalCost;
         const roi = totalCost > 0 ? (pnl / totalCost) * 100 : 0;
 
+        const coCode = symbol.split(".")[0];
+        const fund = (twseFundamentals as Record<string, any>)[coCode];
+        const cashDiv = fund?.cash_dividend != null ? Number(fund.cash_dividend) : 0;
+        const stockDiv = fund?.stock_dividend != null ? Number(fund.stock_dividend) : 0;
+        const exType = stockDiv > 0 && cashDiv > 0 ? "除權息" : stockDiv > 0 ? "除權" : cashDiv > 0 ? "除息" : "無配息";
+        const estTotalDividend = Math.round(cashDiv * remainingShares);
+
         unrealizedHoldings.push({
           symbol,
           name: stockName,
@@ -358,6 +370,10 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
           buyFee: buyLots.reduce((acc, l) => acc + l.buyFee, 0),
           estSellFee,
           estTax,
+          cashDividend: cashDiv,
+          stockDividend: stockDiv,
+          estTotalDividend,
+          exType,
           buyLots,
         });
       }
@@ -376,6 +392,7 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
     const winTrades = realizedTrades.filter((r) => r.pnl > 0).length;
     const winRate = realizedTrades.length > 0 ? (winTrades / realizedTrades.length) * 100 : 0;
 
+    const totalEstDividends = unrealizedHoldings.reduce((acc, h) => acc + h.estTotalDividend, 0);
     const grandTotalPnl = totalUnrealizedPnl + totalRealizedPnl;
     const totalCombinedCost = totalUnrealizedCost + totalRealizedCost;
     const grandTotalRoi = totalCombinedCost > 0 ? (grandTotalPnl / totalCombinedCost) * 100 : 0;
@@ -395,6 +412,7 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
         winRate,
         grandTotalPnl,
         grandTotalRoi,
+        totalEstDividends,
       },
     };
   }, [currentTrades, prices, deductFees, feeDiscount, stockDb]);
@@ -734,6 +752,16 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
           </div>
 
           {/* 四大資產與損益卡片 */}
+          {totals.totalEstDividends > 0 && (
+            <div style={{
+              background: "linear-gradient(90deg, rgba(234, 179, 8, 0.15), rgba(202, 138, 4, 0.05))",
+              border: "1px solid rgba(234, 179, 8, 0.35)", borderRadius: "8px", padding: "8px 14px",
+              display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.84rem", color: "#fef08a"
+            }}>
+              <span style={{ fontWeight: 700 }}>🎁 目前持股預估現金股利總額：</span>
+              <b style={{ fontSize: "1.05rem", color: "#facc15", fontWeight: 800 }}>NT$ {totals.totalEstDividends.toLocaleString()} 元</b>
+            </div>
+          )}
           <div className="watchlist-cards-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "10px" }}>
             {/* 1. 現有持股市值 */}
             <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "8px", padding: "10px 14px" }}>
@@ -871,6 +899,8 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                       <th style={{ padding: "10px 12px", textAlign: "right" }}>買進均價</th>
                       <th style={{ padding: "10px 12px", textAlign: "right" }}>即時市價</th>
                       <th style={{ padding: "10px 12px", textAlign: "right" }}>持股市值</th>
+                      <th style={{ padding: "10px 12px", textAlign: "right" }}>現金股利 / 配股</th>
+                      <th style={{ padding: "10px 12px", textAlign: "right" }}>預估可領股利</th>
                       <th style={{ padding: "10px 12px", textAlign: "right" }}>總成本</th>
                       <th style={{ padding: "10px 12px", textAlign: "right" }}>預估未實現損益</th>
                       <th style={{ padding: "10px 12px", textAlign: "right" }}>報酬率</th>
@@ -925,6 +955,21 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                             {/* 市值 */}
                             <td style={{ padding: "12px", textAlign: "right", color: "#ffffff", fontWeight: 700 }}>
                               NT$ {h.marketValue.toLocaleString()}
+                            </td>
+
+                            {/* 每股現金股利與除權息性質 */}
+                            <td style={{ padding: "12px", textAlign: "right" }}>
+                              <div style={{ fontWeight: 700, color: "#facc15" }}>
+                                {h.cashDividend > 0 ? `${h.cashDividend.toFixed(2)} 元` : "無"}
+                              </div>
+                              <div style={{ fontSize: "0.72rem", color: h.stockDividend > 0 ? "#a855f7" : "#94a3b8", marginTop: "1px" }}>
+                                {h.exType}{h.stockDividend > 0 ? ` (配股${h.stockDividend}元)` : ""}
+                              </div>
+                            </td>
+
+                            {/* 預估可領現金股利總額 */}
+                            <td style={{ padding: "12px", textAlign: "right", fontWeight: 800, color: "#facc15" }}>
+                              {h.estTotalDividend > 0 ? `NT$ ${h.estTotalDividend.toLocaleString()}` : "-"}
                             </td>
 
                             {/* 成本 */}
