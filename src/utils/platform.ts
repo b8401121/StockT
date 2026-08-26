@@ -1,3 +1,5 @@
+import MOPS_FUNDAMENTALS from "./twse_mops_fundamentals.json";
+const FUND_MAP: Record<string, any> = MOPS_FUNDAMENTALS as any;
 /**
  * Platform Compatibility Adapter (Tauri Desktop <-> Web / GitHub Pages)
  */
@@ -166,50 +168,36 @@ function generateFallbackOhlcv(symbol: string, days = 250): OhlcvData {
 
 // ─── 產生各別標的真實特徵的基本面財務比率 ──────────────────────────────────────
 function getDeterministicFundamentals(coId: string, normSym: string, curPrice: number, stockName: string) {
-  let hash = 0;
-  for (let i = 0; i < coId.length; i++) {
-    hash = ((hash << 5) - hash + coId.charCodeAt(i)) | 0;
-  }
-  const rand = (offset: number) => {
-    const x = Math.sin(hash + offset * 137.5) * 10000;
-    return x - Math.floor(x);
-  };
-
-  let pe = 18.5, pb = 2.4, dy = 0.035, roe = 0.15, gm = 0.35, nm = 0.12;
-  let revGrowth = 0.12, earnGrowth = 0.15, de = 35.0, cr = 2.1, fcf = 5000000000;
-
-  if (coId === "2330") {
-    pe = 21.5; pb = 4.85; dy = 0.018; roe = 0.285; gm = 0.542; nm = 0.386;
-    revGrowth = 0.285; earnGrowth = 0.362; cr = 2.4; de = 28.5; fcf = 350000000000;
-  } else if (coId === "2454") {
-    pe = 19.8; pb = 3.6; dy = 0.048; roe = 0.224; gm = 0.495; nm = 0.218;
-    revGrowth = 0.182; earnGrowth = 0.245; cr = 2.1; de = 32.0; fcf = 65000000000;
-  } else if (coId === "3030") {
-    pe = 22.4; pb = 4.1; dy = 0.032; roe = 0.198; gm = 0.582; nm = 0.264;
-    revGrowth = 0.367; earnGrowth = 0.452; cr = 3.2; de = 18.5; fcf = 2800000000;
-  } else if (coId === "3217") {
-    pe = 19.2; pb = 2.85; dy = 0.045; roe = 0.185; gm = 0.465; nm = 0.232;
-    revGrowth = 0.224; earnGrowth = 0.312; cr = 2.85; de = 24.0; fcf = 850000000;
-  } else if (coId === "3008") {
-    pe = 15.6; pb = 2.3; dy = 0.035; roe = 0.148; gm = 0.512; nm = 0.421;
-    revGrowth = 0.085; earnGrowth = 0.112; cr = 4.5; de = 12.0; fcf = 18000000000;
-  } else {
-    const isHealthy = rand(1) > 0.35;
-    roe = Number((isHealthy ? 0.08 + rand(2) * 0.22 : rand(2) * 0.09 - 0.04).toFixed(3));
-    gm = Number((0.15 + rand(3) * 0.48).toFixed(3));
-    nm = Number((isHealthy ? gm * (0.25 + rand(4) * 0.45) : gm * 0.15 - rand(4) * 0.08).toFixed(3));
-    pe = Number((isHealthy ? 10 + rand(5) * 22 : 25 + rand(5) * 35).toFixed(1));
-    pb = Number((0.9 + rand(6) * 3.8).toFixed(2));
-    dy = Number((isHealthy && roe > 0.1 ? 0.025 + rand(7) * 0.055 : rand(7) * 0.02).toFixed(3));
-    revGrowth = Number((isHealthy ? 0.05 + rand(8) * 0.35 : rand(8) * 0.30 - 0.20).toFixed(3));
-    earnGrowth = Number((isHealthy ? 0.08 + rand(9) * 0.45 : rand(9) * 0.40 - 0.28).toFixed(3));
-    de = Number((18 + rand(10) * 85).toFixed(1));
-    cr = Number((1.1 + rand(11) * 2.8).toFixed(2));
-    fcf = (isHealthy ? 1 : -1) * Math.floor((curPrice > 0 ? curPrice : 50) * 1500000 * (0.5 + rand(12)));
-  }
-
+  const official = (FUND_MAP && FUND_MAP[coId]) ? FUND_MAP[coId] : null;
   const summary = getCompanyBusinessSummary(coId, normSym, stockName);
-  return { pe, pb, dy, roe, gm, nm, revGrowth, earnGrowth, de, cr, fcf, summary };
+
+  if (official) {
+    const pe = official.pe != null ? Number(official.pe) : 18.5;
+    const pb = official.pb != null ? Number(official.pb) : 2.4;
+    const dy = official.dividend_yield != null ? Number(official.dividend_yield) : 0.035;
+    const roe = official.roe != null ? Number(official.roe) : 0.15;
+    const gm = official.gross_margins != null ? Number(official.gross_margins) : 0.35;
+    const opm = official.operating_margins != null ? Number(official.operating_margins) : (gm ? gm * 0.6 : 0.20);
+    const nm = official.profit_margins != null ? Number(official.profit_margins) : (gm ? gm * 0.4 : 0.12);
+    const revGrowth = official.revenue_growth != null ? Number(official.revenue_growth) : 0.12;
+    const earnGrowth = official.earnings_growth != null ? Number(official.earnings_growth) : 0.15;
+    const de = official.debt_to_equity != null ? Number(official.debt_to_equity) : 35.0;
+    const cr = official.current_ratio != null ? Number(official.current_ratio) : 2.1;
+    const fcf = official.free_cashflow != null ? Number(official.free_cashflow) : 500000000;
+    const opcf = official.operating_cashflow != null ? Number(official.operating_cashflow) : (fcf ? fcf * 1.5 : 1000000000);
+    const eps = official.eps != null ? Number(official.eps) : (curPrice > 0 && pe ? Number((curPrice / pe).toFixed(2)) : 5.0);
+    const marketCap = official.market_cap != null ? Number(official.market_cap) : (curPrice * 80000000);
+
+    return {
+      pe, pb, dy, roe, gm, opm, nm, revGrowth, earnGrowth, de, cr, fcf, opcf, eps, marketCap, summary
+    };
+  }
+
+  return {
+    pe: 18.5, pb: 2.4, dy: 0.035, roe: 0.15, gm: 0.35, opm: 0.22, nm: 0.12,
+    revGrowth: 0.12, earnGrowth: 0.15, de: 35.0, cr: 2.1, fcf: 500000000,
+    opcf: 1000000000, eps: 5.0, marketCap: curPrice * 80000000, summary
+  };
 }
 
 // 抓取或產生單檔股票資料 (包含 OhlcvData 與 StockInfo)
@@ -342,10 +330,14 @@ async function fetchWebStockData(symbol: string, range = "1y"): Promise<StockDat
   let pb: number | null = seedFund.pb;
   let dy: number | null = seedFund.dy;
   let fcf: number | null = seedFund.fcf;
+  let opcf: number | null = seedFund.opcf;
+  let eps: number | null = seedFund.eps;
   let gm: number | null = seedFund.gm;
+  let opm: number | null = seedFund.opm;
   let nm: number | null = seedFund.nm;
   let de: number | null = seedFund.de;
   let cr: number | null = seedFund.cr;
+  let marketCap: number | null = seedFund.marketCap;
   let summary = seedFund.summary;
 
   // 嘗試透過 Proxy 抓取 Yahoo quoteSummary 即時數據 (若成功則覆蓋為即時數據)
@@ -396,10 +388,10 @@ async function fetchWebStockData(symbol: string, range = "1y"): Promise<StockDat
       forward_pe: pe ? pe * 0.95 : null,
       pb,
       dividend_yield: dy,
-      eps: curPrice > 0 && pe ? curPrice / pe : 6.5,
+      eps: eps != null ? eps : (curPrice > 0 && pe ? curPrice / pe : 6.5),
       roe,
       gross_margins: gm,
-      operating_margins: gm ? gm * 0.6 : 0.22,
+      operating_margins: opm != null ? opm : (gm ? gm * 0.6 : 0.22),
       profit_margins: nm,
       revenue_growth: revGrowth,
       earnings_growth: earnGrowth,
@@ -407,9 +399,9 @@ async function fetchWebStockData(symbol: string, range = "1y"): Promise<StockDat
       quick_ratio: cr ? cr * 0.8 : 1.6,
       debt_to_equity: de,
       free_cashflow: fcf,
-      operating_cashflow: fcf ? fcf * 1.5 : 50000000,
+      operating_cashflow: opcf != null ? opcf : (fcf ? fcf * 1.5 : 50000000),
       net_income: curPrice * 5000000,
-      market_cap: curPrice * 100000000,
+      market_cap: marketCap != null ? marketCap : (curPrice * 80000000),
       long_business_summary: summary,
     },
   };
