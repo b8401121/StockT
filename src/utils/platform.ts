@@ -267,7 +267,8 @@ async function fetchWebStockData(symbol: string, range = "1y"): Promise<StockDat
             if (closes.length >= 10) {
               const meta = result.meta || {};
               curPrice = meta.regularMarketPrice ?? closes[closes.length - 1];
-              prevClose = meta.chartPreviousClose ?? (closes.length > 1 ? closes[closes.length - 2] : curPrice);
+              // 前一日昨收：優先使用昨日收盤價，避免誤用 1 年前起算價 (chartPreviousClose)
+              prevClose = meta.previousClose ?? (closes.length > 1 ? closes[closes.length - 2] : curPrice);
               const zhName = getChineseStockName(symCandidate) || getChineseStockName(coId);
               stockName = zhName || meta.longName || meta.shortName || symbol;
               normSym = symCandidate; // 確認有效後綴 (.TW 或 .TWO)
