@@ -507,10 +507,24 @@ export const PortfolioTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ 
     await saveWatchlist(newList, false);
   };
 
+  // ─── 一鍵清空目前清單持股 ───────────────────────────────────────────────────
+  const clearAllHoldings = async () => {
+    if (!window.confirm("確定要清空目前清單中的所有持股股票嗎？此動作將立即移除目前清單內的所有紀錄。")) {
+      return;
+    }
+    const emptyList: Record<string, PortfolioEntry[]> = {};
+    await saveWatchlist(emptyList, false);
+    setWatchlist({});
+    setRows([]);
+    alert("✅ 目前清單的所有持股已全部清空！");
+  };
+
   // ─── 刪除名單 ───────────────────────────────────────────────────────────────
   const deleteCurrentList = async () => {
     if (currentList === "watchlist" || currentList === "我的自選股") {
-      alert("預設自選單無法刪除！");
+      if (window.confirm("「我的自選股」為預設清單，是否要將其中的所有股票清空為空白？")) {
+        await clearAllHoldings();
+      }
       return;
     }
     if (!window.confirm(`確定要永久刪除「${currentList}」的自選股清單嗎？`)) {
@@ -997,6 +1011,16 @@ export const PortfolioTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ 
               </button>
             </>
           )}
+          <button className="btn btn-outline btn-sm" onClick={() => {
+            if (window.confirm("確定要重置並清空瀏覽器中的所有舊資料與快取嗎？")) {
+              localStorage.clear();
+              sessionStorage.clear();
+              alert("✅ 舊快取已清空！即將重新載入頁面。");
+              window.location.reload();
+            }
+          }} title="清除瀏覽器中的舊快取資料" style={{ color: "var(--text-muted)", borderColor: "rgba(255,255,255,0.1)" }}>
+            🧹 重置快取
+          </button>
         </div>
       </div>
 
@@ -1014,6 +1038,7 @@ export const PortfolioTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ 
           ))}
         </select>
         <button className="btn btn-danger btn-sm" onClick={deleteCurrentList}>🗑️ 刪除此清單</button>
+        <button className="btn btn-outline btn-sm" onClick={clearAllHoldings} style={{ color: "#ff8a80", borderColor: "rgba(255,82,82,0.3)" }}>🧹 一鍵清空持股</button>
         <button className="btn btn-outline btn-sm" onClick={() => setImportModalOpen(true)} style={{ background: "rgba(2, 136, 209, 0.15)", color: "#29b6f6", borderColor: "rgba(2, 136, 209, 0.3)" }}>📥 匯入他人收藏</button>
         <div style={{ width: "1px", height: "20px", background: "rgba(255,255,255,0.1)", margin: "0 8px" }} />
         <input 
