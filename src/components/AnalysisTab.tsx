@@ -405,12 +405,12 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
   const fs = info ? computeFundamentalScore(info) : null;
   const fsScore = fs?.score ?? 0;
   const fsGrade = (() => {
-    if (fsScore >= 10) return { label: "S 頂級", color: "#ce93d8", bg: "rgba(206,147,216,0.1)", border: "rgba(206,147,216,0.4)" };
-    if (fsScore >= 7) return { label: "A 優質", color: "#90caf9", bg: "rgba(144,202,249,0.1)", border: "rgba(144,202,249,0.4)" };
-    if (fsScore >= 4) return { label: "B 良好", color: "#81c784", bg: "rgba(129,199,132,0.1)", border: "rgba(129,199,132,0.4)" };
+    if (fsScore >= 10) return { label: "S 頂級", color: "#ff1744", bg: "rgba(255,23,68,0.1)", border: "rgba(255,23,68,0.4)" };
+    if (fsScore >= 7) return { label: "A 優質", color: "#ff5252", bg: "rgba(255,82,82,0.1)", border: "rgba(255,82,82,0.4)" };
+    if (fsScore >= 4) return { label: "B 良好", color: "#ff8a80", bg: "rgba(255,138,128,0.1)", border: "rgba(255,138,128,0.4)" };
     if (fsScore >= 1) return { label: "C 普通", color: "#ffd740", bg: "rgba(255,215,64,0.1)", border: "rgba(255,215,64,0.4)" };
-    if (fsScore >= -2) return { label: "D 偏弱", color: "#ffab40", bg: "rgba(255,171,64,0.1)", border: "rgba(255,171,64,0.4)" };
-    return { label: "F 危險", color: "#ef9a9a", bg: "rgba(239,154,154,0.1)", border: "rgba(239,154,154,0.4)" };
+    if (fsScore >= -2) return { label: "D 偏弱", color: "#81c784", bg: "rgba(129,199,132,0.1)", border: "rgba(129,199,132,0.4)" };
+    return { label: "F 危險", color: "#4caf50", bg: "rgba(76,175,80,0.1)", border: "rgba(76,175,80,0.4)" };
   })();
 
   // ── 技術建議
@@ -529,10 +529,10 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                   </div>
                   <div className="score-tags">
                     {fs.passed.map(([l, d]) => (
-                      <span className="score-tag" key={l} style={{ color: "#81c784", background: "rgba(76,175,80,0.12)", borderColor: "rgba(76,175,80,0.3)", cursor: "pointer" }} title={d} onClick={() => showMetricExplanation(l)}>{l}</span>
+                      <span className="score-tag" key={l} style={{ color: "#ff5252", background: "rgba(255,82,82,0.12)", borderColor: "rgba(255,82,82,0.3)", cursor: "pointer" }} title={d} onClick={() => showMetricExplanation(l)}>{l}</span>
                     ))}
                     {fs.failed.map(([l, d]) => (
-                      <span className="score-tag" key={l} style={{ color: "#ef9a9a", background: "rgba(255,82,82,0.12)", borderColor: "rgba(255,82,82,0.3)", cursor: "pointer" }} title={d} onClick={() => showMetricExplanation(l)}>{l}</span>
+                      <span className="score-tag" key={l} style={{ color: "#81c784", background: "rgba(76,175,80,0.12)", borderColor: "rgba(76,175,80,0.3)", cursor: "pointer" }} title={d} onClick={() => showMetricExplanation(l)}>{l}</span>
                     ))}
                     {fs.na.map((l) => (
                       <span className="score-tag" key={l} style={{ color: "var(--text-muted)", background: "rgba(255,255,255,0.04)", borderColor: "var(--border-subtle)", cursor: "pointer" }} onClick={() => showMetricExplanation(l)}>{l}</span>

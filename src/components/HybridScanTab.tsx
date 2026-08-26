@@ -208,7 +208,7 @@ export const HybridScanTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({
                     })()}
                   </td>
                   <td>
-                    <span className={`badge ${r.fsScore >= 7 ? "badge-green" : r.fsScore >= 4 ? "badge-blue" : r.fsScore >= 1 ? "badge-amber" : "badge-red"}`}>
+                    <span className={`badge ${r.fsScore >= 7 ? "badge-red" : r.fsScore >= 4 ? "badge-amber" : r.fsScore >= 1 ? "badge-blue" : "badge-green"}`}>
                       {r.fsGrade}
                     </span>
                   </td>

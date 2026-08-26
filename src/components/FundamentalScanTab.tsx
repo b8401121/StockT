@@ -303,11 +303,11 @@ export const FundamentalScanTab: React.FC<{ onAnalyze?: (sym: string) => void }>
                 <tr key={`${r.symbol}-${i}`}>
                   <td style={{ color: "var(--accent-blue)", fontWeight: 600 }}>{r.symbol.split(".")[0]}</td>
                   <td>{r.name}</td>
-                  <td style={{ color: r.score >= 8 ? "#ff5252" : r.score >= 5 ? "#ff9800" : "var(--accent-green)", fontWeight: 700 }}>{r.score > 0 ? "+" : ""}{r.score}</td>
-                  <td><span className={`badge ${r.score >= 7 ? "badge-green" : r.score >= 4 ? "badge-blue" : "badge-amber"}`}>{r.grade}</span></td>
+                  <td style={{ color: r.score >= 8 ? "#ff5252" : r.score >= 5 ? "#ff8a80" : "var(--accent-green)", fontWeight: 700 }}>{r.score > 0 ? "+" : ""}{r.score}</td>
+                  <td><span className={`badge ${r.score >= 7 ? "badge-red" : r.score >= 4 ? "badge-amber" : "badge-green"}`}>{r.grade}</span></td>
                   <td style={{ fontSize: "0.75rem" }}>
-                    <span style={{ color: "#a5d6a7" }}>{r.reasons.slice(0, 5).join(" | ")}</span>
-                    {r.warnings.length > 0 && <span style={{ color: "#ff8a65" }}> ⚠ {r.warnings.slice(0, 2).join(", ")}</span>}
+                    <span style={{ color: "#ef9a9a" }}>{r.reasons.slice(0, 5).join(" | ")}</span>
+                    {r.warnings.length > 0 && <span style={{ color: "#81c784" }}> ⚠ {r.warnings.slice(0, 2).join(", ")}</span>}
                   </td>
                   <td><button className="btn btn-outline btn-sm" onClick={() => onAnalyze?.(r.symbol)}>分析</button></td>
                 </tr>
