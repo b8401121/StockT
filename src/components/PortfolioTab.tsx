@@ -56,7 +56,7 @@ async function getCategoryBySym(sym: string): Promise<string> {
   }
 }
 
-export const PortfolioTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ onAnalyze }) => {
+export const PortfolioTab: React.FC<{ onAnalyze?: (sym: string) => void; isActive?: boolean }> = ({ onAnalyze, isActive }) => {
   const [watchlist, setWatchlist] = useState<Record<string, PortfolioEntry[]>>({});
   const [rows, setRows] = useState<PortfolioRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -205,6 +205,23 @@ export const PortfolioTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ 
 
   useEffect(() => {
     loadPortfolio();
+  }, [loadPortfolio]);
+
+  // 當分頁切換為活躍狀態，或接收到其他分頁加入自選的事件時，自動重載
+  useEffect(() => {
+    if (isActive) {
+      loadPortfolio();
+    }
+  }, [isActive, loadPortfolio]);
+
+  useEffect(() => {
+    const handleWatchlistUpdated = () => {
+      loadPortfolio();
+    };
+    window.addEventListener("stockt_watchlist_updated", handleWatchlistUpdated);
+    return () => {
+      window.removeEventListener("stockt_watchlist_updated", handleWatchlistUpdated);
+    };
   }, [loadPortfolio]);
 
   const recalculatePnLsForRows = useCallback(async (currentRows: PortfolioRow[]) => {

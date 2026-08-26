@@ -348,9 +348,22 @@ export const ScannerTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ on
                       )}
                     </td>
                     <td>
-                      <button className="btn btn-outline btn-sm" onClick={() => onAnalyze?.(r.symbol)}>
-                        詳細分析
-                      </button>
+                      <div style={{ display: "flex", gap: "6px" }}>
+                        <button className="btn btn-outline btn-sm" onClick={() => onAnalyze?.(r.symbol)}>
+                          詳細分析
+                        </button>
+                        <button
+                          className="btn btn-success btn-sm"
+                          onClick={async () => {
+                            const { addStockToUserWatchlist } = await import("../utils/watchlistHelper");
+                            const res = await addStockToUserWatchlist(r.symbol, r.name);
+                            alert(res.message);
+                          }}
+                          title="立即存入自選股清單"
+                        >
+                          ⭐+ 自選
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );

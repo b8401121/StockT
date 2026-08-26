@@ -235,7 +235,7 @@ export default function App() {
         </div>
         {/* 投資組合 */}
         <div style={{ display: activeTab === "portfolio" ? "block" : "none", height: "100%", width: "100%" }}>
-          <PortfolioTab onAnalyze={handleAnalyze} />
+          <PortfolioTab onAnalyze={handleAnalyze} isActive={activeTab === "portfolio"} />
         </div>
       </main>
     </div>
