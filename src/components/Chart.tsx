@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createChart, ColorType, IChartApi, UTCTimestamp } from "lightweight-charts";
-import { OhlcvData, Indicators } from "../utils/indicators";
+import { OhlcvData, Indicators, calcSMA } from "../utils/indicators";
 
 interface ChartPanelProps {
   ohlcv: OhlcvData;
@@ -9,7 +9,7 @@ interface ChartPanelProps {
   name: string;
 }
 
-type SubChartType = "rsi" | "kd" | "macd" | "obv" | "wr" | "atr";
+type SubChartType = "vol" | "kd" | "macd" | "rsi" | "obv" | "wr" | "atr";
 
 const CHART_OPTS = {
   layout: { background: { type: ColorType.Solid, color: "transparent" }, textColor: "rgba(200,210,230,0.8)" },
@@ -85,6 +85,28 @@ const ZoomChartModal: React.FC<ZoomModalProps> = ({ type, ohlcv, ind, symbol, na
       sma20s.setData(toLineData(ind.sma20));
       bbUpS.setData(toLineData(ind.bbUpper));
       bbLoS.setData(toLineData(ind.bbLower));
+    } else if (type === "vol") {
+      const volSeries = chart.addHistogramSeries({
+        color: "#26a69a",
+        priceFormat: { type: "volume" },
+        title: "成交量",
+      });
+      const volData = times.map((t, i) => {
+        const o = ohlcv.open[i] ?? 0;
+        const c = ohlcv.close[i] ?? 0;
+        const isUp = c >= o;
+        return {
+          time: t,
+          value: ohlcv.volume[i] ?? 0,
+          color: isUp ? "rgba(255, 82, 82, 0.85)" : "rgba(76, 175, 80, 0.85)",
+        };
+      }).filter((d) => !isNaN(d.value));
+      volSeries.setData(volData);
+
+      const vMa5S = chart.addLineSeries({ color: "#ff9800", lineWidth: 1, title: "5日均量" });
+      const vMa20S = chart.addLineSeries({ color: "#03a9f4", lineWidth: 1, title: "20日均量" });
+      vMa5S.setData(toLineData(calcSMA(ohlcv.volume, 5)));
+      vMa20S.setData(toLineData(ind.volMa20 || calcSMA(ohlcv.volume, 20)));
     } else if (type === "rsi") {
       const rsiS = chart.addLineSeries({ color: "#f06292", lineWidth: 1, title: "RSI" });
       const ob = chart.addLineSeries({ color: "rgba(255,82,82,0.4)", lineWidth: 1, lineStyle: 2 });
@@ -144,13 +166,14 @@ const ZoomChartModal: React.FC<ZoomModalProps> = ({ type, ohlcv, ind, symbol, na
   }, [type, ohlcv, ind]);
 
   const getTitle = () => {
-    if (type === "main") return "K線與移動平均線";
-    if (type === "rsi") return "RSI 指標";
-    if (type === "kd") return "KD 指標";
+    if (type === "main") return "K線與移動平均線 (SMA5/10/20)";
+    if (type === "vol") return "成交量圖 (Volume + 5/20日均量)";
+    if (type === "kd") return "KD 隨機指標";
     if (type === "macd") return "MACD 指標";
-    if (type === "obv") return "OBV 指標";
-    if (type === "wr") return "Williams %R 指標";
-    return "ATR 指標";
+    if (type === "rsi") return "RSI 相對強弱指標";
+    if (type === "obv") return "OBV 能量潮指標";
+    if (type === "wr") return "Williams %R 威廉指標";
+    return "ATR 真實波幅指標";
   };
 
   return (
@@ -215,7 +238,7 @@ const ZoomChartModal: React.FC<ZoomModalProps> = ({ type, ohlcv, ind, symbol, na
 export const ChartPanel: React.FC<ChartPanelProps> = ({ ohlcv, ind, symbol, name }) => {
   const mainRef = useRef<HTMLDivElement>(null);
   const subRefs = useRef<Record<SubChartType, HTMLDivElement | null>>({
-    rsi: null, kd: null, macd: null, obv: null, wr: null, atr: null,
+    vol: null, kd: null, macd: null, rsi: null, obv: null, wr: null, atr: null,
   });
   const chartsRef = useRef<IChartApi[]>([]);
   const [zoomChart, setZoomChart] = useState<"main" | SubChartType | null>(null);
@@ -236,6 +259,8 @@ export const ChartPanel: React.FC<ChartPanelProps> = ({ ohlcv, ind, symbol, name
     chartsRef.current = [];
 
     const times = ohlcv.timestamp.map((t) => (t < 1e12 ? t : Math.floor(t / 1000)) as UTCTimestamp);
+    const toLineData = (arr: number[]) =>
+      times.map((t, i) => ({ time: t, value: arr[i] })).filter((d) => !isNaN(d.value));
 
     // ── 主圖 K線 + 均線 + 布林 ──────────────────────────────────────────────
     const mainChart = createChart(mainRef.current!, {
@@ -264,28 +289,44 @@ export const ChartPanel: React.FC<ChartPanelProps> = ({ ohlcv, ind, symbol, name
     const bbUpS = mainChart.addLineSeries({ color: "rgba(179, 157, 219, 0.8)", lineWidth: 1, lineStyle: 2, title: "BB上軌" });
     const bbLoS = mainChart.addLineSeries({ color: "rgba(179, 157, 219, 0.8)", lineWidth: 1, lineStyle: 2, title: "BB下軌" });
 
-    const toLineData = (arr: number[]) =>
-      times.map((t, i) => ({ time: t, value: arr[i] })).filter((d) => !isNaN(d.value));
-
     sma5s.setData(toLineData(ind.sma5));
     sma10s.setData(toLineData(ind.sma10));
     sma20s.setData(toLineData(ind.sma20));
     bbUpS.setData(toLineData(ind.bbUpper));
     bbLoS.setData(toLineData(ind.bbLower));
 
-    // ── RSI ────────────────────────────────────────────────────────────────
-    const rsiEl = subRefs.current.rsi;
-    if (rsiEl) {
-      const rsiChart = createChart(rsiEl, { ...CHART_OPTS, width: rsiEl.clientWidth, height: 80 });
-      chartsRef.current.push(rsiChart);
-      const rsiS = rsiChart.addLineSeries({ color: "#f06292", lineWidth: 1, title: "RSI" });
-      const ob = rsiChart.addLineSeries({ color: "rgba(255,82,82,0.4)", lineWidth: 1, lineStyle: 2 });
-      const os = rsiChart.addLineSeries({ color: "rgba(76,175,80,0.4)", lineWidth: 1, lineStyle: 2 });
-      rsiS.setData(toLineData(ind.rsi));
-      ob.setData(times.map((t) => ({ time: t, value: 70 })));
-      os.setData(times.map((t) => ({ time: t, value: 30 })));
-      mainChart.timeScale().subscribeVisibleLogicalRangeChange((range) => { if (range) rsiChart.timeScale().setVisibleLogicalRange(range); });
-      rsiChart.timeScale().subscribeVisibleLogicalRangeChange((range) => { if (range) mainChart.timeScale().setVisibleLogicalRange(range); });
+    // ── 成交量 (Volume) ───────────────────────────────────────────────────
+    const volEl = subRefs.current.vol;
+    if (volEl) {
+      const volChart = createChart(volEl, { ...CHART_OPTS, width: volEl.clientWidth, height: 90 });
+      chartsRef.current.push(volChart);
+
+      const volSeries = volChart.addHistogramSeries({
+        color: "#26a69a",
+        priceFormat: { type: "volume" },
+        title: "成交量",
+      });
+
+      const volData = times.map((t, i) => {
+        const o = ohlcv.open[i] ?? 0;
+        const c = ohlcv.close[i] ?? 0;
+        const isUp = c >= o;
+        return {
+          time: t,
+          value: ohlcv.volume[i] ?? 0,
+          color: isUp ? "rgba(255, 82, 82, 0.85)" : "rgba(76, 175, 80, 0.85)",
+        };
+      }).filter((d) => !isNaN(d.value));
+      volSeries.setData(volData);
+
+      const vMa5S = volChart.addLineSeries({ color: "#ff9800", lineWidth: 1, title: "5日均量" });
+      const vMa20S = volChart.addLineSeries({ color: "#03a9f4", lineWidth: 1, title: "20日均量" });
+
+      vMa5S.setData(toLineData(calcSMA(ohlcv.volume, 5)));
+      vMa20S.setData(toLineData(ind.volMa20 || calcSMA(ohlcv.volume, 20)));
+
+      mainChart.timeScale().subscribeVisibleLogicalRangeChange((range) => { if (range) volChart.timeScale().setVisibleLogicalRange(range); });
+      volChart.timeScale().subscribeVisibleLogicalRangeChange((range) => { if (range) mainChart.timeScale().setVisibleLogicalRange(range); });
     }
 
     // ── KD ──────────────────────────────────────────────────────────────────
@@ -317,6 +358,21 @@ export const ChartPanel: React.FC<ChartPanelProps> = ({ ohlcv, ind, symbol, name
       })).filter((d) => !isNaN(d.value)));
       mainChart.timeScale().subscribeVisibleLogicalRangeChange((range) => { if (range) macdChart.timeScale().setVisibleLogicalRange(range); });
       macdChart.timeScale().subscribeVisibleLogicalRangeChange((range) => { if (range) mainChart.timeScale().setVisibleLogicalRange(range); });
+    }
+
+    // ── RSI ────────────────────────────────────────────────────────────────
+    const rsiEl = subRefs.current.rsi;
+    if (rsiEl) {
+      const rsiChart = createChart(rsiEl, { ...CHART_OPTS, width: rsiEl.clientWidth, height: 80 });
+      chartsRef.current.push(rsiChart);
+      const rsiS = rsiChart.addLineSeries({ color: "#f06292", lineWidth: 1, title: "RSI" });
+      const ob = rsiChart.addLineSeries({ color: "rgba(255,82,82,0.4)", lineWidth: 1, lineStyle: 2 });
+      const os = rsiChart.addLineSeries({ color: "rgba(76,175,80,0.4)", lineWidth: 1, lineStyle: 2 });
+      rsiS.setData(toLineData(ind.rsi));
+      ob.setData(times.map((t) => ({ time: t, value: 70 })));
+      os.setData(times.map((t) => ({ time: t, value: 30 })));
+      mainChart.timeScale().subscribeVisibleLogicalRangeChange((range) => { if (range) rsiChart.timeScale().setVisibleLogicalRange(range); });
+      rsiChart.timeScale().subscribeVisibleLogicalRangeChange((range) => { if (range) mainChart.timeScale().setVisibleLogicalRange(range); });
     }
 
     // ── OBV ─────────────────────────────────────────────────────────────────
@@ -378,12 +434,13 @@ export const ChartPanel: React.FC<ChartPanelProps> = ({ ohlcv, ind, symbol, name
   }, [ohlcv, ind]);
 
   const subCharts: { key: SubChartType; label: string }[] = [
-    { key: "rsi", label: "RSI" },
-    { key: "kd", label: "KD" },
-    { key: "macd", label: "MACD" },
-    { key: "obv", label: "OBV" },
-    { key: "wr", label: "Williams %R" },
-    { key: "atr", label: "ATR" },
+    { key: "vol", label: "📊 成交量 (Volume + 5/20日均量)" },
+    { key: "kd", label: "KD 隨機指標" },
+    { key: "macd", label: "MACD 指標" },
+    { key: "rsi", label: "RSI 相對強弱指標" },
+    { key: "obv", label: "OBV 能量潮" },
+    { key: "wr", label: "Williams %R 威廉指標" },
+    { key: "atr", label: "ATR 真實波幅" },
   ];
 
   return (
@@ -434,7 +491,7 @@ export const ChartPanel: React.FC<ChartPanelProps> = ({ ohlcv, ind, symbol, name
           className="sub-chart" 
           style={{ cursor: "zoom-in" }} 
           onClick={() => setZoomChart(key)}
-          title={`點擊放大 ${label} 指標圖`}
+          title={`點擊放大 ${label} 圖`}
         >
           <div className="chart-title">{label}</div>
           <div ref={(el) => { subRefs.current[key] = el; }} style={{ width: "100%" }} />
