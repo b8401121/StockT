@@ -455,3 +455,103 @@ select {
   color: var(--accent-blue-light);
   border-bottom-color: var(--accent-blue-light);
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   📱 響應式佈局 (Mobile 手機 / iPad 平板 / Desktop 桌機)
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* 📱 手機直向 (Mobile < 768px) */
+@media (max-width: 768px) {
+  .app-header {
+    height: auto;
+    padding: 8px 12px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .app-title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+  }
+  .header-tabs {
+    display: flex;
+    overflow-x: auto;
+    width: 100%;
+    gap: 4px;
+    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .tab-btn {
+    padding: 6px 10px;
+    font-size: 0.80rem;
+    flex-shrink: 0;
+  }
+
+  /* 個股分析頁手機排版：上下單欄垂直流動 */
+  .analysis-layout {
+    flex-direction: column;
+    overflow-y: auto;
+    height: 100%;
+  }
+  .analysis-sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--border-subtle);
+    height: auto;
+    max-height: none;
+    overflow: visible;
+  }
+  .analysis-chart-area {
+    width: 100%;
+    min-height: 420px;
+    height: auto;
+    flex: none;
+  }
+
+  /* 投資組合與自選股手機排版 */
+  .watchlist-container {
+    flex-direction: column !important;
+    overflow-y: auto !important;
+  }
+  .watchlist-sidebar {
+    width: 100% !important;
+    min-width: 100% !important;
+    border-right: none !important;
+    border-bottom: 1px solid rgba(255,255,255,0.08) !important;
+    padding: 10px 12px !important;
+  }
+  .watchlist-cards-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .watchlist-table-scroll {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  .criteria-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* 📱 iPad / 平板 (Tablet 768px ~ 1024px) */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .app-header {
+    padding: 0 14px;
+    height: 50px;
+  }
+  .tab-btn {
+    padding: 6px 10px;
+    font-size: 0.82rem;
+  }
+  .analysis-sidebar {
+    width: 280px;
+  }
+  .watchlist-sidebar {
+    width: 180px !important;
+    min-width: 170px !important;
+  }
+  .watchlist-cards-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}

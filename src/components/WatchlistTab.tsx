@@ -555,9 +555,9 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
   const { totals, unrealizedHoldings, realizedTrades } = ledger;
 
   return (
-    <div style={{ display: "flex", height: "100%", width: "100%", overflow: "hidden", background: "#0b0e17" }}>
+    <div className="watchlist-container" style={{ display: "flex", height: "100%", width: "100%", overflow: "hidden", background: "#0b0e17" }}>
       {/* ─── 左側：分類名單選單 ────────────────────────────────────── */}
-      <div style={{
+      <div className="watchlist-sidebar" style={{
         width: "210px", minWidth: "190px", background: "rgba(15, 20, 32, 0.95)",
         borderRight: "1px solid rgba(255,255,255,0.08)", display: "flex", flexDirection: "column",
         padding: "14px 10px", gap: "6px"
@@ -734,7 +734,7 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
           </div>
 
           {/* 四大資產與損益卡片 */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "10px" }}>
+          <div className="watchlist-cards-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "10px" }}>
             {/* 1. 現有持股市值 */}
             <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "8px", padding: "10px 14px" }}>
               <div style={{ fontSize: "0.76rem", color: "#94a3b8", fontWeight: 600, marginBottom: "2px" }}>💼 目前持股市值</div>
@@ -834,7 +834,7 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
         </div>
 
         {/* ─── 內容表格區 ────────────────────────────────────────── */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px" }}>
+        <div className="watchlist-table-scroll" style={{ flex: 1, overflowY: "auto", overflowX: "auto", padding: "16px 20px" }}>
           
           {/* 1. 未實現損益表格 (現有庫存) */}
           {viewTab === "unrealized" && (
