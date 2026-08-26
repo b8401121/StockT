@@ -13,7 +13,7 @@ type SubChartType = "vol" | "kd" | "macd" | "rsi" | "obv" | "wr" | "atr";
 
 const CHART_OPTS = {
   layout: { background: { type: ColorType.Solid, color: "transparent" }, textColor: "rgba(200,210,230,0.8)" },
-  grid: { vertLines: { color: "rgba(255,255,255,0.04)" }, horzLines: { color: "rgba(255,255,255,0.04)" } },
+  grid: { vertLines: { color: "rgba(255,255,255,0.03)" }, horzLines: { color: "rgba(255,255,255,0.03)" } },
   crosshair: { mode: 1 },
   leftPriceScale: { visible: true, borderColor: "rgba(255,255,255,0.1)" },
   rightPriceScale: { visible: false },
@@ -62,11 +62,13 @@ const ZoomChartModal: React.FC<ZoomModalProps> = ({ type, ohlcv, ind, symbol, na
     chartRef.current = chart;
     
     if (type === "main") {
-      // 1. 蠟燭 K 線
+      // 1. 蠟燭 K 線 (關閉綠色/紅色水平虛線)
       const candleSeries = chart.addCandlestickSeries({
         upColor: "#ff5252", downColor: "#4caf50",
         borderUpColor: "#ff5252", borderDownColor: "#4caf50",
         wickUpColor: "#ff5252", wickDownColor: "#4caf50",
+        priceLineVisible: false,
+        lastValueVisible: true,
       });
       const candleData = ohlcv.timestamp.map((_, i) => ({
         time: times[i],
@@ -80,6 +82,8 @@ const ZoomChartModal: React.FC<ZoomModalProps> = ({ type, ohlcv, ind, symbol, na
         color: "#26a69a",
         priceFormat: { type: "volume" },
         priceScaleId: "",
+        priceLineVisible: false,
+        lastValueVisible: false,
       });
       volumeSeries.priceScale().applyOptions({
         scaleMargins: {
@@ -99,12 +103,12 @@ const ZoomChartModal: React.FC<ZoomModalProps> = ({ type, ohlcv, ind, symbol, na
       }).filter((d) => d.value > 0);
       volumeSeries.setData(volData);
 
-      // 3. 乾淨均線與布林通道 (關閉橫跨畫面的雜亂最後價格線)
-      const sma5s = chart.addLineSeries({ color: "#ff9800", lineWidth: 1, title: "SMA5", lastValueVisible: false, priceLineVisible: false });
-      const sma10s = chart.addLineSeries({ color: "#03a9f4", lineWidth: 1, title: "SMA10", lastValueVisible: false, priceLineVisible: false });
-      const sma20s = chart.addLineSeries({ color: "#ffea00", lineWidth: 2, title: "SMA20", lastValueVisible: false, priceLineVisible: false });
-      const bbUpS = chart.addLineSeries({ color: "rgba(179, 157, 219, 0.8)", lineWidth: 1, lineStyle: 2, title: "BB上軌", lastValueVisible: false, priceLineVisible: false });
-      const bbLoS = chart.addLineSeries({ color: "rgba(179, 157, 219, 0.8)", lineWidth: 1, lineStyle: 2, title: "BB下軌", lastValueVisible: false, priceLineVisible: false });
+      // 3. 乾淨均線與布林通道 (不帶 title、關閉價格線與最後數值標籤)
+      const sma5s = chart.addLineSeries({ color: "#ff9800", lineWidth: 1, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
+      const sma10s = chart.addLineSeries({ color: "#03a9f4", lineWidth: 1, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
+      const sma20s = chart.addLineSeries({ color: "#ffea00", lineWidth: 2, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
+      const bbUpS = chart.addLineSeries({ color: "rgba(179, 157, 219, 0.8)", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
+      const bbLoS = chart.addLineSeries({ color: "rgba(179, 157, 219, 0.8)", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
 
       sma5s.setData(toLineData(ind.sma5));
       sma10s.setData(toLineData(ind.sma10));
@@ -129,8 +133,8 @@ const ZoomChartModal: React.FC<ZoomModalProps> = ({ type, ohlcv, ind, symbol, na
       }).filter((d) => d.value > 0);
       volSeries.setData(volData);
 
-      const vMa5S = chart.addLineSeries({ color: "#ff9800", lineWidth: 1, title: "5日均量", lastValueVisible: false, priceLineVisible: false });
-      const vMa20S = chart.addLineSeries({ color: "#03a9f4", lineWidth: 1, title: "20日均量", lastValueVisible: false, priceLineVisible: false });
+      const vMa5S = chart.addLineSeries({ color: "#ff9800", lineWidth: 1, lastValueVisible: false, priceLineVisible: false });
+      const vMa20S = chart.addLineSeries({ color: "#03a9f4", lineWidth: 1, lastValueVisible: false, priceLineVisible: false });
       vMa5S.setData(toLineData(calcSMA(ohlcv.volume, 5)));
       vMa20S.setData(toLineData(ind.volMa20 || calcSMA(ohlcv.volume, 20)));
     } else if (type === "rsi") {
@@ -157,7 +161,7 @@ const ZoomChartModal: React.FC<ZoomModalProps> = ({ type, ohlcv, ind, symbol, na
       })).filter((d) => !isNaN(d.value)));
     } else if (type === "obv") {
       const obvS = chart.addLineSeries({ color: "#9c27b0", lineWidth: 1, title: "OBV" });
-      const obvMaS = chart.addLineSeries({ color: "#ff9800", lineWidth: 1, lineStyle: 2, title: "OBV均", lastValueVisible: false, priceLineVisible: false });
+      const obvMaS = chart.addLineSeries({ color: "#ff9800", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false });
       obvS.setData(toLineData(ind.obv));
       obvMaS.setData(toLineData(ind.obvMa10));
     } else if (type === "wr") {
@@ -192,7 +196,7 @@ const ZoomChartModal: React.FC<ZoomModalProps> = ({ type, ohlcv, ind, symbol, na
   }, [type, ohlcv, ind]);
 
   const getTitle = () => {
-    if (type === "main") return "K線與移動平均線 (含成交量柱狀圖)";
+    if (type === "main") return "K線與技術分析";
     if (type === "vol") return "獨立成交量圖 (Volume + 5/20日均量)";
     if (type === "kd") return "KD 隨機指標";
     if (type === "macd") return "MACD 指標";
@@ -209,10 +213,21 @@ const ZoomChartModal: React.FC<ZoomModalProps> = ({ type, ohlcv, ind, symbol, na
       backdropFilter: "blur(20px)", display: "flex", flexDirection: "column",
       padding: "24px", color: "#f0f2f5"
     }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-        <h3 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 600, color: "var(--accent-blue)" }}>
-          {name} ({symbol}) — {getTitle()}
-        </h3>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+        <div>
+          <h3 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 600, color: "var(--accent-blue)" }}>
+            {name} ({symbol}) — {getTitle()}
+          </h3>
+          {type === "main" && (
+            <div style={{ fontSize: "0.8rem", color: "rgba(255,255,255,0.6)", marginTop: "4px", display: "flex", gap: "12px" }}>
+              <span><span style={{ color: "#ff9800" }}>●</span> MA5 (橘)</span>
+              <span><span style={{ color: "#03a9f4" }}>●</span> MA10 (藍)</span>
+              <span><span style={{ color: "#ffea00" }}>●</span> MA20 (黃)</span>
+              <span><span style={{ color: "rgba(179, 157, 219, 0.9)" }}>- -</span> 布林通道 (紫)</span>
+              <span><span style={{ color: "#26a69a" }}>■</span> 成交量 (紅/綠柱)</span>
+            </div>
+          )}
+        </div>
         <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
           <button 
             onClick={resetZoom}
@@ -296,11 +311,13 @@ export const ChartPanel: React.FC<ChartPanelProps> = ({ ohlcv, ind, symbol, name
     });
     chartsRef.current.push(mainChart);
 
-    // 蠟燭線
+    // 蠟燭線 (關閉價格虛線)
     const candleSeries = mainChart.addCandlestickSeries({
       upColor: "#ff5252", downColor: "#4caf50",
       borderUpColor: "#ff5252", borderDownColor: "#4caf50",
       wickUpColor: "#ff5252", wickDownColor: "#4caf50",
+      priceLineVisible: false,
+      lastValueVisible: true,
     });
 
     const candleData = ohlcv.timestamp.map((_, i) => ({
@@ -315,6 +332,8 @@ export const ChartPanel: React.FC<ChartPanelProps> = ({ ohlcv, ind, symbol, name
       color: "#26a69a",
       priceFormat: { type: "volume" },
       priceScaleId: "",
+      priceLineVisible: false,
+      lastValueVisible: false,
     });
     volumeSeries.priceScale().applyOptions({
       scaleMargins: {
@@ -334,12 +353,12 @@ export const ChartPanel: React.FC<ChartPanelProps> = ({ ohlcv, ind, symbol, name
     }).filter((d) => d.value > 0);
     volumeSeries.setData(volData);
 
-    // 均線與布林通道 (關閉橫向雜亂最後價格線)
-    const sma5s = mainChart.addLineSeries({ color: "#ff9800", lineWidth: 1, title: "SMA5", lastValueVisible: false, priceLineVisible: false });
-    const sma10s = mainChart.addLineSeries({ color: "#03a9f4", lineWidth: 1, title: "SMA10", lastValueVisible: false, priceLineVisible: false });
-    const sma20s = mainChart.addLineSeries({ color: "#ffea00", lineWidth: 2, title: "SMA20", lastValueVisible: false, priceLineVisible: false });
-    const bbUpS = mainChart.addLineSeries({ color: "rgba(179, 157, 219, 0.8)", lineWidth: 1, lineStyle: 2, title: "BB上軌", lastValueVisible: false, priceLineVisible: false });
-    const bbLoS = mainChart.addLineSeries({ color: "rgba(179, 157, 219, 0.8)", lineWidth: 1, lineStyle: 2, title: "BB下軌", lastValueVisible: false, priceLineVisible: false });
+    // 均線與布林通道 (不設 title、關閉價格線與軸標籤)
+    const sma5s = mainChart.addLineSeries({ color: "#ff9800", lineWidth: 1, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
+    const sma10s = mainChart.addLineSeries({ color: "#03a9f4", lineWidth: 1, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
+    const sma20s = mainChart.addLineSeries({ color: "#ffea00", lineWidth: 2, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
+    const bbUpS = mainChart.addLineSeries({ color: "rgba(179, 157, 219, 0.8)", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
+    const bbLoS = mainChart.addLineSeries({ color: "rgba(179, 157, 219, 0.8)", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
 
     sma5s.setData(toLineData(ind.sma5));
     sma10s.setData(toLineData(ind.sma10));
@@ -361,8 +380,8 @@ export const ChartPanel: React.FC<ChartPanelProps> = ({ ohlcv, ind, symbol, name
 
       subVolSeries.setData(volData);
 
-      const vMa5S = volChart.addLineSeries({ color: "#ff9800", lineWidth: 1, title: "5日均量", lastValueVisible: false, priceLineVisible: false });
-      const vMa20S = volChart.addLineSeries({ color: "#03a9f4", lineWidth: 1, title: "20日均量", lastValueVisible: false, priceLineVisible: false });
+      const vMa5S = volChart.addLineSeries({ color: "#ff9800", lineWidth: 1, lastValueVisible: false, priceLineVisible: false });
+      const vMa20S = volChart.addLineSeries({ color: "#03a9f4", lineWidth: 1, lastValueVisible: false, priceLineVisible: false });
 
       vMa5S.setData(toLineData(calcSMA(ohlcv.volume, 5)));
       vMa20S.setData(toLineData(ind.volMa20 || calcSMA(ohlcv.volume, 20)));
@@ -423,7 +442,7 @@ export const ChartPanel: React.FC<ChartPanelProps> = ({ ohlcv, ind, symbol, name
       const obvChart = createChart(obvEl, { ...CHART_OPTS, width: obvEl.clientWidth, height: 70 });
       chartsRef.current.push(obvChart);
       const obvS = obvChart.addLineSeries({ color: "#9c27b0", lineWidth: 1, title: "OBV" });
-      const obvMaS = obvChart.addLineSeries({ color: "#ff9800", lineWidth: 1, lineStyle: 2, title: "OBV均", lastValueVisible: false, priceLineVisible: false });
+      const obvMaS = obvChart.addLineSeries({ color: "#ff9800", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false });
       obvS.setData(toLineData(ind.obv));
       obvMaS.setData(toLineData(ind.obvMa10));
       mainChart.timeScale().subscribeVisibleLogicalRangeChange((range) => { if (range) obvChart.timeScale().setVisibleLogicalRange(range); });
@@ -488,9 +507,18 @@ export const ChartPanel: React.FC<ChartPanelProps> = ({ ohlcv, ind, symbol, name
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "auto", background: "#0a0a12", position: "relative" }}>
       <div style={{ padding: "6px 12px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(255,255,255,0.02)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-        <span style={{ fontSize: "0.8rem", color: "rgba(200,210,230,0.5)" }}>
-          {name} ({symbol}) — K線 + 成交量 + SMA(5/10/20) + 布林通道 (點擊圖表可放大檢視)
-        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+          <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--accent-blue)" }}>
+            {name} ({symbol})
+          </span>
+          <div style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.6)", display: "flex", gap: "10px" }}>
+            <span><span style={{ color: "#ff9800" }}>●</span> MA5 (橘)</span>
+            <span><span style={{ color: "#03a9f4" }}>●</span> MA10 (藍)</span>
+            <span><span style={{ color: "#ffea00" }}>●</span> MA20 (黃)</span>
+            <span><span style={{ color: "rgba(179, 157, 219, 0.9)" }}>- -</span> 布林通道 (紫)</span>
+            <span><span style={{ color: "#26a69a" }}>■</span> 成交量 (紅/綠)</span>
+          </div>
+        </div>
         <button 
           onClick={resetZoom}
           style={{ 
