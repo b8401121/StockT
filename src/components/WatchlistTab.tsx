@@ -83,7 +83,7 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
 
   // 交易成本設定
   const [deductFees, setDeductFees] = useState(true);
-  const [feeDiscount, setFeeDiscount] = useState<number>(0.6); // 預設 6 折
+  const [feeDiscount, setFeeDiscount] = useState<number>(1.0); // 預設 1.0 折 (法定標準費率 0.1425%)
 
   // 分類管理
   const [newListName, setNewListName] = useState("");
