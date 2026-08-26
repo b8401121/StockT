@@ -116,8 +116,8 @@ export const HybridScanTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({
 
           const hybridScore = fs.score * 0.6 + techScore * 0.4;
           // 僅篩選出基本面優良（或數據不足但無明顯紅字，評分 >= 0）且技術面偏多（得分 >= 0.5）的標的
-          const isFundAcceptable = fs.na.length >= 5 ? fs.score >= 0 : fs.score >= 4;
-          if (isFundAcceptable && techScore >= 0.5) {
+          // 嚴格過濾：僅保留基本面優良 (>=5分) 且技術面明確強勢 (>=2.0分) 且綜合融合分高標 (>=4.0分) 的精選股
+          if (fs.score >= 5 && techScore >= 2.0 && hybridScore >= 4.0) {
             scanResults.push({
               symbol: info.symbol, name,
               fsScore: fs.score, fsGrade,
