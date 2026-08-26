@@ -95,6 +95,7 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
     mode: "add" | "edit";
     record: TradeRecord;
   } | null>(null);
+  const [modalAutocomplete, setModalAutocomplete] = useState<StockEntry[]>([]);
 
   // 展開買進批次詳情
   const [expandedSymbols, setExpandedSymbols] = useState<Record<string, boolean>>({});
@@ -394,6 +395,63 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
       },
     };
   }, [currentTrades, prices, deductFees, feeDiscount, stockDb]);
+
+  // 浮動候選選單輸入與選擇
+  const onModalStockInput = (val: string) => {
+    if (!val.trim()) {
+      setModalAutocomplete([]);
+      if (tradeModal) {
+        setTradeModal({
+          ...tradeModal,
+          record: { ...tradeModal.record, symbol: val, name: "" },
+        });
+      }
+      return;
+    }
+    const q = val.trim().toUpperCase();
+    const matched = stockDb
+      .filter((s) => s.symbol.toUpperCase().startsWith(q) || s.symbol.split(".")[0].startsWith(q) || s.name.includes(q))
+      .slice(0, 10);
+    setModalAutocomplete(matched);
+
+    const exact = stockDb.find((s) => s.symbol.split(".")[0] === q || s.name === val.trim());
+    if (tradeModal) {
+      setTradeModal({
+        ...tradeModal,
+        record: {
+          ...tradeModal.record,
+          symbol: val,
+          name: exact ? exact.name : tradeModal.record.name,
+          price: exact && prices[exact.symbol] ? prices[exact.symbol] : tradeModal.record.price,
+        },
+      });
+    }
+  };
+
+  const selectModalStock = async (stock: StockEntry) => {
+    setModalAutocomplete([]);
+    let curP = prices[stock.symbol] || 0;
+    if (!curP) {
+      try {
+        const data: any = await invoke("fetch_stock_data", { symbol: stock.symbol, range: "1mo" });
+        if (data?.info?.current_price) {
+          curP = Number(data.info.current_price);
+          setPrices((prev) => ({ ...prev, [stock.symbol]: curP }));
+        }
+      } catch {}
+    }
+    if (tradeModal) {
+      setTradeModal({
+        ...tradeModal,
+        record: {
+          ...tradeModal.record,
+          symbol: stock.symbol,
+          name: stock.name,
+          price: curP || tradeModal.record.price,
+        },
+      });
+    }
+  };
 
   // 開啟新增/編輯交易彈窗
   const openTradeModal = (
@@ -1161,31 +1219,60 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
               </button>
             </div>
 
-            {/* 股票代號輸入 */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-              <label style={{ fontSize: "0.80rem", color: "#ffffff", fontWeight: 700 }}>股票代號或名稱</label>
+            {/* 股票代號與候選浮動視窗 */}
+            <div style={{ position: "relative", display: "flex", flexDirection: "column", gap: "4px" }}>
+              <label style={{ fontSize: "0.80rem", color: "#ffffff", fontWeight: 700 }}>
+                股票代號或名稱 {tradeModal.record.name ? <span style={{ color: "#38bdf8", marginLeft: "4px" }}>({tradeModal.record.name})</span> : ""}
+              </label>
               <input
                 type="text"
-                placeholder="例如 2330 或 台積電"
+                placeholder="例如 2330 或 台積電..."
                 value={tradeModal.record.symbol}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  const match = stockDb.find((s) => s.symbol.split(".")[0] === val.toUpperCase() || s.name === val);
-                  setTradeModal({
-                    ...tradeModal,
-                    record: {
-                      ...tradeModal.record,
-                      symbol: val,
-                      name: match ? match.name : tradeModal.record.name,
-                      price: match && prices[match.symbol] ? prices[match.symbol] : tradeModal.record.price,
-                    },
-                  });
-                }}
+                onChange={(e) => onModalStockInput(e.target.value)}
+                autoComplete="off"
                 style={{
-                  background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.15)",
-                  borderRadius: "6px", padding: "8px 12px", color: "#ffffff", fontSize: "0.92rem", outline: "none", fontWeight: 700
+                  background: "rgba(255,255,255,0.06)", border: "1px solid rgba(96, 165, 250, 0.4)",
+                  borderRadius: "6px", padding: "8px 12px", color: "#ffffff", fontSize: "0.95rem", outline: "none", fontWeight: 800
                 }}
               />
+              {/* 候選股票浮動選單 (Floating Autocomplete Dropdown) */}
+              {modalAutocomplete.length > 0 && (
+                <div
+                  style={{
+                    position: "absolute", top: "100%", left: 0, right: 0, zIndex: 2000,
+                    marginTop: "4px", background: "#1e293b", border: "1px solid rgba(96, 165, 250, 0.5)",
+                    borderRadius: "8px", maxHeight: "220px", overflowY: "auto",
+                    boxShadow: "0 10px 25px rgba(0,0,0,0.85)"
+                  }}
+                >
+                  {modalAutocomplete.map((s) => {
+                    const curP = prices[s.symbol];
+                    return (
+                      <div
+                        key={s.symbol}
+                        onClick={() => selectModalStock(s)}
+                        style={{
+                          padding: "9px 12px", cursor: "pointer", fontSize: "0.88rem",
+                          display: "flex", justifyContent: "space-between", alignItems: "center",
+                          borderBottom: "1px solid rgba(255,255,255,0.06)", transition: "background 0.15s ease"
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(37,99,235,0.35)")}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <b style={{ color: "#38bdf8", fontSize: "0.92rem" }}>{s.symbol.split(".")[0]}</b>
+                          <span style={{ color: "#ffffff", fontWeight: 600 }}>{s.name}</span>
+                        </div>
+                        {curP != null && curP > 0 && (
+                          <span style={{ color: "#facc15", fontWeight: 700, fontSize: "0.85rem" }}>
+                            ${curP.toFixed(2)}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* 交易日期 */}
