@@ -102,13 +102,13 @@ export const ScannerTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ on
           const { score, reasons, risks: techRisks } = calcTechScanScore(ind, n);
           const name = data.info.name || data.info.symbol;
 
-          if (mode === "buy" && score >= 3.0 && reasons.length >= 2) {
+          if (mode === "buy" && score >= 1.5 && reasons.length >= 1) {
             scanResults.push({ symbol: data.info.symbol, name, score: `+${score.toFixed(1)}分`, numericScore: score, desc: reasons.join("、"), mode });
           } else if (mode === "value") {
             const fsResult = computeFundamentalScore(data.info);
             const fsScore = fsResult.score;
             // 基本面良好以上 (fsScore >= 4) 且技術面走弱 (score <= -0.5)
-            if (fsScore >= 6 && score <= -1.5) {
+            if (fsScore >= 4 && score <= -0.5) {
               const passedItems = fsResult.passed.map(([label]) => label);
               const desc = `【價值尋寶】基本面良好為 ${getFsGrade(fsScore)}(分數:${fsScore})；但技術面線型偏弱(技術分:${score.toFixed(1)}分)${passedItems.length ? `。優秀指標: ${passedItems.join(", ")}` : ""}`;
               const composite = fsScore - score; // 分數差值越大，代表基本面越好且股價跌得越深（性價比越高）
@@ -147,7 +147,7 @@ export const ScannerTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ on
             const mergedTechRisks = [...techRisks, ...lmTechRisks];
             const totalRisks = mergedTechRisks.length + lmFundRisks.length;
             const composite = score + (fsScore < 0 ? fsScore * 2.0 : fsScore);
-            if (lmFundRisks.length >= 2 || fsScore <= -3 || (score <= -3.0 && fsScore <= -1) || totalRisks >= 3) {
+            if ((lmFundRisks.length >= 1 && totalRisks >= 2) || fsScore <= -2 || (score <= -2.0 && fsScore <= 0)) {
               const scoreStr = `綜合: ${composite.toFixed(1)}分`;
               const desc = [...mergedTechRisks, ...lmFundRisks].join("、");
               scanResults.push({
