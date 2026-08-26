@@ -548,10 +548,7 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
               {/* 業務介紹 */}
               {(() => {
                 const coId = info.symbol.split(".")[0];
-                const rawSum = info.long_business_summary;
-                const summary = (rawSum && rawSum.length > 25 && !rawSum.includes("近期營運狀況"))
-                  ? rawSum
-                  : getCompanyBusinessSummary(coId, info.symbol, info.name || info.symbol, info.sector || undefined);
+                const summary = getCompanyBusinessSummary(coId, info.symbol, info.name || info.symbol, info.sector || undefined);
                 return (
                   <div className="info-section">
                     <div className="info-section-header">🏢 四、公司業務與營業項目介紹</div>

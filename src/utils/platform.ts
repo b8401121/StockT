@@ -166,44 +166,6 @@ function generateFallbackOhlcv(symbol: string, days = 250): OhlcvData {
 
 // ─── 產生各別標的真實特徵的基本面財務比率 ──────────────────────────────────────
 function getDeterministicFundamentals(coId: string, normSym: string, curPrice: number, stockName: string) {
-  // 知名標的真實參數設定
-  if (coId === "2330") {
-    return {
-      pe: 21.5, pb: 4.85, dy: 0.018, roe: 0.285, gm: 0.542, nm: 0.386,
-      revGrowth: 0.285, earnGrowth: 0.362, cr: 2.4, de: 28.5, fcf: 350000000000,
-      summary: "台積電 (2330.TW) 全球晶圓代工龍頭，先進製程與 AI 晶片需求持續暢旺。"
-    };
-  }
-  if (coId === "2454") {
-    return {
-      pe: 19.8, pb: 3.6, dy: 0.048, roe: 0.224, gm: 0.495, nm: 0.218,
-      revGrowth: 0.182, earnGrowth: 0.245, cr: 2.1, de: 32.0, fcf: 65000000000,
-      summary: "聯發科技 (2454.TW) 全球手機晶片與邊緣 AI 運算大廠。"
-    };
-  }
-  if (coId === "3030") {
-    return {
-      pe: 22.4, pb: 4.1, dy: 0.032, roe: 0.198, gm: 0.582, nm: 0.264,
-      revGrowth: 0.367, earnGrowth: 0.452, cr: 3.2, de: 18.5, fcf: 2800000000,
-      summary: "德律科技 (3030.TW) 全球光學檢測 AOI 設備領導廠，受惠半導體先進封裝檢測需求提升。"
-    };
-  }
-  if (coId === "3217") {
-    return {
-      pe: 19.2, pb: 2.85, dy: 0.045, roe: 0.115, gm: 0.385, nm: 0.142,
-      revGrowth: -0.154, earnGrowth: -0.268, cr: 1.95, de: 48.0, fcf: -15000000,
-      summary: "優群科技 (3217.TWO) 受部分終端客戶需求調整及產品世代交替影響，短期營收與獲利動能放緩。"
-    };
-  }
-  if (coId === "3008") {
-    return {
-      pe: 15.6, pb: 2.3, dy: 0.035, roe: 0.148, gm: 0.512, nm: 0.421,
-      revGrowth: 0.085, earnGrowth: 0.112, cr: 4.5, de: 12.0, fcf: 18000000000,
-      summary: "大立光 (3008.TW) 全球光學鏡頭領導廠，專注高階潛望式鏡頭與車用光學。"
-    };
-  }
-
-  // 依個股代號雜湊種子生成真實、非均勻分布的財務指標
   let hash = 0;
   for (let i = 0; i < coId.length; i++) {
     hash = ((hash << 5) - hash + coId.charCodeAt(i)) | 0;
@@ -213,20 +175,40 @@ function getDeterministicFundamentals(coId: string, normSym: string, curPrice: n
     return x - Math.floor(x);
   };
 
-  const isHealthy = rand(1) > 0.35; // 65% 機率獲利良好，35% 機率持平或承壓
-  const roe = Number((isHealthy ? 0.08 + rand(2) * 0.22 : rand(2) * 0.09 - 0.04).toFixed(3));
-  const gm = Number((0.15 + rand(3) * 0.48).toFixed(3));
-  const nm = Number((isHealthy ? gm * (0.25 + rand(4) * 0.45) : gm * 0.15 - rand(4) * 0.08).toFixed(3));
-  const pe = Number((isHealthy ? 10 + rand(5) * 22 : 25 + rand(5) * 35).toFixed(1));
-  const pb = Number((0.9 + rand(6) * 3.8).toFixed(2));
-  const dy = Number((isHealthy && roe > 0.1 ? 0.025 + rand(7) * 0.055 : rand(7) * 0.02).toFixed(3));
-  const revGrowth = Number((isHealthy ? 0.05 + rand(8) * 0.35 : rand(8) * 0.30 - 0.20).toFixed(3));
-  const earnGrowth = Number((isHealthy ? 0.08 + rand(9) * 0.45 : rand(9) * 0.40 - 0.28).toFixed(3));
-  const de = Number((18 + rand(10) * 85).toFixed(1));
-  const cr = Number((1.1 + rand(11) * 2.8).toFixed(2));
-  const fcf = (isHealthy ? 1 : -1) * Math.floor((curPrice > 0 ? curPrice : 50) * 1500000 * (0.5 + rand(12)));
-  const summary = getCompanyBusinessSummary(coId, normSym, stockName);
+  let pe = 18.5, pb = 2.4, dy = 0.035, roe = 0.15, gm = 0.35, nm = 0.12;
+  let revGrowth = 0.12, earnGrowth = 0.15, de = 35.0, cr = 2.1, fcf = 5000000000;
 
+  if (coId === "2330") {
+    pe = 21.5; pb = 4.85; dy = 0.018; roe = 0.285; gm = 0.542; nm = 0.386;
+    revGrowth = 0.285; earnGrowth = 0.362; cr = 2.4; de = 28.5; fcf = 350000000000;
+  } else if (coId === "2454") {
+    pe = 19.8; pb = 3.6; dy = 0.048; roe = 0.224; gm = 0.495; nm = 0.218;
+    revGrowth = 0.182; earnGrowth = 0.245; cr = 2.1; de = 32.0; fcf = 65000000000;
+  } else if (coId === "3030") {
+    pe = 22.4; pb = 4.1; dy = 0.032; roe = 0.198; gm = 0.582; nm = 0.264;
+    revGrowth = 0.367; earnGrowth = 0.452; cr = 3.2; de = 18.5; fcf = 2800000000;
+  } else if (coId === "3217") {
+    pe = 19.2; pb = 2.85; dy = 0.045; roe = 0.185; gm = 0.465; nm = 0.232;
+    revGrowth = 0.224; earnGrowth = 0.312; cr = 2.85; de = 24.0; fcf = 850000000;
+  } else if (coId === "3008") {
+    pe = 15.6; pb = 2.3; dy = 0.035; roe = 0.148; gm = 0.512; nm = 0.421;
+    revGrowth = 0.085; earnGrowth = 0.112; cr = 4.5; de = 12.0; fcf = 18000000000;
+  } else {
+    const isHealthy = rand(1) > 0.35;
+    roe = Number((isHealthy ? 0.08 + rand(2) * 0.22 : rand(2) * 0.09 - 0.04).toFixed(3));
+    gm = Number((0.15 + rand(3) * 0.48).toFixed(3));
+    nm = Number((isHealthy ? gm * (0.25 + rand(4) * 0.45) : gm * 0.15 - rand(4) * 0.08).toFixed(3));
+    pe = Number((isHealthy ? 10 + rand(5) * 22 : 25 + rand(5) * 35).toFixed(1));
+    pb = Number((0.9 + rand(6) * 3.8).toFixed(2));
+    dy = Number((isHealthy && roe > 0.1 ? 0.025 + rand(7) * 0.055 : rand(7) * 0.02).toFixed(3));
+    revGrowth = Number((isHealthy ? 0.05 + rand(8) * 0.35 : rand(8) * 0.30 - 0.20).toFixed(3));
+    earnGrowth = Number((isHealthy ? 0.08 + rand(9) * 0.45 : rand(9) * 0.40 - 0.28).toFixed(3));
+    de = Number((18 + rand(10) * 85).toFixed(1));
+    cr = Number((1.1 + rand(11) * 2.8).toFixed(2));
+    fcf = (isHealthy ? 1 : -1) * Math.floor((curPrice > 0 ? curPrice : 50) * 1500000 * (0.5 + rand(12)));
+  }
+
+  const summary = getCompanyBusinessSummary(coId, normSym, stockName);
   return { pe, pb, dy, roe, gm, nm, revGrowth, earnGrowth, de, cr, fcf, summary };
 }
 
