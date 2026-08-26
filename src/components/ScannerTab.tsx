@@ -40,23 +40,40 @@ subscribeStocks((stocks) => {
   STOCK_DB = stocks;
 });
 
+function isCommonStockOrValidEtf(symbol: string, market: string): boolean {
+  const code = symbol.split(".")[0];
+  // 排除權證 (6碼數字、含英文字母、或 03/04/05/06/07/08/70/71/72/73 開頭之衍生性商品)
+  if (code.length > 5 || /[a-zA-Z]/.test(code)) return false;
+  if (/^\d{6}$/.test(code)) return false;
+  if (/^(03|04|05|06|07|08|70|71|72|73)\d+/.test(code) && !code.startsWith("00")) return false;
+
+  if (market === "00") {
+    return /^00\d{2,4}$/.test(code);
+  }
+  // 純 4 碼上市/上櫃現貨個股
+  return /^\d{4}$/.test(code);
+}
+
 function getSymbolsByMarket(market: string): string[] {
   if (!STOCK_DB.length) return ["2330.TW", "0050.TW", "2317.TW", "2412.TW", "2308.TW"];
   return STOCK_DB.filter((s) => {
+    if (!isCommonStockOrValidEtf(s.symbol, market)) return false;
     const code = s.symbol.split(".")[0];
     if (market === "ALL") return true;
     if (market === "TW") return s.symbol.endsWith(".TW");
     if (market === "TWO") return s.symbol.endsWith(".TWO");
     if (market === "00") return code.startsWith("00");
-    if (market === "1A") { const n = parseInt(code); return n >= 1100 && n < 1700; }
-    if (market === "1B") { const n = parseInt(code); return n >= 1700 && n < 2000; }
-    if (market === "2A") { const n = parseInt(code); return n >= 2000 && n < 3000; }
-    if (market === "3A") { const n = parseInt(code); return n >= 3000 && n < 3700; }
-    if (market === "3B") { const n = parseInt(code); return n >= 3700 && n < 3900; }
-    if (market === "4A") { const n = parseInt(code); return n >= 4100 && n < 5000; }
-    if (market === "5A") { const n = parseInt(code); return n >= 5000 && n < 6000; }
-    if (market === "6A") { const n = parseInt(code); return n >= 6000 && n < 7000; }
-    if (market === "8A") { const n = parseInt(code); return n >= 8000; }
+    const n = parseInt(code, 10);
+    if (isNaN(n)) return false;
+    if (market === "1A") return n >= 1100 && n < 1700;
+    if (market === "1B") return n >= 1700 && n < 2000;
+    if (market === "2A") return n >= 2000 && n < 3000;
+    if (market === "3A") return n >= 3000 && n < 3700;
+    if (market === "3B") return n >= 3700 && n < 3900;
+    if (market === "4A") return n >= 4100 && n < 5000;
+    if (market === "5A") return n >= 5000 && n < 6000;
+    if (market === "6A") return n >= 6000 && n < 7000;
+    if (market === "8A") return n >= 8000;
     return false;
   }).map((s) => s.symbol);
 }

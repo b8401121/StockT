@@ -39,23 +39,40 @@ const MARKETS = [
   { label: "生技/其他 (80~99xx)", value: "8A" },
 ];
 
+function isCommonStockOrValidEtf(symbol: string, market: string): boolean {
+  const code = symbol.split(".")[0];
+  // 排除權證 (6碼數字、含英文字母、或 03/04/05/06/07/08/70/71/72/73 開頭之衍生性商品)
+  if (code.length > 5 || /[a-zA-Z]/.test(code)) return false;
+  if (/^\d{6}$/.test(code)) return false;
+  if (/^(03|04|05|06|07|08|70|71|72|73)\d+/.test(code) && !code.startsWith("00")) return false;
+
+  if (market === "00") {
+    return /^00\d{2,4}$/.test(code);
+  }
+  // 純 4 碼上市/上櫃現貨個股
+  return /^\d{4}$/.test(code);
+}
+
 function getSymbolsByMarket(market: string): string[] {
   if (!STOCK_DB.length) return ["2330.TW", "0050.TW", "2317.TW", "2412.TW", "2308.TW"];
   return STOCK_DB.filter((s) => {
+    if (!isCommonStockOrValidEtf(s.symbol, market)) return false;
     const code = s.symbol.split(".")[0];
     if (market === "ALL") return true;
     if (market === "TW") return s.symbol.endsWith(".TW");
     if (market === "TWO") return s.symbol.endsWith(".TWO");
     if (market === "00") return code.startsWith("00");
-    if (market === "1A") { const n = parseInt(code); return n >= 1100 && n < 1700; }
-    if (market === "1B") { const n = parseInt(code); return n >= 1700 && n < 2000; }
-    if (market === "2A") { const n = parseInt(code); return n >= 2000 && n < 3000; }
-    if (market === "3A") { const n = parseInt(code); return n >= 3000 && n < 3700; }
-    if (market === "3B") { const n = parseInt(code); return n >= 3700 && n < 3900; }
-    if (market === "4A") { const n = parseInt(code); return n >= 4100 && n < 5000; }
-    if (market === "5A") { const n = parseInt(code); return n >= 5000 && n < 6000; }
-    if (market === "6A") { const n = parseInt(code); return n >= 6000 && n < 7000; }
-    if (market === "8A") { const n = parseInt(code); return n >= 8000; }
+    const n = parseInt(code, 10);
+    if (isNaN(n)) return false;
+    if (market === "1A") return n >= 1100 && n < 1700;
+    if (market === "1B") return n >= 1700 && n < 2000;
+    if (market === "2A") return n >= 2000 && n < 3000;
+    if (market === "3A") return n >= 3000 && n < 3700;
+    if (market === "3B") return n >= 3700 && n < 3900;
+    if (market === "4A") return n >= 4100 && n < 5000;
+    if (market === "5A") return n >= 5000 && n < 6000;
+    if (market === "6A") return n >= 6000 && n < 7000;
+    if (market === "8A") return n >= 8000;
     return false;
   }).map((s) => s.symbol);
 }
@@ -117,8 +134,13 @@ export const HybridScanTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({
           const hybridScore = fs.score * 0.6 + techScore * 0.4;
           // 僅篩選出基本面優良（或數據不足但無明顯紅字，評分 >= 0）且技術面偏多（得分 >= 0.5）的標的
           // 嚴格過濾：僅保留基本面優良 (>=5分) 且技術面明確強勢 (>=2.0分) 且綜合融合分高標 (>=4.0分) 的精選股
-          // 平衡門檻：過濾低分/負分平庸股，保留基本面合格以上 (>=2分)、技術面偏多 (>=0.5分) 且融合分 >= 2.0分 之標的
-          if (fs.score >= 2 && techScore >= 0.5 && hybridScore >= 2.0) {
+          // 嚴格優選品質：
+          // 1. 獲利體質：ROE 必須 >= 8% (排除 0.9%、0.1% 等微利或虧損股)
+          // 2. 基本面評級：fs.score 必須 >= 4 (良好以上，排除 C 普通)
+          // 3. 技術面走勢：techScore 必須 >= 1.0 (偏多攻擊)
+          // 4. 綜合融合分：hybridScore 必須 >= 3.0
+          const roeVal = info.roe ?? 0;
+          if (roeVal >= 0.08 && fs.score >= 4 && techScore >= 1.0 && hybridScore >= 3.0) {
             scanResults.push({
               symbol: info.symbol, name,
               fsScore: fs.score, fsGrade,
