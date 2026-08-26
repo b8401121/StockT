@@ -4,6 +4,15 @@ import { calculateAllIndicators, OhlcvData } from "../utils/indicators";
 import { calcTechScanScore, checkLandmineRisks, computeFundamentalScore, getFsGrade, getTechRating } from "../utils/analysis";
 import { getCachedStocks, subscribeStocks, StockEntry } from "../utils/stocks";
 import { exportToHtmlFile } from "../utils/exportHtml";
+import {
+  getLocalVaultUsers,
+  saveUserVault,
+  loadUserVault,
+  getGitHubSyncConfig,
+  saveGitHubSyncConfig,
+  VaultUser,
+  GitHubSyncConfig,
+} from "../utils/vault";
 
 interface PortfolioEntry {
   symbol: string;
@@ -63,6 +72,24 @@ export const PortfolioTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ 
   useEffect(() => {
     return subscribeStocks(setStocks);
   }, []);
+
+  // ─── 多用戶密碼保險箱與 GitHub 雲端同步狀態 ────────────────────────────
+  const [currentUser, setCurrentUser] = useState<string | null>(() => sessionStorage.getItem("stockt_auth_user") || null);
+  const [currentPassword, setCurrentPassword] = useState<string | null>(() => sessionStorage.getItem("stockt_auth_pass") || null);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authTab, setAuthTab] = useState<"login" | "register">("login");
+  const [authUsername, setAuthUsername] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authPasswordConfirm, setAuthPasswordConfirm] = useState("");
+  const [authError, setAuthError] = useState("");
+  const [authLoading, setAuthLoading] = useState(false);
+  const [vaultUsers, setVaultUsers] = useState<VaultUser[]>(() => getLocalVaultUsers());
+
+  // GitHub 同步設定
+  const [githubModalOpen, setGithubModalOpen] = useState(false);
+  const [githubConfig, setGithubConfig] = useState<GitHubSyncConfig>(() => getGitHubSyncConfig() || { token: "", repo: "b8401121/StockT", branch: "main" });
+  const [githubSyncing, setGithubSyncing] = useState(false);
+  const [githubSyncMsg, setGithubSyncMsg] = useState("");
 
   const getNormalizedSymbol = useCallback((sym: string, stockList: StockEntry[] = stocks): string => {
     const targetSym = sym.trim().toUpperCase();
@@ -187,6 +214,22 @@ export const PortfolioTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ 
   // ─── 讀取持倉 ───────────────────────────────────────────────────────────────
   const loadWatchlist = useCallback(async () => {
     try {
+      // 1. 若有登入的使用者，優先載入其解密的保險箱
+      if (currentUser && currentPassword) {
+        try {
+          const { data } = await loadUserVault(currentUser, currentPassword);
+          const cached = getCachedStocks();
+          const { normalized } = normalizeWatchlist(data, cached);
+          setWatchlist(normalized);
+          setRows(generateOfflineRows(normalized, cached));
+          await refreshPrices(normalized);
+          return;
+        } catch (e) {
+          console.warn("User vault auto-load failed:", e);
+        }
+      }
+
+      // 2. 否則載入本機未加密預設清單
       const lists: string[] = await invoke("list_watchlists");
       setAvailableLists(lists);
       const data: Record<string, PortfolioEntry[]> = await invoke("load_watchlist", { filename: currentList });
@@ -197,7 +240,6 @@ export const PortfolioTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ 
       setWatchlist(normalized);
       setRows(generateOfflineRows(normalized, cached));
       
-      // 載入時立即更新報價
       await refreshPrices(normalized);
       
       if (changed) {
@@ -207,7 +249,7 @@ export const PortfolioTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ 
       setWatchlist({});
       setRows([]);
     }
-  }, [currentList, normalizeWatchlist]);
+  }, [currentList, currentUser, currentPassword, normalizeWatchlist]);
 
   useEffect(() => { loadWatchlist(); }, [loadWatchlist]);
 
@@ -592,18 +634,164 @@ export const PortfolioTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ 
   };
 
   const handleInputBlur = async () => {
-    // 移開焦點或按下確認時，寫入硬碟並進行 Rust 精確損益運算
+    if (currentUser && currentPassword) {
+      saveUserVault(currentUser, currentPassword, watchlist, true).catch(console.warn);
+    }
     await invoke("save_watchlist", { watchlist, filename: currentList });
     await recalculatePnLsForRows(rows);
   };
 
   const saveWatchlist = async (data: Record<string, PortfolioEntry[]>, shouldRefreshPrices = false) => {
+    // 1. 若當前已登入加密使用者，自動端對端加密儲存並同步
+    if (currentUser && currentPassword) {
+      saveUserVault(currentUser, currentPassword, data, true).catch(console.warn);
+    }
     await invoke("save_watchlist", { watchlist: data, filename: currentList });
     setWatchlist(data);
     if (shouldRefreshPrices) {
       await refreshPrices(data);
     } else {
       setRows(generateOfflineRows(data));
+    }
+  };
+
+  // ─── 帳號登入 / 註冊 / 鎖定處理 ─────────────────────────────────────────────
+  const handleLogin = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!authUsername.trim() || !authPassword) {
+      setAuthError("請輸入使用者名稱與密碼");
+      return;
+    }
+    setAuthLoading(true);
+    setAuthError("");
+    try {
+      const { data } = await loadUserVault(authUsername.trim(), authPassword, true);
+      const u = authUsername.trim();
+      setCurrentUser(u);
+      setCurrentPassword(authPassword);
+      sessionStorage.setItem("stockt_auth_user", u);
+      sessionStorage.setItem("stockt_auth_pass", authPassword);
+      setWatchlist(data);
+      setAuthModalOpen(false);
+      setAuthPassword("");
+      await refreshPrices(data);
+    } catch (err: any) {
+      setAuthError(String(err.message || err));
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleRegister = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const u = authUsername.trim();
+    if (!u) { setAuthError("請輸入使用者名稱"); return; }
+    if (!authPassword) { setAuthError("請設定保險箱密碼"); return; }
+    if (authPassword !== authPasswordConfirm) { setAuthError("兩次輸入的密碼不一致"); return; }
+
+    setAuthLoading(true);
+    setAuthError("");
+    try {
+      const initialData = watchlist && Object.keys(watchlist).length > 0 ? watchlist : { "核心持股": [] };
+      await saveUserVault(u, authPassword, initialData, true);
+      setCurrentUser(u);
+      setCurrentPassword(authPassword);
+      sessionStorage.setItem("stockt_auth_user", u);
+      sessionStorage.setItem("stockt_auth_pass", authPassword);
+      setVaultUsers(getLocalVaultUsers());
+      setWatchlist(initialData);
+      setAuthModalOpen(false);
+      setAuthPassword("");
+      setAuthPasswordConfirm("");
+      await refreshPrices(initialData);
+      alert(`🎉 使用者【${u}】專屬加密保險箱建立成功！\n所有資料已使用 AES-GCM-256 端對端高強度加密。`);
+    } catch (err: any) {
+      setAuthError(String(err.message || err));
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleLock = () => {
+    sessionStorage.removeItem("stockt_auth_user");
+    sessionStorage.removeItem("stockt_auth_pass");
+    setCurrentUser(null);
+    setCurrentPassword(null);
+    setWatchlist({});
+    setRows([]);
+  };
+
+  const handleSyncToGitHub = async () => {
+    if (!currentUser || !currentPassword) {
+      alert("請先解鎖登入您的保險箱再進行同步！");
+      return;
+    }
+    if (!githubConfig.token || !githubConfig.repo) {
+      setGithubModalOpen(true);
+      return;
+    }
+    setGithubSyncing(true);
+    setGithubSyncMsg("正在加密並推送至 GitHub...");
+    try {
+      saveGitHubSyncConfig(githubConfig);
+      await saveUserVault(currentUser, currentPassword, watchlist, true);
+      setGithubSyncMsg("✅ 成功同步至 GitHub 倉庫！");
+      setTimeout(() => {
+        setGithubSyncMsg("");
+        setGithubModalOpen(false);
+      }, 1500);
+    } catch (err: any) {
+      setGithubSyncMsg(`❌ 同步失敗: ${err.message || err}`);
+    } finally {
+      setGithubSyncing(false);
+    }
+  };
+
+  const handleFetchFromGitHub = async () => {
+    if (!authUsername.trim() || !authPassword) {
+      setAuthError("請先輸入使用者名稱與密碼以進行雲端解密");
+      return;
+    }
+    if (!githubConfig.token || !githubConfig.repo) {
+      setGithubModalOpen(true);
+      return;
+    }
+    setAuthLoading(true);
+    setAuthError("");
+    try {
+      saveGitHubSyncConfig(githubConfig);
+      const { data } = await loadUserVault(authUsername.trim(), authPassword, true);
+      const u = authUsername.trim();
+      setCurrentUser(u);
+      setCurrentPassword(authPassword);
+      sessionStorage.setItem("stockt_auth_user", u);
+      sessionStorage.setItem("stockt_auth_pass", authPassword);
+      setWatchlist(data);
+      setAuthModalOpen(false);
+      setAuthPassword("");
+      await refreshPrices(data);
+      alert(`🎉 成功從 GitHub 雲端還原並解密【${u}】的投資組合！`);
+    } catch (err: any) {
+      setAuthError(`雲端還原失敗: ${err.message || err}`);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  // ─── 匯出加密備份檔 (.vault.json) ───────────────────────────────────────────
+  const exportVaultBackup = async () => {
+    if (!currentUser || !currentPassword) {
+      alert("請先登入解鎖您的專屬保險箱！");
+      return;
+    }
+    try {
+      const raw = localStorage.getItem(`stockt_vault_${currentUser}`);
+      if (!raw) return;
+      const filename = `${currentUser}_backup.vault.json`;
+      await invoke("export_txt_file", { filename, content: raw });
+      alert(`🔒 加密保險箱備份檔已匯出！\n檔案名稱: ${filename}\n他人即使取得該檔案，沒有您的密碼也無法解開。`);
+    } catch (err) {
+      alert(`匯出失敗: ${err}`);
     }
   };
 
@@ -728,9 +916,57 @@ export const PortfolioTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ 
 
   return (
     <div className="portfolio-layout">
-      {/* 頂部多名單管理工具列 */}
+      {/* 頂部隱私保險箱與用戶狀態列 */}
+      <div style={{
+        display: "flex", justifyContent: "space-between", alignItems: "center",
+        marginBottom: "14px", padding: "10px 14px",
+        background: currentUser ? "rgba(77, 148, 255, 0.08)" : "rgba(255, 255, 255, 0.03)",
+        border: `1px solid ${currentUser ? "rgba(77, 148, 255, 0.3)" : "rgba(255, 255, 255, 0.08)"}`,
+        borderRadius: "10px"
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <span style={{ fontSize: "1.1rem" }}>{currentUser ? "🛡️" : "🔒"}</span>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: "0.95rem", color: currentUser ? "var(--accent-blue)" : "var(--text-primary)" }}>
+              {currentUser ? `【${currentUser}】專屬加密保險箱 (AES-256 已解鎖)` : "未解鎖加密保險箱"}
+            </div>
+            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+              {currentUser ? "持股資料已端對端加密儲存，可一鍵同步至 GitHub。" : "不同使用者資料互相隔離，請登入專屬帳號以存取個人持股。"}
+            </div>
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          {currentUser ? (
+            <>
+              <button className="btn btn-outline btn-sm" onClick={() => setGithubModalOpen(true)} style={{ color: "#4caf50", borderColor: "rgba(76,175,80,0.4)" }}>
+                ☁️ GitHub 集中同步
+              </button>
+              <button className="btn btn-outline btn-sm" onClick={exportVaultBackup} title="匯出本機 AES-256 加密存檔">
+                📤 匯出加密備份
+              </button>
+              <button className="btn btn-outline btn-sm" onClick={() => { setAuthTab("login"); setAuthModalOpen(true); }}>
+                👥 切換用戶
+              </button>
+              <button className="btn btn-danger btn-sm" onClick={handleLock}>
+                🔒 鎖定保險箱
+              </button>
+            </>
+          ) : (
+            <>
+              <button className="btn btn-primary btn-sm" onClick={() => { setAuthTab("login"); setAuthModalOpen(true); }}>
+                🔑 登入 / 解鎖保險箱
+              </button>
+              <button className="btn btn-success btn-sm" onClick={() => { setAuthTab("register"); setAuthModalOpen(true); }}>
+                ✨ 建立新密碼保險箱
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* 頂部名單切換工具列 */}
       <div style={{ display: "flex", gap: "10px", alignItems: "center", marginBottom: "16px", padding: "10px", background: "rgba(255,255,255,0.02)", borderRadius: "8px" }}>
-        <span style={{ color: "rgba(255,255,255,0.7)" }}>👤 選擇帳戶自選股清單：</span>
+        <span style={{ color: "rgba(255,255,255,0.7)" }}>👤 自選股清單：</span>
         <select 
           className="select-field"
           value={currentList} 
@@ -1054,6 +1290,197 @@ export const PortfolioTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ 
                 ))}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* 登入 / 註冊 密碼保險箱 Modal */}
+      {authModalOpen && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+          background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)",
+          zIndex: 10000, display: "flex", justifyContent: "center", alignItems: "center"
+        }} onClick={() => setAuthModalOpen(false)}>
+          <div style={{
+            background: "#161622", borderRadius: "14px", width: "420px", maxWidth: "90%",
+            padding: "24px", display: "flex", flexDirection: "column", border: "1px solid rgba(255,255,255,0.15)",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.8)", gap: "16px"
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <span style={{ fontSize: "1.4rem" }}>🔐</span>
+                <h3 style={{ margin: 0, fontSize: "1.15rem" }}>專屬加密保險箱</h3>
+              </div>
+              <button className="btn btn-outline btn-sm" onClick={() => setAuthModalOpen(false)}>✕</button>
+            </div>
+
+            {/* Tab 切換 */}
+            <div style={{ display: "flex", borderBottom: "1px solid rgba(255,255,255,0.1)", gap: "10px" }}>
+              <button
+                className="btn btn-sm"
+                style={{
+                  background: authTab === "login" ? "rgba(77,148,255,0.2)" : "transparent",
+                  color: authTab === "login" ? "var(--accent-blue)" : "var(--text-muted)",
+                  border: "none", borderBottom: authTab === "login" ? "2px solid var(--accent-blue)" : "none",
+                  borderRadius: "4px 4px 0 0", padding: "8px 16px"
+                }}
+                onClick={() => { setAuthTab("login"); setAuthError(""); }}
+              >
+                🔑 登入解鎖
+              </button>
+              <button
+                className="btn btn-sm"
+                style={{
+                  background: authTab === "register" ? "rgba(76,175,80,0.2)" : "transparent",
+                  color: authTab === "register" ? "#4caf50" : "var(--text-muted)",
+                  border: "none", borderBottom: authTab === "register" ? "2px solid #4caf50" : "none",
+                  borderRadius: "4px 4px 0 0", padding: "8px 16px"
+                }}
+                onClick={() => { setAuthTab("register"); setAuthError(""); }}
+              >
+                ✨ 註冊新保險箱
+              </button>
+            </div>
+
+            {authError && (
+              <div style={{ background: "rgba(255,82,82,0.15)", border: "1px solid rgba(255,82,82,0.3)", borderRadius: "6px", padding: "8px 12px", color: "#ff8a80", fontSize: "0.85rem" }}>
+                ⚠️ {authError}
+              </div>
+            )}
+
+            <form onSubmit={authTab === "login" ? handleLogin : handleRegister} style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "0.82rem", color: "var(--text-muted)", marginBottom: "4px" }}>
+                  使用者名稱
+                </label>
+                {authTab === "login" && vaultUsers.length > 0 ? (
+                  <div style={{ display: "flex", gap: "6px" }}>
+                    <input
+                      type="text" className="input-field" placeholder="輸入或選擇使用者名稱"
+                      value={authUsername} onChange={e => setAuthUsername(e.target.value)}
+                      style={{ flex: 1 }} required
+                    />
+                    <select
+                      className="select-field"
+                      onChange={e => e.target.value && setAuthUsername(e.target.value)}
+                      style={{ width: "120px", fontSize: "0.8rem" }}
+                    >
+                      <option value="">快速選擇...</option>
+                      {vaultUsers.map(u => <option key={u.username} value={u.username}>{u.username}</option>)}
+                    </select>
+                  </div>
+                ) : (
+                  <input
+                    type="text" className="input-field" placeholder="例如: 小李 / Alice"
+                    value={authUsername} onChange={e => setAuthUsername(e.target.value)}
+                    style={{ width: "100%" }} required
+                  />
+                )}
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "0.82rem", color: "var(--text-muted)", marginBottom: "4px" }}>
+                  保險箱密碼
+                </label>
+                <input
+                  type="password" className="input-field" placeholder="請輸入解密密碼"
+                  value={authPassword} onChange={e => setAuthPassword(e.target.value)}
+                  style={{ width: "100%" }} required
+                />
+              </div>
+
+              {authTab === "register" && (
+                <div>
+                  <label style={{ display: "block", fontSize: "0.82rem", color: "var(--text-muted)", marginBottom: "4px" }}>
+                    確認密碼
+                  </label>
+                  <input
+                    type="password" className="input-field" placeholder="再次輸入密碼以確認"
+                    value={authPasswordConfirm} onChange={e => setAuthPasswordConfirm(e.target.value)}
+                    style={{ width: "100%" }} required
+                  />
+                </div>
+              )}
+
+              <div style={{ display: "flex", gap: "8px", marginTop: "10px" }}>
+                <button type="submit" className={`btn ${authTab === "login" ? "btn-primary" : "btn-success"}`} style={{ flex: 1 }} disabled={authLoading}>
+                  {authLoading ? <span className="loading-spinner" /> : (authTab === "login" ? "🔓 解鎖保險箱" : "🚀 建立並加密")}
+                </button>
+                {authTab === "login" && (
+                  <button type="button" className="btn btn-outline" onClick={handleFetchFromGitHub} disabled={authLoading} title="從 GitHub 雲端倉庫還原檔案">
+                    ☁️ 雲端還原
+                  </button>
+                )}
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* GitHub 雲端集中同步設定 Modal */}
+      {githubModalOpen && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+          background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)",
+          zIndex: 10000, display: "flex", justifyContent: "center", alignItems: "center"
+        }} onClick={() => setGithubModalOpen(false)}>
+          <div style={{
+            background: "#161622", borderRadius: "14px", width: "450px", maxWidth: "90%",
+            padding: "24px", display: "flex", flexDirection: "column", border: "1px solid rgba(255,255,255,0.15)",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.8)", gap: "16px"
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <span style={{ fontSize: "1.4rem" }}>☁️</span>
+                <h3 style={{ margin: 0, fontSize: "1.15rem" }}>GitHub 雲端集中同步</h3>
+              </div>
+              <button className="btn btn-outline btn-sm" onClick={() => setGithubModalOpen(false)}>✕</button>
+            </div>
+
+            <div style={{ fontSize: "0.82rem", color: "rgba(255,255,255,0.7)", lineHeight: 1.5 }}>
+              將您的專屬投資組合以 <b>AES-256 高強度加密後存入 GitHub</b>。任何人在 GitHub 上只能看到亂碼，唯有持有您密碼的裝置才能解密。
+            </div>
+
+            {githubSyncMsg && (
+              <div style={{
+                background: githubSyncMsg.includes("✅") ? "rgba(76,175,80,0.15)" : "rgba(255,82,82,0.15)",
+                border: `1px solid ${githubSyncMsg.includes("✅") ? "rgba(76,175,80,0.3)" : "rgba(255,82,82,0.3)"}`,
+                borderRadius: "6px", padding: "8px 12px", fontSize: "0.85rem"
+              }}>
+                {githubSyncMsg}
+              </div>
+            )}
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "0.82rem", color: "var(--text-muted)", marginBottom: "4px" }}>
+                  GitHub Personal Access Token (PAT)
+                </label>
+                <input
+                  type="password" className="input-field" placeholder="ghp_xxxxxxxxxxxxxx"
+                  value={githubConfig.token} onChange={e => setGithubConfig({ ...githubConfig, token: e.target.value })}
+                  style={{ width: "100%" }}
+                />
+                <span style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>需具備 <code>repo</code> 或 <code>public_repo</code> 寫入權限</span>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "0.82rem", color: "var(--text-muted)", marginBottom: "4px" }}>
+                  GitHub 倉庫名稱 (Repository)
+                </label>
+                <input
+                  type="text" className="input-field" placeholder="例如: b8401121/StockT"
+                  value={githubConfig.repo} onChange={e => setGithubConfig({ ...githubConfig, repo: e.target.value })}
+                  style={{ width: "100%" }}
+                />
+              </div>
+
+              <div style={{ display: "flex", gap: "8px", marginTop: "10px" }}>
+                <button className="btn btn-primary" onClick={handleSyncToGitHub} style={{ flex: 1 }} disabled={githubSyncing}>
+                  {githubSyncing ? <span className="loading-spinner" /> : "🚀 立即備份至 GitHub"}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
