@@ -38,6 +38,35 @@ export default function App() {
     setIsGuest(false);
   };
 
+  // ─── 離開分頁 / 切換分頁時自動鎖定並登出 ────────────────────────────────────
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        // 當使用者切換到其他瀏覽器分頁、縮小視窗或離開頁面時，立即清除登入狀態
+        sessionStorage.removeItem("stockt_auth_user");
+        sessionStorage.removeItem("stockt_auth_pass");
+        setAuthUser(null);
+        setAuthPass(null);
+        setIsGuest(false);
+      }
+    };
+
+    const handlePageHide = () => {
+      sessionStorage.removeItem("stockt_auth_user");
+      sessionStorage.removeItem("stockt_auth_pass");
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("pagehide", handlePageHide);
+    window.addEventListener("beforeunload", handlePageHide);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("pagehide", handlePageHide);
+      window.removeEventListener("beforeunload", handlePageHide);
+    };
+  }, []);
+
   useEffect(() => {
     // 1. 全螢幕快速鍵監聽 (Alt+Enter 進入/退出)
     const handleKeyDown = async (e: KeyboardEvent) => {
