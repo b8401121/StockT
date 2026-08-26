@@ -7,9 +7,10 @@ interface WatchlistTabProps {
   user: User | null;
   username: string;
   onAnalyze?: (sym: string) => void;
+  isActive?: boolean;
 }
 
-export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAnalyze }) => {
+export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAnalyze, isActive }) => {
   const [lists, setLists] = useState<Record<string, string[]>>({ "我的自選股": [] });
   const [activeList, setActiveList] = useState("我的自選股");
   const [newSymbol, setNewSymbol] = useState("");
@@ -24,28 +25,48 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
     return subscribeStocks((s) => setStockDb(s));
   }, []);
 
-  // 實時監聽雲端資料 (Firestore onSnapshot)
+  // 實時監聽雲端資料 (Firestore onSnapshot + Tab切換 + 瀏覽器自訂事件)
   useEffect(() => {
     if (!user) return;
-    setLoading(true);
-    // 優先立即載入一次
-    loadWatchlistFromCloud(user.uid).then(({ lists: cloudLists }) => {
-      if (cloudLists && Object.keys(cloudLists).length > 0) {
-        setLists(cloudLists);
-        setActiveList((prev) => (cloudLists[prev] ? prev : Object.keys(cloudLists)[0]));
-      }
-      setLoading(false);
-    }).catch(() => setLoading(false));
 
-    // 建立即時監聽
+    const reloadData = () => {
+      setLoading(true);
+      loadWatchlistFromCloud(user.uid).then(({ lists: cloudLists }) => {
+        if (cloudLists && Object.keys(cloudLists).length > 0) {
+          setLists(cloudLists);
+          setActiveList((prev) => (cloudLists[prev] ? prev : Object.keys(cloudLists)[0]));
+        }
+      }).catch(console.error).finally(() => setLoading(false));
+    };
+
+    // 每次切換到收藏頁面或載入時立即重新讀取
+    if (isActive !== false) {
+      reloadData();
+    }
+
+    // 監聽 Firestore 即時推送
     const unsub = subscribeWatchlist(user.uid, ({ lists: cloudLists }) => {
       if (cloudLists && Object.keys(cloudLists).length > 0) {
         setLists(cloudLists);
         setActiveList((prev) => (cloudLists[prev] ? prev : Object.keys(cloudLists)[0]));
       }
     });
-    return () => unsub();
-  }, [user]);
+
+    const handleCustomUpdate = (e: any) => {
+      if (e.detail?.lists) {
+        setLists(e.detail.lists);
+        setActiveList((prev) => (e.detail.lists[prev] ? prev : Object.keys(e.detail.lists)[0]));
+      } else {
+        reloadData();
+      }
+    };
+
+    window.addEventListener("stockt_watchlist_updated", handleCustomUpdate);
+    return () => {
+      unsub();
+      window.removeEventListener("stockt_watchlist_updated", handleCustomUpdate);
+    };
+  }, [user, isActive]);
 
   // 儲存到雲端
   const saveToCloud = useCallback(async (updatedLists: Record<string, string[]>) => {

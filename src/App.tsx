@@ -174,7 +174,7 @@ export default function App() {
         </div>
         {isLoggedIn && (
           <div style={{ display: activeTab === "watchlist" ? "flex" : "none", height: "100%", width: "100%" }}>
-            <WatchlistTab user={authUser} username={username} onAnalyze={handleAnalyze} />
+            <WatchlistTab user={authUser} username={username} onAnalyze={handleAnalyze} isActive={activeTab === "watchlist"} />
           </div>
         )}
       </main>
