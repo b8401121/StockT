@@ -457,7 +457,7 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                   <div style={{ fontSize: "1.15rem", fontWeight: 700, color: "var(--text-primary)" }}>{info.name}</div>
                   <AddToWatchlistBtn symbol={info.symbol} text="⭐ 加入收藏" style={{ fontSize: "0.8rem", padding: "4px 10px" }} />
                 </div>
-                <div style={{ fontSize: "0.82rem", color: "var(--text-muted)", marginBottom: "6px" }}>{info.symbol}</div>
+                <div style={{ fontSize: "0.82rem", color: "#94a3b8", marginBottom: "6px" }}>{info.symbol}</div>
                 <div style={{ display: "flex", alignItems: "baseline", gap: "10px" }}>
                   <span style={{ fontSize: "1.6rem", fontWeight: 700, color: changeAmt != null && changeAmt >= 0 ? "var(--accent-red)" : "var(--accent-green)" }}>
                     {fmtPrice(info.current_price)}
@@ -504,7 +504,7 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                       <span className="score-tag" key={l} style={{ color: "#81c784", background: "rgba(76,175,80,0.12)", borderColor: "rgba(76,175,80,0.3)", cursor: "pointer" }} title={d} onClick={() => showMetricExplanation(l)}>{l}</span>
                     ))}
                     {fs.na.map((l) => (
-                      <span className="score-tag" key={l} style={{ color: "var(--text-muted)", background: "rgba(255,255,255,0.04)", borderColor: "var(--border-subtle)", cursor: "pointer" }} onClick={() => showMetricExplanation(l)}>{l}</span>
+                      <span className="score-tag" key={l} style={{ color: "#94a3b8", background: "rgba(255,255,255,0.04)", borderColor: "var(--border-subtle)", cursor: "pointer" }} onClick={() => showMetricExplanation(l)}>{l}</span>
                     ))}
                   </div>
                 </div>
@@ -512,21 +512,21 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
 
               {/* 獲利能力 */}
               <div className="info-section">
-                <div className="info-section-header">一、獲利能力 <span style={{ fontSize: "0.72rem", color: "var(--text-muted)", fontWeight: 400 }}>(2026 Q2 財報 / 7月營收)</span></div>
+                <div className="info-section-header">一、獲利能力 <span style={{ fontSize: "0.76rem", color: "#94a3b8", fontWeight: 500 }}>(2026 Q2 財報 / 7月營收)</span></div>
                 <div className="info-section-body">
-                  <div className="info-row"><span className="info-label clickable-label" onClick={() => showMetricExplanation("EPS")}>EPS <small style={{ color: "var(--text-muted)", fontSize: "0.7rem" }}>(TTM)</small></span><span className="info-value">{n2s(info.eps)}</span></div>
-                  <div className="info-row"><span className="info-label clickable-label" onClick={() => showMetricExplanation("ROE")}>ROE <small style={{ color: "var(--text-muted)", fontSize: "0.7rem" }}>(Q2累計)</small></span><span className="info-value" style={{ color: pctColor(info.roe) }}>{pct(info.roe)}</span></div>
-                  <div className="info-row"><span className="info-label clickable-label" onClick={() => showMetricExplanation("毛利率")}>毛利率 <small style={{ color: "var(--text-muted)", fontSize: "0.7rem" }}>(Q2)</small></span><span className="info-value">{pct(info.gross_margins)}</span></div>
+                  <div className="info-row"><span className="info-label clickable-label" onClick={() => showMetricExplanation("EPS")}>EPS <small style={{ color: "#94a3b8", fontSize: "0.7rem" }}>(TTM)</small></span><span className="info-value">{n2s(info.eps)}</span></div>
+                  <div className="info-row"><span className="info-label clickable-label" onClick={() => showMetricExplanation("ROE")}>ROE <small style={{ color: "#94a3b8", fontSize: "0.7rem" }}>(Q2累計)</small></span><span className="info-value" style={{ color: pctColor(info.roe) }}>{pct(info.roe)}</span></div>
+                  <div className="info-row"><span className="info-label clickable-label" onClick={() => showMetricExplanation("毛利率")}>毛利率 <small style={{ color: "#94a3b8", fontSize: "0.7rem" }}>(Q2)</small></span><span className="info-value">{pct(info.gross_margins)}</span></div>
                   <div className="info-row"><span className="info-label clickable-label" onClick={() => showMetricExplanation("營業利益率")}>營業利益率</span><span className="info-value">{pct(info.operating_margins)}</span></div>
                   <div className="info-row"><span className="info-label clickable-label" onClick={() => showMetricExplanation("淨利率")}>淨利率</span><span className="info-value">{pct(info.profit_margins)}</span></div>
-                  <div className="info-row"><span className="info-label clickable-label" onClick={() => showMetricExplanation("營收YoY")}>營收成長 YoY <small style={{ color: "var(--text-muted)", fontSize: "0.7rem" }}>(2026/07)</small></span><span className="info-value" style={{ color: pctColor(info.revenue_growth) }}>{pct(info.revenue_growth)}</span></div>
-                  <div className="info-row"><span className="info-label clickable-label" onClick={() => showMetricExplanation("盈餘YoY")}>盈餘成長 YoY <small style={{ color: "var(--text-muted)", fontSize: "0.7rem" }}>(Q2)</small></span><span className="info-value" style={{ color: pctColor(info.earnings_growth) }}>{pct(info.earnings_growth)}</span></div>
+                  <div className="info-row"><span className="info-label clickable-label" onClick={() => showMetricExplanation("營收YoY")}>營收成長 YoY <small style={{ color: "#94a3b8", fontSize: "0.7rem" }}>(2026/07)</small></span><span className="info-value" style={{ color: pctColor(info.revenue_growth) }}>{pct(info.revenue_growth)}</span></div>
+                  <div className="info-row"><span className="info-label clickable-label" onClick={() => showMetricExplanation("盈餘YoY")}>盈餘成長 YoY <small style={{ color: "#94a3b8", fontSize: "0.7rem" }}>(Q2)</small></span><span className="info-value" style={{ color: pctColor(info.earnings_growth) }}>{pct(info.earnings_growth)}</span></div>
                 </div>
               </div>
 
               {/* 財務穩健度 */}
               <div className="info-section">
-                <div className="info-section-header">二、財務穩健度 <span style={{ fontSize: "0.72rem", color: "var(--text-muted)", fontWeight: 400 }}>(2026 Q2 資產負債與現金流)</span></div>
+                <div className="info-section-header">二、財務穩健度 <span style={{ fontSize: "0.76rem", color: "#94a3b8", fontWeight: 500 }}>(2026 Q2 資產負債與現金流)</span></div>
                 <div className="info-section-body">
                   <div className="info-row"><span className="info-label clickable-label" onClick={() => showMetricExplanation("自由現金流")}>自由現金流</span><span className="info-value" style={{ color: (info.free_cashflow ?? 0) >= 0 ? "var(--accent-red)" : "var(--accent-green)" }}>{fmtNum(info.free_cashflow)}</span></div>
                   <div className="info-row"><span className="info-label clickable-label" onClick={() => showMetricExplanation("營業現金流")}>營業現金流</span><span className="info-value" style={{ color: (info.operating_cashflow ?? 0) >= 0 ? "var(--accent-red)" : "var(--accent-green)" }}>{fmtNum(info.operating_cashflow)}</span></div>
@@ -539,7 +539,7 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
 
               {/* 估值指標 */}
               <div className="info-section">
-                <div className="info-section-header">三、估值指標 <span style={{ fontSize: "0.72rem", color: "var(--text-muted)", fontWeight: 400 }}>(每日收盤結算)</span></div>
+                <div className="info-section-header">三、估值指標 <span style={{ fontSize: "0.76rem", color: "#94a3b8", fontWeight: 500 }}>(每日收盤結算)</span></div>
                 <div className="info-section-body">
                   <div className="info-row"><span className="info-label clickable-label" onClick={() => showMetricExplanation("PE")}>本益比 (PE)</span><span className="info-value" style={{ color: "var(--accent-blue)" }}>{n2s(info.tw_pe ?? info.pe)}</span></div>
                   <div className="info-row"><span className="info-label clickable-label" onClick={() => showMetricExplanation("PB")}>股價淨值比 (PB)</span><span className="info-value" style={{ color: "var(--accent-blue)" }}>{n2s(info.tw_pb ?? info.pb)}</span></div>
@@ -555,7 +555,7 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                 const summary = getCompanyBusinessSummary(coId, info.symbol, info.name || info.symbol, info.sector || undefined);
                 return (
                   <div className="info-section">
-                    <div className="info-section-header">🏢 四、公司業務與營業項目介紹 <span style={{ fontSize: "0.72rem", color: "var(--text-muted)", fontWeight: 400 }}>(公開資訊觀測站 MOPS 官方登記)</span></div>
+                    <div className="info-section-header">🏢 四、公司業務與營業項目介紹 <span style={{ fontSize: "0.76rem", color: "#94a3b8", fontWeight: 500 }}>(公開資訊觀測站 MOPS 官方登記)</span></div>
                     <div className="info-section-body" style={{ fontSize: "0.82rem", color: "var(--text-secondary)", lineHeight: 1.6 }}>
                       {summary}
                     </div>
@@ -944,7 +944,7 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                   <span style={{ fontSize: "1.3rem" }}>📊</span>
                   <div>
                     <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 600 }}>詳細基本面 - {info?.name}</h3>
-                    <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{info?.symbol}</span>
+                    <span style={{ fontSize: "0.75rem", color: "#94a3b8" }}>{info?.symbol}</span>
                   </div>
                 </div>
                 <button className="btn btn-outline btn-sm" onClick={() => setShowFundModal(false)} style={{ minWidth: "32px", padding: 0, height: "32px", borderRadius: "50%" }}>✕</button>
@@ -1015,7 +1015,7 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                 {fundLoading ? (
                   <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", height: "100%", gap: "12px" }}>
                     <span className="loading-spinner" style={{ width: "36px", height: "36px" }}></span>
-                    <span style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>正在從 Yahoo Finance 獲取財報資料...</span>
+                    <span style={{ color: "#94a3b8", fontSize: "0.85rem" }}>正在從 Yahoo Finance 獲取財報資料...</span>
                   </div>
                 ) : fundData?.error ? (
                   <div style={{ color: "#ff5252", padding: "20px", background: "rgba(255,82,82,0.05)", border: "1px solid rgba(255,82,82,0.2)", borderRadius: "8px" }}>
@@ -1026,7 +1026,7 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                     <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem", textAlign: "left" }}>
                       <thead>
                         <tr style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-                          <th style={{ padding: "12px 16px", color: "var(--text-muted)", fontWeight: 600, minWidth: "220px", position: "sticky", left: 0, background: "#161622", zIndex: 2 }}>會計項目</th>
+                          <th style={{ padding: "12px 16px", color: "#94a3b8", fontWeight: 600, minWidth: "220px", position: "sticky", left: 0, background: "#161622", zIndex: 2 }}>會計項目</th>
                           {dates.map((date: string, idx: number) => (
                             <th key={idx} style={{ padding: "12px 16px", color: "var(--text-primary)", fontWeight: 600, textAlign: "right" }}>{date}</th>
                           ))}
@@ -1079,7 +1079,7 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                     </table>
                   </div>
                 ) : (
-                  <div style={{ textAlign: "center", padding: "40px", color: "var(--text-muted)" }}>
+                  <div style={{ textAlign: "center", padding: "40px", color: "#94a3b8" }}>
                     📭 無財報數據 (可能該個股不支援此財報項目)
                   </div>
                 )}
@@ -1094,7 +1094,7 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                 alignItems: "center",
                 background: "rgba(0,0,0,0.2)"
               }}>
-                <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                <span style={{ fontSize: "0.75rem", color: "#94a3b8" }}>
                   數據來源: Yahoo Finance
                 </span>
                 <button className="btn btn-outline btn-sm" onClick={() => setShowFundModal(false)}>關閉</button>

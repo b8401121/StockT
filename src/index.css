@@ -310,7 +310,7 @@ html, body, #root {
 .score-grade { font-size: 1.1rem; font-weight: 700; }
 .score-num { font-size: 0.9rem; }
 .score-tags { display: flex; flex-wrap: wrap; gap: 4px; }
-.score-tag { padding: 3px 8px; border-radius: 99px; font-size: 0.72rem; font-weight: 600; border: 1px solid; }
+.score-tag { padding: 4px 10px; border-radius: 99px; font-size: 0.78rem; font-weight: 700; border: 1px solid; letter-spacing: 0.02em; }
 
 /* ─── 結論卡 ─── */
 .advice-card {
