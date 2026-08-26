@@ -322,7 +322,7 @@ export const ScannerTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ on
                           </div>
                         </>
                       ) : (
-                        <span style={{ color: "var(--accent-green)", fontWeight: 600 }}>
+                        <span style={{ color: r.numericScore >= 0 ? "var(--accent-red)" : "var(--accent-green)", fontWeight: 600 }}>
                           {r.score}
                         </span>
                       )}
