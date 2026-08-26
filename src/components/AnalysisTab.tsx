@@ -361,13 +361,6 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
     }
   };
 
-  const addToWatchlist = async () => {
-    if (!info) return;
-    const { addStockToUserWatchlist } = await import("../utils/watchlistHelper");
-    const res = await addStockToUserWatchlist(info.symbol, info.name || info.symbol);
-    alert(res.message);
-  };
-
   // ── 基本面評分
   const fs = info ? computeFundamentalScore(info) : null;
   const fsScore = fs?.score ?? 0;
@@ -612,9 +605,6 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                 }}>Goodinfo</button>
                 <button className="btn btn-primary btn-sm" onClick={fetchFundamentals}>
                   📊 詳細基本面
-                </button>
-                <button className="btn btn-primary btn-sm" onClick={addToWatchlist} style={{ background: "#ffd740", borderColor: "#ffd740", color: "#111", fontWeight: 600 }}>
-                  ⭐ 存入自選
                 </button>
               </div>
             </>

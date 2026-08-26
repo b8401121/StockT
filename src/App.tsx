@@ -5,18 +5,15 @@ import { AnalysisTab } from "./components/AnalysisTab";
 import { ScannerTab } from "./components/ScannerTab";
 import { FundamentalScanTab } from "./components/FundamentalScanTab";
 import { HybridScanTab } from "./components/HybridScanTab";
-import { PortfolioTab } from "./components/PortfolioTab";
-import { AuthScreen } from "./components/AuthScreen";
 import { loadStocks, updateStocks } from "./utils/stocks";
 
-type TabId = "analysis" | "scanner" | "fundamental" | "hybrid" | "portfolio";
+type TabId = "analysis" | "scanner" | "fundamental" | "hybrid";
 
 const TABS: { id: TabId; label: string }[] = [
   { id: "analysis", label: "📊 個股分析" },
   { id: "scanner", label: "🤖 AI 智慧選股" },
   { id: "fundamental", label: "📋 基本面選股" },
   { id: "hybrid", label: "🎯 融合選股" },
-  { id: "portfolio", label: "💼 投資組合" },
 ];
 
 export default function App() {
@@ -24,48 +21,6 @@ export default function App() {
   const [analyzeTarget, setAnalyzeTarget] = useState<string>("");
   const [stockStatus, setStockStatus] = useState<string>("載入中...");
   const [isUpdating, setIsUpdating] = useState<boolean>(false);
-
-  // 全域登入與身份狀態
-  const [authUser, setAuthUser] = useState<string | null>(() => sessionStorage.getItem("stockt_auth_user"));
-  const [_authPass, setAuthPass] = useState<string | null>(() => sessionStorage.getItem("stockt_auth_pass"));
-  const [isGuest, setIsGuest] = useState<boolean>(false);
-
-  const handleLogout = () => {
-    sessionStorage.removeItem("stockt_auth_user");
-    sessionStorage.removeItem("stockt_auth_pass");
-    setAuthUser(null);
-    setAuthPass(null);
-    setIsGuest(false);
-  };
-
-  // ─── 離開分頁 / 切換分頁時自動鎖定並登出 ────────────────────────────────────
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "hidden") {
-        // 當使用者切換到其他瀏覽器分頁、縮小視窗或離開頁面時，立即清除登入狀態
-        sessionStorage.removeItem("stockt_auth_user");
-        sessionStorage.removeItem("stockt_auth_pass");
-        setAuthUser(null);
-        setAuthPass(null);
-        setIsGuest(false);
-      }
-    };
-
-    const handlePageHide = () => {
-      sessionStorage.removeItem("stockt_auth_user");
-      sessionStorage.removeItem("stockt_auth_pass");
-    };
-
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    window.addEventListener("pagehide", handlePageHide);
-    window.addEventListener("beforeunload", handlePageHide);
-
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("pagehide", handlePageHide);
-      window.removeEventListener("beforeunload", handlePageHide);
-    };
-  }, []);
 
   useEffect(() => {
     // 1. 全螢幕快速鍵監聽 (Alt+Enter 進入/退出)
@@ -108,18 +63,6 @@ export default function App() {
 
   return (
     <div className="app-root">
-      {/* ── 尚未登入且非訪客時，展示全域登入/註冊門檻 ── */}
-      {!authUser && !isGuest && (
-        <AuthScreen
-          onLoginSuccess={(u, p) => {
-            setAuthUser(u);
-            setAuthPass(p);
-            setIsGuest(false);
-          }}
-          onGuestMode={() => setIsGuest(true)}
-        />
-      )}
-
       {/* ── 頂部 Header ──────────────────────────────────────────────────────── */}
       <header className="app-header">
         <div className="app-title">⛰ 阿山股市終端機 v2.0</div>
@@ -135,39 +78,6 @@ export default function App() {
           ))}
         </nav>
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          {/* 使用者身份徽章與登出按鈕 */}
-          {authUser ? (
-            <div style={{
-              display: "flex", alignItems: "center", gap: "8px",
-              background: "rgba(77, 148, 255, 0.15)", border: "1px solid rgba(77, 148, 255, 0.35)",
-              borderRadius: "6px", padding: "3px 8px", fontSize: "0.82rem"
-            }}>
-              <span style={{ color: "var(--accent-blue)", fontWeight: 700 }}>👤 {authUser}</span>
-              <button
-                onClick={handleLogout}
-                style={{
-                  background: "rgba(255, 82, 82, 0.2)", border: "1px solid rgba(255, 82, 82, 0.4)",
-                  color: "#ff8a80", borderRadius: "4px", padding: "2px 6px",
-                  fontSize: "0.75rem", cursor: "pointer"
-                }}
-                title="登出並鎖定保險箱"
-              >
-                🚪 登出
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => setIsGuest(false)}
-              style={{
-                background: "rgba(76, 175, 80, 0.2)", border: "1px solid rgba(76, 175, 80, 0.4)",
-                color: "#81c784", borderRadius: "6px", padding: "3px 8px",
-                fontSize: "0.82rem", cursor: "pointer", fontWeight: 600
-              }}
-            >
-              🔑 登入個人帳號
-            </button>
-          )}
-
           <button 
             onClick={async () => {
               await toggleFullscreen();
@@ -232,10 +142,6 @@ export default function App() {
         {/* 融合選股 */}
         <div style={{ display: activeTab === "hybrid" ? "block" : "none", height: "100%", width: "100%" }}>
           <HybridScanTab onAnalyze={handleAnalyze} />
-        </div>
-        {/* 投資組合 */}
-        <div style={{ display: activeTab === "portfolio" ? "block" : "none", height: "100%", width: "100%" }}>
-          <PortfolioTab onAnalyze={handleAnalyze} isActive={activeTab === "portfolio"} />
         </div>
       </main>
     </div>

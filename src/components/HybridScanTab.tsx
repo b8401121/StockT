@@ -218,22 +218,7 @@ export const HybridScanTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({
                   </td>
                   <td style={{ color: "var(--text-secondary)", fontSize: "0.85rem" }}>PE: {r.pe}</td>
                   <td style={{ color: "var(--text-secondary)", fontSize: "0.85rem" }}>ROE: {r.roe}</td>
-                  <td>
-                    <div style={{ display: "flex", gap: "6px" }}>
-                      <button className="btn btn-outline btn-sm" onClick={() => onAnalyze?.(r.symbol)}>分析</button>
-                      <button
-                        className="btn btn-success btn-sm"
-                        onClick={async () => {
-                          const { addStockToUserWatchlist } = await import("../utils/watchlistHelper");
-                          const res = await addStockToUserWatchlist(r.symbol, r.name);
-                          alert(res.message);
-                        }}
-                        title="立即存入自選股清單"
-                      >
-                        ⭐+ 自選
-                      </button>
-                    </div>
-                  </td>
+                  <td><button className="btn btn-outline btn-sm" onClick={() => onAnalyze?.(r.symbol)}>分析</button></td>
                 </tr>
               ))}
             </tbody>
