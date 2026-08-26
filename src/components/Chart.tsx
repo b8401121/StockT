@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createChart, ColorType, IChartApi, UTCTimestamp } from "lightweight-charts";
-import { OhlcvData, Indicators, calcSMA } from "../utils/indicators";
+import { OhlcvData, Indicators } from "../utils/indicators";
 
 interface ChartPanelProps {
   ohlcv: OhlcvData;
@@ -9,7 +9,7 @@ interface ChartPanelProps {
   name: string;
 }
 
-type SubChartType = "vol" | "kd" | "macd" | "rsi" | "obv" | "wr" | "atr";
+type SubChartType = "kd" | "macd" | "rsi" | "obv" | "wr" | "atr";
 
 const CHART_OPTS = {
   layout: { background: { type: ColorType.Solid, color: "transparent" }, textColor: "rgba(200,210,230,0.8)" },
@@ -62,13 +62,13 @@ const ZoomChartModal: React.FC<ZoomModalProps> = ({ type, ohlcv, ind, symbol, na
     chartRef.current = chart;
     
     if (type === "main") {
-      // 1. 蠟燭 K 線 (關閉綠色/紅色水平虛線)
+      // 1. 蠟燭 K 線 (無橫向虛線與刻度盒)
       const candleSeries = chart.addCandlestickSeries({
         upColor: "#ff5252", downColor: "#4caf50",
         borderUpColor: "#ff5252", borderDownColor: "#4caf50",
         wickUpColor: "#ff5252", wickDownColor: "#4caf50",
         priceLineVisible: false,
-        lastValueVisible: true,
+        lastValueVisible: false,
       });
       const candleData = ohlcv.timestamp.map((_, i) => ({
         time: times[i],
@@ -115,35 +115,6 @@ const ZoomChartModal: React.FC<ZoomModalProps> = ({ type, ohlcv, ind, symbol, na
       sma20s.setData(toLineData(ind.sma20));
       bbUpS.setData(toLineData(ind.bbUpper));
       bbLoS.setData(toLineData(ind.bbLower));
-    } else if (type === "vol") {
-      const volSeries = chart.addHistogramSeries({
-        color: "#26a69a",
-        priceFormat: { type: "volume" },
-        title: "成交量",
-      });
-      const volData = times.map((t, i) => {
-        const o = ohlcv.open[i] ?? 0;
-        const c = ohlcv.close[i] ?? 0;
-        const isUp = c >= o;
-        return {
-          time: t,
-          value: ohlcv.volume[i] ?? 0,
-          color: isUp ? "rgba(255, 82, 82, 0.85)" : "rgba(76, 175, 80, 0.85)",
-        };
-      }).filter((d) => d.value > 0);
-      volSeries.setData(volData);
-
-      const vMa5S = chart.addLineSeries({ color: "#ff9800", lineWidth: 1, lastValueVisible: false, priceLineVisible: false });
-      const vMa20S = chart.addLineSeries({ color: "#03a9f4", lineWidth: 1, lastValueVisible: false, priceLineVisible: false });
-      vMa5S.setData(toLineData(calcSMA(ohlcv.volume, 5)));
-      vMa20S.setData(toLineData(ind.volMa20 || calcSMA(ohlcv.volume, 20)));
-    } else if (type === "rsi") {
-      const rsiS = chart.addLineSeries({ color: "#f06292", lineWidth: 1, title: "RSI" });
-      const ob = chart.addLineSeries({ color: "rgba(255,82,82,0.4)", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false });
-      const os = chart.addLineSeries({ color: "rgba(76,175,80,0.4)", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false });
-      rsiS.setData(toLineData(ind.rsi));
-      ob.setData(times.map((t) => ({ time: t, value: 70 })));
-      os.setData(times.map((t) => ({ time: t, value: 30 })));
     } else if (type === "kd") {
       const kS = chart.addLineSeries({ color: "#00bcd4", lineWidth: 1, title: "K" });
       const dS = chart.addLineSeries({ color: "#ffc107", lineWidth: 1, title: "D" });
@@ -159,6 +130,13 @@ const ZoomChartModal: React.FC<ZoomModalProps> = ({ type, ohlcv, ind, symbol, na
         time: t, value: ind.hist[i],
         color: (ind.hist[i] ?? 0) >= 0 ? "rgba(255,82,82,0.7)" : "rgba(76,175,80,0.7)",
       })).filter((d) => !isNaN(d.value)));
+    } else if (type === "rsi") {
+      const rsiS = chart.addLineSeries({ color: "#f06292", lineWidth: 1, title: "RSI" });
+      const ob = chart.addLineSeries({ color: "rgba(255,82,82,0.4)", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false });
+      const os = chart.addLineSeries({ color: "rgba(76,175,80,0.4)", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false });
+      rsiS.setData(toLineData(ind.rsi));
+      ob.setData(times.map((t) => ({ time: t, value: 70 })));
+      os.setData(times.map((t) => ({ time: t, value: 30 })));
     } else if (type === "obv") {
       const obvS = chart.addLineSeries({ color: "#9c27b0", lineWidth: 1, title: "OBV" });
       const obvMaS = chart.addLineSeries({ color: "#ff9800", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false });
@@ -196,8 +174,7 @@ const ZoomChartModal: React.FC<ZoomModalProps> = ({ type, ohlcv, ind, symbol, na
   }, [type, ohlcv, ind]);
 
   const getTitle = () => {
-    if (type === "main") return "K線與技術分析";
-    if (type === "vol") return "獨立成交量圖 (Volume + 5/20日均量)";
+    if (type === "main") return "K線與技術分析 (含成交量)";
     if (type === "kd") return "KD 隨機指標";
     if (type === "macd") return "MACD 指標";
     if (type === "rsi") return "RSI 相對強弱指標";
@@ -279,7 +256,7 @@ const ZoomChartModal: React.FC<ZoomModalProps> = ({ type, ohlcv, ind, symbol, na
 export const ChartPanel: React.FC<ChartPanelProps> = ({ ohlcv, ind, symbol, name }) => {
   const mainRef = useRef<HTMLDivElement>(null);
   const subRefs = useRef<Record<SubChartType, HTMLDivElement | null>>({
-    vol: null, kd: null, macd: null, rsi: null, obv: null, wr: null, atr: null,
+    kd: null, macd: null, rsi: null, obv: null, wr: null, atr: null,
   });
   const chartsRef = useRef<IChartApi[]>([]);
   const [zoomChart, setZoomChart] = useState<"main" | SubChartType | null>(null);
@@ -303,21 +280,21 @@ export const ChartPanel: React.FC<ChartPanelProps> = ({ ohlcv, ind, symbol, name
     const toLineData = (arr: number[]) =>
       times.map((t, i) => ({ time: t, value: arr[i] })).filter((d) => !isNaN(d.value) && d.value !== null && d.value !== undefined);
 
-    // ── 1. 主圖 K線 + 成交量 + 均線 + 布林 ──────────────────────────────────────────────
+    // ── 1. 主圖 K線 + 內嵌成交量 + 均線 + 布林 ──────────────────────────────────────────
     const mainChart = createChart(mainRef.current!, {
       ...CHART_OPTS,
       width: mainRef.current!.clientWidth,
-      height: 280,
+      height: 310,
     });
     chartsRef.current.push(mainChart);
 
-    // 蠟燭線 (關閉價格虛線)
+    // 蠟燭線 (無橫向虛線與刻度盒)
     const candleSeries = mainChart.addCandlestickSeries({
       upColor: "#ff5252", downColor: "#4caf50",
       borderUpColor: "#ff5252", borderDownColor: "#4caf50",
       wickUpColor: "#ff5252", wickDownColor: "#4caf50",
       priceLineVisible: false,
-      lastValueVisible: true,
+      lastValueVisible: false,
     });
 
     const candleData = ohlcv.timestamp.map((_, i) => ({
@@ -366,31 +343,7 @@ export const ChartPanel: React.FC<ChartPanelProps> = ({ ohlcv, ind, symbol, name
     bbUpS.setData(toLineData(ind.bbUpper));
     bbLoS.setData(toLineData(ind.bbLower));
 
-    // ── 2. 獨立成交量副圖 (Volume + 5/20日均量) ────────────────────────────────
-    const volEl = subRefs.current.vol;
-    if (volEl) {
-      const volChart = createChart(volEl, { ...CHART_OPTS, width: volEl.clientWidth, height: 90 });
-      chartsRef.current.push(volChart);
-
-      const subVolSeries = volChart.addHistogramSeries({
-        color: "#26a69a",
-        priceFormat: { type: "volume" },
-        title: "成交量",
-      });
-
-      subVolSeries.setData(volData);
-
-      const vMa5S = volChart.addLineSeries({ color: "#ff9800", lineWidth: 1, lastValueVisible: false, priceLineVisible: false });
-      const vMa20S = volChart.addLineSeries({ color: "#03a9f4", lineWidth: 1, lastValueVisible: false, priceLineVisible: false });
-
-      vMa5S.setData(toLineData(calcSMA(ohlcv.volume, 5)));
-      vMa20S.setData(toLineData(ind.volMa20 || calcSMA(ohlcv.volume, 20)));
-
-      mainChart.timeScale().subscribeVisibleLogicalRangeChange((range) => { if (range) volChart.timeScale().setVisibleLogicalRange(range); });
-      volChart.timeScale().subscribeVisibleLogicalRangeChange((range) => { if (range) mainChart.timeScale().setVisibleLogicalRange(range); });
-    }
-
-    // ── 3. KD ──────────────────────────────────────────────────────────────────
+    // ── 2. KD ──────────────────────────────────────────────────────────────────
     const kdEl = subRefs.current.kd;
     if (kdEl) {
       const kdChart = createChart(kdEl, { ...CHART_OPTS, width: kdEl.clientWidth, height: 80 });
@@ -403,7 +356,7 @@ export const ChartPanel: React.FC<ChartPanelProps> = ({ ohlcv, ind, symbol, name
       kdChart.timeScale().subscribeVisibleLogicalRangeChange((range) => { if (range) mainChart.timeScale().setVisibleLogicalRange(range); });
     }
 
-    // ── 4. MACD ────────────────────────────────────────────────────────────────
+    // ── 3. MACD ────────────────────────────────────────────────────────────────
     const macdEl = subRefs.current.macd;
     if (macdEl) {
       const macdChart = createChart(macdEl, { ...CHART_OPTS, width: macdEl.clientWidth, height: 80 });
@@ -421,7 +374,7 @@ export const ChartPanel: React.FC<ChartPanelProps> = ({ ohlcv, ind, symbol, name
       macdChart.timeScale().subscribeVisibleLogicalRangeChange((range) => { if (range) mainChart.timeScale().setVisibleLogicalRange(range); });
     }
 
-    // ── 5. RSI ────────────────────────────────────────────────────────────────
+    // ── 4. RSI ────────────────────────────────────────────────────────────────
     const rsiEl = subRefs.current.rsi;
     if (rsiEl) {
       const rsiChart = createChart(rsiEl, { ...CHART_OPTS, width: rsiEl.clientWidth, height: 80 });
@@ -436,7 +389,7 @@ export const ChartPanel: React.FC<ChartPanelProps> = ({ ohlcv, ind, symbol, name
       rsiChart.timeScale().subscribeVisibleLogicalRangeChange((range) => { if (range) mainChart.timeScale().setVisibleLogicalRange(range); });
     }
 
-    // ── 6. OBV ─────────────────────────────────────────────────────────────────
+    // ── 5. OBV ─────────────────────────────────────────────────────────────────
     const obvEl = subRefs.current.obv;
     if (obvEl) {
       const obvChart = createChart(obvEl, { ...CHART_OPTS, width: obvEl.clientWidth, height: 70 });
@@ -449,7 +402,7 @@ export const ChartPanel: React.FC<ChartPanelProps> = ({ ohlcv, ind, symbol, name
       obvChart.timeScale().subscribeVisibleLogicalRangeChange((range) => { if (range) mainChart.timeScale().setVisibleLogicalRange(range); });
     }
 
-    // ── 7. Williams %R ─────────────────────────────────────────────────────────
+    // ── 6. Williams %R ─────────────────────────────────────────────────────────
     const wrEl = subRefs.current.wr;
     if (wrEl) {
       const wrChart = createChart(wrEl, { ...CHART_OPTS, width: wrEl.clientWidth, height: 70 });
@@ -464,7 +417,7 @@ export const ChartPanel: React.FC<ChartPanelProps> = ({ ohlcv, ind, symbol, name
       wrChart.timeScale().subscribeVisibleLogicalRangeChange((range) => { if (range) mainChart.timeScale().setVisibleLogicalRange(range); });
     }
 
-    // ── 8. ATR ─────────────────────────────────────────────────────────────────
+    // ── 7. ATR ─────────────────────────────────────────────────────────────────
     const atrEl = subRefs.current.atr;
     if (atrEl) {
       const atrChart = createChart(atrEl, { ...CHART_OPTS, width: atrEl.clientWidth, height: 70 });
@@ -495,7 +448,6 @@ export const ChartPanel: React.FC<ChartPanelProps> = ({ ohlcv, ind, symbol, name
   }, [ohlcv, ind]);
 
   const subCharts: { key: SubChartType; label: string }[] = [
-    { key: "vol", label: "📊 成交量 (Volume + 5/20日均量)" },
     { key: "kd", label: "KD 隨機指標" },
     { key: "macd", label: "MACD 指標" },
     { key: "rsi", label: "RSI 相對強弱指標" },
@@ -516,7 +468,7 @@ export const ChartPanel: React.FC<ChartPanelProps> = ({ ohlcv, ind, symbol, name
             <span><span style={{ color: "#03a9f4" }}>●</span> MA10 (藍)</span>
             <span><span style={{ color: "#ffea00" }}>●</span> MA20 (黃)</span>
             <span><span style={{ color: "rgba(179, 157, 219, 0.9)" }}>- -</span> 布林通道 (紫)</span>
-            <span><span style={{ color: "#26a69a" }}>■</span> 成交量 (紅/綠)</span>
+            <span><span style={{ color: "#26a69a" }}>■</span> 成交量 (紅/綠柱)</span>
           </div>
         </div>
         <button 
