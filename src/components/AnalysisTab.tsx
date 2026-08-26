@@ -1,3 +1,4 @@
+import { AddToWatchlistBtn } from "./AddToWatchlistBtn";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "../utils/platform";
 import { ChartPanel } from "./Chart";
@@ -452,7 +453,10 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
             <>
               {/* 股票名稱與現價 */}
               <div style={{ marginBottom: "12px" }}>
-                <div style={{ fontSize: "1.15rem", fontWeight: 700, color: "var(--text-primary)" }}>{info.name}</div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div style={{ fontSize: "1.15rem", fontWeight: 700, color: "var(--text-primary)" }}>{info.name}</div>
+                  <AddToWatchlistBtn symbol={info.symbol} text="⭐ 加入收藏" style={{ fontSize: "0.8rem", padding: "4px 10px" }} />
+                </div>
                 <div style={{ fontSize: "0.82rem", color: "var(--text-muted)", marginBottom: "6px" }}>{info.symbol}</div>
                 <div style={{ display: "flex", alignItems: "baseline", gap: "10px" }}>
                   <span style={{ fontSize: "1.6rem", fontWeight: 700, color: changeAmt != null && changeAmt >= 0 ? "var(--accent-red)" : "var(--accent-green)" }}>

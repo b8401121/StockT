@@ -1,3 +1,4 @@
+import { AddToWatchlistBtn } from "./AddToWatchlistBtn";
 import React, { useCallback, useRef, useState } from "react";
 import { invoke } from "../utils/platform";
 import { calculateAllIndicators, OhlcvData } from "../utils/indicators";
@@ -365,9 +366,12 @@ export const ScannerTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ on
                       )}
                     </td>
                     <td>
-                      <button className="btn btn-outline btn-sm" onClick={() => onAnalyze?.(r.symbol)}>
-                        詳細分析
-                      </button>
+                      <div style={{ display: "flex", gap: "6px" }}>
+                        <button className="btn btn-outline btn-sm" onClick={() => onAnalyze?.(r.symbol)}>
+                          詳細分析
+                        </button>
+                        <AddToWatchlistBtn symbol={r.symbol} />
+                      </div>
                     </td>
                   </tr>
                 );

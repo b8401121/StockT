@@ -109,3 +109,26 @@ export async function saveWatchlistToCloud(uid: string, username: string, lists:
     updatedAt: new Date().toISOString(),
   });
 }
+
+/** 將特定股票加入用戶的自選股清單（雲端同步） */
+export async function addStockToUserWatchlist(symbol: string, listName = "我的自選股"): Promise<{ success: boolean; message: string }> {
+  const user = auth.currentUser;
+  if (!user) {
+    return { success: false, message: "🔒 請先登入帳號以啟用雲端收藏功能！" };
+  }
+  const cleanSym = symbol.trim().toUpperCase();
+  try {
+    const { lists, username } = await loadWatchlistFromCloud(user.uid);
+    const targetList = lists[listName] ? [...lists[listName]] : [];
+    if (targetList.includes(cleanSym)) {
+      return { success: true, message: `ℹ️【${cleanSym}】已在您的「${listName}」收藏清單中！` };
+    }
+    targetList.push(cleanSym);
+    const updatedLists = { ...lists, [listName]: targetList };
+    await saveWatchlistToCloud(user.uid, username, updatedLists);
+    return { success: true, message: `🎉 已成功將【${cleanSym}】加入「${listName}」！` };
+  } catch (err: any) {
+    console.error("Add to watchlist error:", err);
+    return { success: false, message: `收藏失敗：${err?.message || err}` };
+  }
+}

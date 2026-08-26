@@ -1,3 +1,4 @@
+import { AddToWatchlistBtn } from "./AddToWatchlistBtn";
 import React, { useRef, useState } from "react";
 import { invoke } from "../utils/platform";
 import { getFsGrade, StockInfoFull } from "../utils/analysis";
@@ -326,7 +327,12 @@ export const FundamentalScanTab: React.FC<{ onAnalyze?: (sym: string) => void }>
                     <span style={{ color: "#ef9a9a" }}>{r.reasons.slice(0, 5).join(" | ")}</span>
                     {r.warnings.length > 0 && <span style={{ color: "#81c784" }}> ⚠ {r.warnings.slice(0, 2).join(", ")}</span>}
                   </td>
-                  <td><button className="btn btn-outline btn-sm" onClick={() => onAnalyze?.(r.symbol)}>分析</button></td>
+                  <td>
+                    <div style={{ display: "flex", gap: "6px" }}>
+                      <button className="btn btn-outline btn-sm" onClick={() => onAnalyze?.(r.symbol)}>分析</button>
+                      <AddToWatchlistBtn symbol={r.symbol} />
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
