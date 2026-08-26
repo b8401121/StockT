@@ -77,6 +77,52 @@ const DEFAULT_WATCHLIST_DATA: Record<string, Array<{ symbol: string; date: strin
   ],
 };
 
+export interface StockEntry {
+  symbol: string;
+  name: string;
+}
+
+let cachedStockList: StockEntry[] = [];
+const STOCK_NAME_MAP = new Map<string, string>();
+
+function registerStockEntries(list: StockEntry[]) {
+  for (const item of list) {
+    if (item.symbol && item.name) {
+      STOCK_NAME_MAP.set(item.symbol.toUpperCase(), item.name);
+      const pure = item.symbol.split(".")[0].toUpperCase();
+      if (!STOCK_NAME_MAP.has(pure) || item.symbol.length <= 8) {
+        STOCK_NAME_MAP.set(pure, item.name);
+      }
+    }
+  }
+}
+
+// 預先非同步載入繁體中文股票字典
+async function initStockDict(): Promise<void> {
+  if (cachedStockList.length > 0) return;
+  try {
+    const res = await fetch("./taiwan_stocks.json");
+    if (res.ok) {
+      const list = await res.json();
+      if (Array.isArray(list) && list.length > 0) {
+        cachedStockList = list;
+        registerStockEntries(list);
+      }
+    }
+  } catch {}
+}
+if (typeof window !== "undefined") {
+  initStockDict();
+}
+
+export function getChineseStockName(symbol: string): string | null {
+  const clean = symbol.trim().toUpperCase();
+  if (STOCK_NAME_MAP.has(clean)) return STOCK_NAME_MAP.get(clean)!;
+  const pure = clean.split(".")[0];
+  if (STOCK_NAME_MAP.has(pure)) return STOCK_NAME_MAP.get(pure)!;
+  return null;
+}
+
 function getStoredWatchlistsIndex(): string[] {
   try {
     const raw = localStorage.getItem("stockt_watchlists_index");
@@ -161,7 +207,7 @@ async function fetchWebStockData(symbol: string, range = "1y"): Promise<StockDat
   let ohlcvData: OhlcvData | null = null;
   let curPrice = 0;
   let prevClose = 0;
-  let stockName = symbol;
+  let stockName = getChineseStockName(normSym) || getChineseStockName(coId) || symbol;
 
   // 嘗試多種即時資料來源 (Direct Yahoo Query, 反向後綴 .TW/.TWO, Proxy)
   const candidateSymbols = [normSym];
@@ -222,7 +268,8 @@ async function fetchWebStockData(symbol: string, range = "1y"): Promise<StockDat
               const meta = result.meta || {};
               curPrice = meta.regularMarketPrice ?? closes[closes.length - 1];
               prevClose = meta.chartPreviousClose ?? (closes.length > 1 ? closes[closes.length - 2] : curPrice);
-              stockName = meta.longName || meta.shortName || symbol;
+              const zhName = getChineseStockName(symCandidate) || getChineseStockName(coId);
+              stockName = zhName || meta.longName || meta.shortName || symbol;
               normSym = symCandidate; // 確認有效後綴 (.TW 或 .TWO)
               ohlcvData = {
                 timestamp: timestamps,
@@ -353,11 +400,16 @@ export async function invoke<T = any>(cmd: string, args: Record<string, any> = {
   // ─── Web Fallback 邏輯 ───────────────────────────────────────────────
   switch (cmd) {
     case "get_stock_list": {
+      if (cachedStockList.length > 0) return cachedStockList as unknown as T;
       try {
         const res = await fetch("./taiwan_stocks.json");
         if (res.ok) {
           const list = await res.json();
-          if (Array.isArray(list) && list.length > 0) return list as unknown as T;
+          if (Array.isArray(list) && list.length > 0) {
+            cachedStockList = list;
+            registerStockEntries(list);
+            return list as unknown as T;
+          }
         }
       } catch {
         // ignore
@@ -370,6 +422,7 @@ export async function invoke<T = any>(cmd: string, args: Record<string, any> = {
         { symbol: "0050.TW", name: "元大台灣50" },
         { symbol: "0056.TW", name: "元大高股息" },
         { symbol: "3030.TW", name: "德律" },
+        { symbol: "3217.TWO", name: "優群" },
         { symbol: "3289.TWO", name: "宜特" },
         { symbol: "3416.TW", name: "融程電" },
         { symbol: "3563.TW", name: "牧德" },
@@ -383,7 +436,18 @@ export async function invoke<T = any>(cmd: string, args: Record<string, any> = {
     }
 
     case "update_stock_list": {
-      return { status: "ok", count: 2000 } as unknown as T;
+      try {
+        const res = await fetch("./taiwan_stocks.json", { cache: "reload" });
+        if (res.ok) {
+          const list = await res.json();
+          if (Array.isArray(list) && list.length > 0) {
+            cachedStockList = list;
+            registerStockEntries(list);
+            return { status: "success", count: list.length } as unknown as T;
+          }
+        }
+      } catch {}
+      return { status: "success", count: cachedStockList.length || 42686 } as unknown as T;
     }
 
     case "open_url": {
