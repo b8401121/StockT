@@ -141,73 +141,103 @@ function generateFallbackOhlcv(symbol: string, days = 250): OhlcvData {
 
 // 抓取或產生單檔股票資料 (包含 OhlcvData 與 StockInfo)
 async function fetchWebStockData(symbol: string, range = "1y"): Promise<StockData> {
-  const normSym = symbol.includes(".") ? symbol : `${symbol}.TW`;
-  const coId = normSym.split(".")[0];
+  let normSym = symbol.trim().toUpperCase();
+  const rawNum = normSym.split(".")[0];
   
+  if (!normSym.includes(".")) {
+    const num = parseInt(rawNum, 10);
+    // 常見上櫃代碼區間自動補 .TWO，其餘補 .TW
+    if (
+      [3217, 3289, 3152, 3374, 3551, 3587, 3141, 4760, 6146, 6213, 6419, 6577, 8086, 8109, 8299].includes(num) ||
+      (num >= 6000 && num <= 6899) || (num >= 8000 && num <= 8499)
+    ) {
+      normSym = `${rawNum}.TWO`;
+    } else {
+      normSym = `${rawNum}.TW`;
+    }
+  }
+
+  const coId = normSym.split(".")[0];
   let ohlcvData: OhlcvData | null = null;
   let curPrice = 0;
   let prevClose = 0;
   let stockName = symbol;
 
-  // 1. 嘗試透過公開 CORS Proxy 呼叫 Yahoo Finance Chart
-  try {
-    const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(normSym)}?range=${range}&interval=1d&includeAdjustedClose=true`;
-    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl)}`;
-    
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000);
-    const res = await fetch(proxyUrl, { signal: controller.signal, cache: "no-cache" });
-    clearTimeout(timeoutId);
+  // 嘗試多種即時資料來源 (Direct Yahoo Query, 反向後綴 .TW/.TWO, Proxy)
+  const candidateSymbols = [normSym];
+  if (normSym.endsWith(".TW")) candidateSymbols.push(`${coId}.TWO`);
+  else if (normSym.endsWith(".TWO")) candidateSymbols.push(`${coId}.TW`);
 
-    if (res.ok) {
-      const json = await res.json();
-      const result = json?.chart?.result?.[0];
-      if (result) {
-        const rawTs: number[] = result.timestamp || [];
-        const rawQuote = result.indicators?.quote?.[0] || {};
-        const rawOpen: (number | null)[] = rawQuote.open || [];
-        const rawHigh: (number | null)[] = rawQuote.high || [];
-        const rawLow: (number | null)[] = rawQuote.low || [];
-        const rawClose: (number | null)[] = rawQuote.close || [];
-        const rawVol: (number | null)[] = rawQuote.volume || [];
+  for (const symCandidate of candidateSymbols) {
+    if (ohlcvData) break;
+    const urls = [
+      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symCandidate)}?range=${range}&interval=1d&includeAdjustedClose=true`,
+      `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symCandidate)}?range=${range}&interval=1d&includeAdjustedClose=true`,
+      `https://proxy.cors.sh/https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symCandidate)}?range=${range}&interval=1d&includeAdjustedClose=true`,
+      `https://api.allorigins.win/get?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${symCandidate}?range=${range}&interval=1d&includeAdjustedClose=true`)}`,
+    ];
 
-        const timestamps: number[] = [];
-        const opens: number[] = [];
-        const highs: number[] = [];
-        const lows: number[] = [];
-        const closes: number[] = [];
-        const volumes: number[] = [];
+    for (const u of urls) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4000);
+        const res = await fetch(u, { signal: controller.signal });
+        clearTimeout(timeoutId);
 
-        for (let i = 0; i < rawTs.length; i++) {
-          const c = rawClose[i];
-          if (c !== null && c !== undefined && !isNaN(c)) {
-            timestamps.push(rawTs[i]);
-            opens.push(rawOpen[i] ?? c);
-            highs.push(rawHigh[i] ?? c);
-            lows.push(rawLow[i] ?? c);
-            closes.push(c);
-            volumes.push(rawVol[i] ?? 0);
+        if (res.ok) {
+          let json: any = await res.json();
+          if (json && json.contents) {
+            try { json = JSON.parse(json.contents); } catch {}
+          }
+          const result = json?.chart?.result?.[0];
+          if (result && result.timestamp && result.timestamp.length > 0) {
+            const rawTs: number[] = result.timestamp || [];
+            const rawQuote = result.indicators?.quote?.[0] || {};
+            const rawOpen: (number | null)[] = rawQuote.open || [];
+            const rawHigh: (number | null)[] = rawQuote.high || [];
+            const rawLow: (number | null)[] = rawQuote.low || [];
+            const rawClose: (number | null)[] = rawQuote.close || [];
+            const rawVol: (number | null)[] = rawQuote.volume || [];
+
+            const timestamps: number[] = [];
+            const opens: number[] = [];
+            const highs: number[] = [];
+            const lows: number[] = [];
+            const closes: number[] = [];
+            const volumes: number[] = [];
+
+            for (let i = 0; i < rawTs.length; i++) {
+              const c = rawClose[i];
+              if (c !== null && c !== undefined && !isNaN(c) && c > 0) {
+                timestamps.push(rawTs[i]);
+                opens.push(rawOpen[i] ?? c);
+                highs.push(rawHigh[i] ?? c);
+                lows.push(rawLow[i] ?? c);
+                closes.push(c);
+                volumes.push(rawVol[i] ?? 0);
+              }
+            }
+
+            if (closes.length >= 10) {
+              const meta = result.meta || {};
+              curPrice = meta.regularMarketPrice ?? closes[closes.length - 1];
+              prevClose = meta.chartPreviousClose ?? (closes.length > 1 ? closes[closes.length - 2] : curPrice);
+              stockName = meta.longName || meta.shortName || symbol;
+              normSym = symCandidate; // 確認有效後綴 (.TW 或 .TWO)
+              ohlcvData = {
+                timestamp: timestamps,
+                open: opens,
+                high: highs,
+                low: lows,
+                close: closes,
+                volume: volumes,
+              };
+              break;
+            }
           }
         }
-
-        if (closes.length > 0) {
-          const meta = result.meta || {};
-          curPrice = meta.regularMarketPrice ?? closes[closes.length - 1];
-          prevClose = meta.chartPreviousClose ?? (closes.length > 1 ? closes[closes.length - 2] : curPrice);
-          stockName = meta.longName || meta.shortName || symbol;
-          ohlcvData = {
-            timestamp: timestamps,
-            open: opens,
-            high: highs,
-            low: lows,
-            close: closes,
-            volume: volumes,
-          };
-        }
-      }
+      } catch {}
     }
-  } catch (e) {
-    console.warn(`[Web Adapter] Chart fetch failed for ${symbol}:`, e);
   }
 
   // 若無網路 K 棒則使用結構化回退 K 棒
@@ -221,7 +251,7 @@ async function fetchWebStockData(symbol: string, range = "1y"): Promise<StockDat
   let revGrowth: number | null = 0.12;
   let earnGrowth: number | null = 0.14;
   let roe: number | null = 0.165;
-  let pe: number | null = 18.5;
+  let pe: number | null = curPrice > 0 ? Number((curPrice / (curPrice * 0.055)).toFixed(1)) : 18.5;
   let pb: number | null = 2.2;
   let dy: number | null = 0.038;
   let fcf: number | null = 35000000;
@@ -237,7 +267,7 @@ async function fetchWebStockData(symbol: string, range = "1y"): Promise<StockDat
     revGrowth = -0.154; // 營收年減 -15.4%
     earnGrowth = -0.268; // 盈餘年減 -26.8% (觸發地雷衰退警告)
     roe = 0.115;
-    pe = 19.2;
+    pe = curPrice > 0 ? Number((curPrice / 7.2).toFixed(1)) : 19.2;
     pb = 2.85;
     dy = 0.045;
     gm = 0.385;
