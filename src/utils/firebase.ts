@@ -8,6 +8,8 @@ import {
   signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
+  setPersistence,
+  browserSessionPersistence,
   User,
   Auth,
 } from "firebase/auth";
@@ -38,6 +40,10 @@ let db: Firestore;
 try {
   app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
   auth = getAuth(app);
+  // 設定 Session 持久化：關閉分頁或瀏覽器後，登入狀態自動失效，下次開啟必須重新登入
+  setPersistence(auth, browserSessionPersistence).catch((err) => {
+    console.warn("[Firebase] setPersistence error:", err);
+  });
   db = getFirestore(app);
 } catch (e) {
   console.error("[Firebase] Init error:", e);
@@ -56,6 +62,7 @@ export function getFirebaseDb(): Firestore { return db; }
 export async function registerUser(username: string, password: string): Promise<User> {
   const email = toEmail(username);
   try {
+    await setPersistence(auth, browserSessionPersistence);
     const cred = await createUserWithEmailAndPassword(auth, email, password);
     // 初始化空白自選股清單到 Firestore
     await setDoc(doc(db, "watchlists", cred.user.uid), {
@@ -75,6 +82,7 @@ export async function registerUser(username: string, password: string): Promise<
 /** 登入 */
 export async function loginUser(username: string, password: string): Promise<User> {
   const email = toEmail(username);
+  await setPersistence(auth, browserSessionPersistence);
   const cred = await signInWithEmailAndPassword(auth, email, password);
   return cred.user;
 }
