@@ -778,15 +778,31 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
 
             {/* 4. 總累積獲利 */}
             <div style={{
-              background: totals.grandTotalPnl >= 0 ? "rgba(255, 82, 82, 0.12)" : "rgba(76, 175, 80, 0.12)",
-              border: totals.grandTotalPnl >= 0 ? "1px solid rgba(255, 82, 82, 0.45)" : "1px solid rgba(76, 175, 80, 0.45)",
+              background: totals.grandTotalPnl >= 0 ? "rgba(255, 82, 82, 0.14)" : "rgba(76, 175, 80, 0.14)",
+              border: totals.grandTotalPnl >= 0 ? "1px solid rgba(255, 82, 82, 0.5)" : "1px solid rgba(76, 175, 80, 0.5)",
               borderRadius: "8px", padding: "10px 14px"
             }}>
-              <div style={{ fontSize: "0.76rem", color: "#ffffff", fontWeight: 700, marginBottom: "2px" }}>📈 總累積獲利 (未實現 + 已實現)</div>
+              <div style={{ fontSize: "0.76rem", color: "#ffffff", fontWeight: 700, marginBottom: "2px" }}>
+                📈 總累積獲利 (未實現 + 已實現)
+              </div>
               <div style={{ fontSize: "1.25rem", fontWeight: 800, color: totals.grandTotalPnl >= 0 ? "#ff5252" : "#4caf50" }}>
                 {totals.grandTotalPnl >= 0 ? "+" : ""}NT$ {totals.grandTotalPnl.toLocaleString()}
               </div>
-              <div style={{ fontSize: "0.72rem", color: "#cbd5e1", marginTop: "2px" }}>
+              <div style={{
+                fontSize: "0.82rem", fontWeight: 800,
+                color: totals.grandTotalPnl >= 0 ? "#ff5252" : "#4caf50",
+                marginTop: "3px", display: "flex", alignItems: "center", gap: "6px"
+              }}>
+                <span>總報酬率:</span>
+                <span style={{
+                  padding: "1px 6px", borderRadius: "4px",
+                  background: totals.grandTotalPnl >= 0 ? "rgba(255,82,82,0.2)" : "rgba(76,175,80,0.2)",
+                  border: totals.grandTotalPnl >= 0 ? "1px solid rgba(255,82,82,0.4)" : "1px solid rgba(76,175,80,0.4)"
+                }}>
+                  {totals.grandTotalPnl >= 0 ? "+" : ""}{totals.grandTotalRoi.toFixed(2)}%
+                </span>
+              </div>
+              <div style={{ fontSize: "0.70rem", color: "#cbd5e1", marginTop: "4px" }}>
                 未實現 {totals.totalUnrealizedPnl >= 0 ? "+" : ""}{totals.totalUnrealizedPnl.toLocaleString()} ｜ 已實現 {totals.totalRealizedPnl >= 0 ? "+" : ""}{totals.totalRealizedPnl.toLocaleString()}
               </div>
             </div>
