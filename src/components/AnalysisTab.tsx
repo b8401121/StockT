@@ -423,6 +423,10 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
     return { title: "⚖️ 中性持有 (Hold)", color: "#b0bec5", bg: "rgba(176,190,197,0.05)", border: "rgba(176,190,197,0.2)" };
   })();
 
+  const changeAmt =
+    info?.current_price && info?.previous_close
+      ? info.current_price - info.previous_close
+      : null;
   const changePct =
     info?.current_price && info?.previous_close
       ? ((info.current_price - info.previous_close) / info.previous_close) * 100
@@ -490,12 +494,12 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                 <div style={{ fontSize: "1.15rem", fontWeight: 700, color: "var(--text-primary)" }}>{info.name}</div>
                 <div style={{ fontSize: "0.82rem", color: "var(--text-muted)", marginBottom: "6px" }}>{info.symbol}</div>
                 <div style={{ display: "flex", alignItems: "baseline", gap: "10px" }}>
-                  <span style={{ fontSize: "1.6rem", fontWeight: 700, color: changePct != null && changePct >= 0 ? "var(--accent-red)" : "var(--accent-green)" }}>
+                  <span style={{ fontSize: "1.6rem", fontWeight: 700, color: changeAmt != null && changeAmt >= 0 ? "var(--accent-red)" : "var(--accent-green)" }}>
                     {fmtPrice(info.current_price)}
                   </span>
-                  {changePct != null && !isNaN(changePct) && (
-                    <span style={{ fontSize: "0.9rem", color: changePct >= 0 ? "var(--accent-red)" : "var(--accent-green)", fontWeight: 600 }}>
-                      {changePct >= 0 ? "▲" : "▼"} {Math.abs(changePct).toFixed(2)}%
+                  {changeAmt != null && changePct != null && !isNaN(changePct) && (
+                    <span style={{ fontSize: "0.95rem", color: changeAmt >= 0 ? "var(--accent-red)" : "var(--accent-green)", fontWeight: 600 }}>
+                      {changeAmt >= 0 ? "▲" : "▼"} {Math.abs(changeAmt).toFixed(2)} ({changeAmt >= 0 ? "+" : ""}{changePct.toFixed(2)}%)
                     </span>
                   )}
                 </div>
