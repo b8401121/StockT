@@ -978,12 +978,12 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                                     onClick={() => onAnalyze(h.symbol)}
                                     title="前往個股分析"
                                     style={{
-                                      background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.15)",
-                                      borderRadius: "4px", color: "#ffffff", fontSize: "0.76rem", padding: "3px 6px",
-                                      cursor: "pointer"
+                                      background: "rgba(168, 85, 247, 0.2)", border: "1px solid rgba(192, 132, 252, 0.4)",
+                                      borderRadius: "4px", color: "#d8b4fe", fontSize: "0.76rem", padding: "3px 8px",
+                                      cursor: "pointer", fontWeight: 700
                                     }}
                                   >
-                                    🔍
+                                    🔍 分析
                                   </button>
                                 )}
                               </div>
@@ -1042,6 +1042,7 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                       <th style={{ padding: "10px 12px", textAlign: "right" }}>手續費＋證交稅</th>
                       <th style={{ padding: "10px 12px", textAlign: "right" }}>已實現損益</th>
                       <th style={{ padding: "10px 12px", textAlign: "right" }}>報酬率</th>
+                      <th style={{ padding: "10px 12px", textAlign: "center" }}>操作</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1080,6 +1081,21 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                           color: r.pnl >= 0 ? "#ff5252" : "#4caf50"
                         }}>
                           {r.pnl >= 0 ? "+" : ""}{r.roi.toFixed(2)}%
+                        </td>
+                        <td style={{ padding: "12px", textAlign: "center" }}>
+                          {onAnalyze && (
+                            <button
+                              onClick={() => onAnalyze(r.symbol)}
+                              title="前往個股分析"
+                              style={{
+                                background: "rgba(168, 85, 247, 0.2)", border: "1px solid rgba(192, 132, 252, 0.4)",
+                                borderRadius: "4px", color: "#d8b4fe", fontSize: "0.76rem", padding: "3px 8px",
+                                cursor: "pointer", fontWeight: 700
+                              }}
+                            >
+                              🔍 分析
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -1156,6 +1172,19 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                         </td>
                         <td style={{ padding: "10px 12px", textAlign: "center" }}>
                           <div style={{ display: "flex", gap: "6px", justifyContent: "center" }}>
+                            {onAnalyze && (
+                              <button
+                                onClick={() => onAnalyze(t.symbol)}
+                                title="前往個股分析"
+                                style={{
+                                  background: "rgba(168, 85, 247, 0.2)", border: "1px solid rgba(192, 132, 252, 0.4)",
+                                  borderRadius: "4px", color: "#d8b4fe", fontSize: "0.74rem", padding: "2px 6px",
+                                  cursor: "pointer", fontWeight: 700
+                                }}
+                              >
+                                🔍 分析
+                              </button>
+                            )}
                             <button
                               onClick={() => openTradeModal(t.type, t.symbol, t.price, t.shares, t)}
                               style={{
