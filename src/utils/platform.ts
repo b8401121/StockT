@@ -213,7 +213,14 @@ function getDeterministicFundamentals(coId: string, normSym: string, curPrice: n
 }
 
 // 抓取或產生單檔股票資料 (包含 OhlcvData 與 StockInfo)
+const memoryStockCache = new Map<string, { data: StockData; expireAt: number }>();
+
 async function fetchWebStockData(symbol: string, range = "1y"): Promise<StockData> {
+  const cacheKey = `${symbol.trim().toUpperCase()}_${range}`;
+  const cached = memoryStockCache.get(cacheKey);
+  if (cached && cached.expireAt > Date.now()) {
+    return cached.data;
+  }
   let normSym = symbol.trim().toUpperCase();
   const rawNum = normSym.split(".")[0];
   
@@ -627,9 +634,12 @@ export async function invoke<T = any>(cmd: string, args: Record<string, any> = {
     case "fetch_batch_stock_data_full": {
       const symbols: string[] = args.symbols || [];
       const range = args.range || "3mo";
+      const CONCURRENCY = 20;
       const results: StockData[] = [];
-      for (const s of symbols) {
-        results.push(await fetchWebStockData(s, range));
+      for (let i = 0; i < symbols.length; i += CONCURRENCY) {
+        const chunk = symbols.slice(i, i + CONCURRENCY);
+        const chunkResults = await Promise.all(chunk.map((s) => fetchWebStockData(s, range)));
+        results.push(...chunkResults);
       }
       return results as unknown as T;
     }

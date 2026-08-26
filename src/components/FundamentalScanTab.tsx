@@ -80,7 +80,7 @@ export const FundamentalScanTab: React.FC<{ onAnalyze?: (sym: string) => void }>
     setScanning(true); cancelRef.current = false;
     setResults([]); setProgress(0);
     const total = symbols.length;
-    const BATCH = 8;
+    const BATCH = 32;
     const scanResults: FsResult[] = [];
 
     for (let i = 0; i < total; i += BATCH) {
@@ -218,7 +218,7 @@ export const FundamentalScanTab: React.FC<{ onAnalyze?: (sym: string) => void }>
       } catch (err) {
         console.error("Batch scan error:", err);
       }
-      await new Promise((r) => setTimeout(r, 50));
+      
     }
 
     setProgress(100);

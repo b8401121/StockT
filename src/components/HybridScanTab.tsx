@@ -82,7 +82,7 @@ export const HybridScanTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({
     setResults([]); setProgress(0);
 
     const total = symbols.length;
-    const BATCH = 8;
+    const BATCH = 32;
     const scanResults: HybridResult[] = [];
 
     for (let i = 0; i < total; i += BATCH) {
@@ -133,7 +133,7 @@ export const HybridScanTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({
       } catch (err) {
         console.error("Batch scan error:", err);
       }
-      await new Promise((r) => setTimeout(r, 50));
+      
     }
 
     setProgress(100);

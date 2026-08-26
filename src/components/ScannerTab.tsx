@@ -79,7 +79,7 @@ export const ScannerTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ on
     setProgress(0);
 
     const total = symbols.length;
-    const BATCH = (mode === "buy") ? 12 : 6;
+    const BATCH = 32;
     const scanResults: ScanResult[] = [];
 
     for (let i = 0; i < total; i += BATCH) {
@@ -196,7 +196,7 @@ export const ScannerTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ on
         }
         setResults([...scanResults]);
       } catch {}
-      await new Promise((r) => setTimeout(r, 50));
+      
     }
 
     setProgress(100);
