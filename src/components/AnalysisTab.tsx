@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "../utils/platform";
 import { ChartPanel } from "./Chart";
 import { calculateAllIndicators, OhlcvData } from "../utils/indicators";
 import {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { toggleFullscreen } from "./utils/platform";
 import "./index.css";
 import { AnalysisTab } from "./components/AnalysisTab";
 import { ScannerTab } from "./components/ScannerTab";
@@ -25,30 +25,11 @@ export default function App() {
   const [isUpdating, setIsUpdating] = useState<boolean>(false);
 
   useEffect(() => {
-    // 1. 全螢幕快速鍵監聽 (Alt+Enter 進入/退出, Esc 退出)
+    // 1. 全螢幕快速鍵監聽 (Alt+Enter 進入/退出)
     const handleKeyDown = async (e: KeyboardEvent) => {
       if (e.altKey && (e.key === "Enter" || e.code === "Enter")) {
         e.preventDefault();
-        try {
-          const win = getCurrentWindow();
-          const isFull = await win.isFullscreen();
-          const nextFull = !isFull;
-          await win.setFullscreen(nextFull);
-          await win.setDecorations(!nextFull);
-        } catch (err) {
-          alert("Fullscreen Error: " + err);
-        }
-      }
-      if (e.key === "Escape") {
-        try {
-          const win = getCurrentWindow();
-          const isFull = await win.isFullscreen();
-          if (isFull) {
-            await win.setFullscreen(false);
-          }
-        } catch (err) {
-          console.error("Failed to exit fullscreen:", err);
-        }
+        await toggleFullscreen();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -102,15 +83,7 @@ export default function App() {
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           <button 
             onClick={async () => {
-              try {
-                const win = getCurrentWindow();
-                const isFull = await win.isFullscreen();
-                const nextFull = !isFull;
-                await win.setFullscreen(nextFull);
-                await win.setDecorations(!nextFull);
-              } catch (err) {
-                alert("Fullscreen Error: " + err);
-              }
+              await toggleFullscreen();
             }}
             style={{
               background: "transparent",

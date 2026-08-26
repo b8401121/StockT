@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "../utils/platform";
 import { getFsGrade, StockInfoFull } from "../utils/analysis";
 import { exportToHtmlFile } from "../utils/exportHtml";
 
