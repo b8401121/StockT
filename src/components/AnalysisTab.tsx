@@ -365,37 +365,55 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
     if (!info) return;
     try {
       const cat = await invoke<string>("get_category_by_symbol", { symbol: info.symbol });
-      const filename = localStorage.getItem("portfolio_current_list") || "我的自選股";
-      const listData = await invoke<Record<string, any[]>>("load_watchlist", { filename });
-      
-      let exists = false;
-      for (const entries of Object.values(listData)) {
-        if (entries.some((e: any) => e.symbol === info.symbol)) {
-          exists = true;
-          break;
-        }
-      }
-      
-      if (exists) {
-        if (!window.confirm(`「${info.symbol}」已經存在於自選股中。\n您要追加一筆新的購入紀錄嗎？`)) {
-          return;
-        }
-      }
-      
+      const authUser = sessionStorage.getItem("stockt_auth_user");
+      const authPass = sessionStorage.getItem("stockt_auth_pass");
+
       const newEntry = {
         symbol: info.symbol,
         date: new Date().toISOString().slice(0, 10),
         price: 0,
         shares: 0,
-        sell_price: 0
+        sell_price: 0,
       };
-      
-      const updatedList = { ...listData };
-      if (!updatedList[cat]) updatedList[cat] = [];
-      updatedList[cat].push(newEntry);
-      
-      await invoke("save_watchlist", { watchlist: updatedList, filename });
-      alert(`已成功將「${info.name || info.symbol}」存入自選名單【${cat}】中！`);
+
+      if (authUser && authPass) {
+        // 1. 若已登入專屬保險箱，寫入該用戶的 AES-256 加密保險箱並同步 GitHub
+        const { loadUserVault, saveUserVault } = await import("../utils/vault");
+        let userWatchlist: Record<string, any[]> = {};
+        try {
+          const res = await loadUserVault(authUser, authPass);
+          userWatchlist = res.data || {};
+        } catch {}
+
+        let exists = false;
+        for (const entries of Object.values(userWatchlist)) {
+          if (entries.some((e: any) => e.symbol === info.symbol)) {
+            exists = true;
+            break;
+          }
+        }
+        if (exists) {
+          if (!window.confirm(`「${info.symbol}」已經存在於您的自選股中。\n您要追加一筆新的購入紀錄嗎？`)) {
+            return;
+          }
+        }
+
+        const updatedList = { ...userWatchlist };
+        if (!updatedList[cat]) updatedList[cat] = [];
+        updatedList[cat].push(newEntry);
+
+        await saveUserVault(authUser, authPass, updatedList, true);
+        alert(`🎉 已成功將「${info.name || info.symbol}」加入【${authUser}】的專屬加密自選股（分類：${cat}）！`);
+      } else {
+        // 2. 訪客模式
+        const filename = localStorage.getItem("portfolio_current_list") || "我的自選股";
+        const listData = await invoke<Record<string, any[]>>("load_watchlist", { filename });
+        const updatedList = { ...listData };
+        if (!updatedList[cat]) updatedList[cat] = [];
+        updatedList[cat].push(newEntry);
+        await invoke("save_watchlist", { watchlist: updatedList, filename });
+        alert(`已成功將「${info.name || info.symbol}」存入自選名單【${cat}】中！`);
+      }
     } catch (e) {
       alert(`存入失敗: ${e}`);
     }

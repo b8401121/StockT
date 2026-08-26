@@ -6,6 +6,7 @@ import { ScannerTab } from "./components/ScannerTab";
 import { FundamentalScanTab } from "./components/FundamentalScanTab";
 import { HybridScanTab } from "./components/HybridScanTab";
 import { PortfolioTab } from "./components/PortfolioTab";
+import { AuthScreen } from "./components/AuthScreen";
 import { loadStocks, updateStocks } from "./utils/stocks";
 
 type TabId = "analysis" | "scanner" | "fundamental" | "hybrid" | "portfolio";
@@ -23,6 +24,19 @@ export default function App() {
   const [analyzeTarget, setAnalyzeTarget] = useState<string>("");
   const [stockStatus, setStockStatus] = useState<string>("載入中...");
   const [isUpdating, setIsUpdating] = useState<boolean>(false);
+
+  // 全域登入與身份狀態
+  const [authUser, setAuthUser] = useState<string | null>(() => sessionStorage.getItem("stockt_auth_user"));
+  const [_authPass, setAuthPass] = useState<string | null>(() => sessionStorage.getItem("stockt_auth_pass"));
+  const [isGuest, setIsGuest] = useState<boolean>(false);
+
+  const handleLogout = () => {
+    sessionStorage.removeItem("stockt_auth_user");
+    sessionStorage.removeItem("stockt_auth_pass");
+    setAuthUser(null);
+    setAuthPass(null);
+    setIsGuest(false);
+  };
 
   useEffect(() => {
     // 1. 全螢幕快速鍵監聽 (Alt+Enter 進入/退出)
@@ -61,11 +75,22 @@ export default function App() {
   const handleAnalyze = (sym: string) => {
     setAnalyzeTarget(sym);
     setActiveTab("analysis");
-    // AnalysisTab 監聽 analyzeTarget 變化並自動分析
   };
 
   return (
     <div className="app-root">
+      {/* ── 尚未登入且非訪客時，展示全域登入/註冊門檻 ── */}
+      {!authUser && !isGuest && (
+        <AuthScreen
+          onLoginSuccess={(u, p) => {
+            setAuthUser(u);
+            setAuthPass(p);
+            setIsGuest(false);
+          }}
+          onGuestMode={() => setIsGuest(true)}
+        />
+      )}
+
       {/* ── 頂部 Header ──────────────────────────────────────────────────────── */}
       <header className="app-header">
         <div className="app-title">⛰ 阿山股市終端機 v2.0</div>
@@ -80,7 +105,40 @@ export default function App() {
             </button>
           ))}
         </nav>
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          {/* 使用者身份徽章與登出按鈕 */}
+          {authUser ? (
+            <div style={{
+              display: "flex", alignItems: "center", gap: "8px",
+              background: "rgba(77, 148, 255, 0.15)", border: "1px solid rgba(77, 148, 255, 0.35)",
+              borderRadius: "6px", padding: "3px 8px", fontSize: "0.82rem"
+            }}>
+              <span style={{ color: "var(--accent-blue)", fontWeight: 700 }}>👤 {authUser}</span>
+              <button
+                onClick={handleLogout}
+                style={{
+                  background: "rgba(255, 82, 82, 0.2)", border: "1px solid rgba(255, 82, 82, 0.4)",
+                  color: "#ff8a80", borderRadius: "4px", padding: "2px 6px",
+                  fontSize: "0.75rem", cursor: "pointer"
+                }}
+                title="登出並鎖定保險箱"
+              >
+                🚪 登出
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setIsGuest(false)}
+              style={{
+                background: "rgba(76, 175, 80, 0.2)", border: "1px solid rgba(76, 175, 80, 0.4)",
+                color: "#81c784", borderRadius: "6px", padding: "3px 8px",
+                fontSize: "0.82rem", cursor: "pointer", fontWeight: 600
+              }}
+            >
+              🔑 登入個人帳號
+            </button>
+          )}
+
           <button 
             onClick={async () => {
               await toggleFullscreen();
@@ -122,9 +180,6 @@ export default function App() {
               }}></span>
             )}
             {stockStatus}
-          </div>
-          <div style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.25)" }}>
-            Tauri + Rust + React
           </div>
         </div>
       </header>
