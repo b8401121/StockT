@@ -34,7 +34,11 @@ export interface UnrealizedHolding {
   estTax: number;
   cashDividend: number;
   stockDividend: number;
-  estTotalDividend: number;
+  estGrossDividend: number;
+  nhiPremium: number;
+  bankFee: number;
+  taxCredit85: number;
+  estNetDividend: number;
   exType: string;
   buyLots: {
     id: string;
@@ -354,7 +358,13 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
         const cashDiv = fund?.cash_dividend != null ? Number(fund.cash_dividend) : 0;
         const stockDiv = fund?.stock_dividend != null ? Number(fund.stock_dividend) : 0;
         const exType = stockDiv > 0 && cashDiv > 0 ? "除權息" : stockDiv > 0 ? "除權" : cashDiv > 0 ? "除息" : "無配息";
-        const estTotalDividend = Math.round(cashDiv * remainingShares);
+        
+        const estGrossDividend = Math.round(cashDiv * remainingShares);
+        // 單筆股利達 20,000 元扣 2.11% 二代健保補充保費
+        const nhiPremium = estGrossDividend >= 20000 ? Math.floor(estGrossDividend * 0.0211) : 0;
+        const bankFee = estGrossDividend > 0 ? 10 : 0;
+        const taxCredit85 = Math.min(Math.floor(estGrossDividend * 0.085), 80000);
+        const estNetDividend = Math.max(estGrossDividend - nhiPremium - bankFee, 0);
 
         unrealizedHoldings.push({
           symbol,
@@ -372,7 +382,11 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
           estTax,
           cashDividend: cashDiv,
           stockDividend: stockDiv,
-          estTotalDividend,
+          estGrossDividend,
+          nhiPremium,
+          bankFee,
+          taxCredit85,
+          estNetDividend,
           exType,
           buyLots,
         });
@@ -392,7 +406,10 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
     const winTrades = realizedTrades.filter((r) => r.pnl > 0).length;
     const winRate = realizedTrades.length > 0 ? (winTrades / realizedTrades.length) * 100 : 0;
 
-    const totalEstDividends = unrealizedHoldings.reduce((acc, h) => acc + h.estTotalDividend, 0);
+    const totalGrossDividends = unrealizedHoldings.reduce((acc, h) => acc + h.estGrossDividend, 0);
+    const totalNhiPremium = unrealizedHoldings.reduce((acc, h) => acc + h.nhiPremium, 0);
+    const totalTaxCredit85 = Math.min(unrealizedHoldings.reduce((acc, h) => acc + h.taxCredit85, 0), 80000);
+    const totalNetDividends = unrealizedHoldings.reduce((acc, h) => acc + h.estNetDividend, 0);
     const grandTotalPnl = totalUnrealizedPnl + totalRealizedPnl;
     const totalCombinedCost = totalUnrealizedCost + totalRealizedCost;
     const grandTotalRoi = totalCombinedCost > 0 ? (grandTotalPnl / totalCombinedCost) * 100 : 0;
@@ -412,7 +429,10 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
         winRate,
         grandTotalPnl,
         grandTotalRoi,
-        totalEstDividends,
+        totalGrossDividends,
+        totalNhiPremium,
+        totalTaxCredit85,
+        totalNetDividends,
       },
     };
   }, [currentTrades, prices, deductFees, feeDiscount, stockDb]);
@@ -752,14 +772,29 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
           </div>
 
           {/* 四大資產與損益卡片 */}
-          {totals.totalEstDividends > 0 && (
+          {totals.totalGrossDividends > 0 && (
             <div style={{
-              background: "linear-gradient(90deg, rgba(234, 179, 8, 0.15), rgba(202, 138, 4, 0.05))",
-              border: "1px solid rgba(234, 179, 8, 0.35)", borderRadius: "8px", padding: "8px 14px",
-              display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.84rem", color: "#fef08a"
+              background: "linear-gradient(90deg, rgba(234, 179, 8, 0.18), rgba(202, 138, 4, 0.08))",
+              border: "1px solid rgba(234, 179, 8, 0.4)", borderRadius: "8px", padding: "10px 14px",
+              display: "flex", flexDirection: "column", gap: "6px", fontSize: "0.84rem", color: "#fef08a"
             }}>
-              <span style={{ fontWeight: 700 }}>🎁 目前持股預估現金股利總額：</span>
-              <b style={{ fontSize: "1.05rem", color: "#facc15", fontWeight: 800 }}>NT$ {totals.totalEstDividends.toLocaleString()} 元</b>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  <span style={{ fontSize: "1.1rem" }}>🎁</span>
+                  <span style={{ fontWeight: 800, fontSize: "0.95rem", color: "#ffffff" }}>目前持股除權息與股利稅務試算：</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+                  <span>股利毛額: <b style={{ color: "#facc15" }}>NT$ {totals.totalGrossDividends.toLocaleString()}</b></span>
+                  <span>健保補充保費(2.11%): <b style={{ color: totals.totalNhiPremium > 0 ? "#f87171" : "#4ade80" }}>-{totals.totalNhiPremium.toLocaleString()} 元</b></span>
+                  <span>8.5%抵減稅額(可退稅): <b style={{ color: "#38bdf8" }}>+{totals.totalTaxCredit85.toLocaleString()} 元</b></span>
+                  <span style={{
+                    background: "rgba(250, 204, 21, 0.2)", border: "1px solid rgba(250, 204, 21, 0.5)",
+                    borderRadius: "6px", padding: "2px 8px", color: "#facc15", fontWeight: 800
+                  }}>
+                    預估實收淨額: NT$ {totals.totalNetDividends.toLocaleString()}
+                  </span>
+                </div>
+              </div>
             </div>
           )}
           <div className="watchlist-cards-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "10px" }}>
@@ -900,7 +935,7 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                       <th style={{ padding: "10px 12px", textAlign: "right" }}>即時市價</th>
                       <th style={{ padding: "10px 12px", textAlign: "right" }}>持股市值</th>
                       <th style={{ padding: "10px 12px", textAlign: "right" }}>現金股利 / 配股</th>
-                      <th style={{ padding: "10px 12px", textAlign: "right" }}>預估可領股利</th>
+                      <th style={{ padding: "10px 12px", textAlign: "right" }}>預估股利 (實收淨額 / 毛額)</th>
                       <th style={{ padding: "10px 12px", textAlign: "right" }}>總成本</th>
                       <th style={{ padding: "10px 12px", textAlign: "right" }}>預估未實現損益</th>
                       <th style={{ padding: "10px 12px", textAlign: "right" }}>報酬率</th>
@@ -968,8 +1003,24 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                             </td>
 
                             {/* 預估可領現金股利總額 */}
-                            <td style={{ padding: "12px", textAlign: "right", fontWeight: 800, color: "#facc15" }}>
-                              {h.estTotalDividend > 0 ? `NT$ ${h.estTotalDividend.toLocaleString()}` : "-"}
+                            <td style={{ padding: "12px", textAlign: "right" }}>
+                              {h.estGrossDividend > 0 ? (
+                                <div>
+                                  <div style={{ fontWeight: 800, color: "#facc15", fontSize: "0.92rem" }}>
+                                    NT$ {h.estNetDividend.toLocaleString()}
+                                  </div>
+                                  <div style={{ fontSize: "0.72rem", color: "#94a3b8", marginTop: "1px" }}>
+                                    毛額 ${h.estGrossDividend.toLocaleString()}
+                                    {h.nhiPremium > 0 ? (
+                                      <span style={{ color: "#f87171", marginLeft: "4px" }}>(扣健保 ${h.nhiPremium})</span>
+                                    ) : (
+                                      <span style={{ color: "#4ade80", marginLeft: "4px" }}>(免扣健保)</span>
+                                    )}
+                                  </div>
+                                </div>
+                              ) : (
+                                <span style={{ color: "#94a3b8" }}>-</span>
+                              )}
                             </td>
 
                             {/* 成本 */}
