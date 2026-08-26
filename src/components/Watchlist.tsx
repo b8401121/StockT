@@ -37,10 +37,10 @@ export const Watchlist: React.FC = () => {
         data = await invoke("load_watchlist");
       } catch (err) {
         console.warn("Using mock watchlist");
-        data = { "預設清單": ["2330.TW", "2317.TW"], "ETF": ["0050.TW"] };
+        data = { "我的自選股": [] };
       }
       if (Object.keys(data).length === 0) {
-        setWatchlist({ "預設清單": [] });
+        setWatchlist({ "我的自選股": [] });
       } else {
         setWatchlist(data);
         setCategories(Object.keys(data));

@@ -52,30 +52,8 @@ export interface StockData {
   info: StockInfo;
 }
 
-// 預設示範清單 (若 localStorage 為空時初始化使用)
-const DEFAULT_WATCHLIST_DATA: Record<string, Array<{ symbol: string; date: string; price: number; shares: number; sell_price: number }>> = {
-  "建造/資服/半導體": [
-    { symbol: "2330.TW", date: "2026-05-13", price: 950.0, shares: 1000, sell_price: 0 },
-    { symbol: "2454.TW", date: "2026-05-13", price: 1200.0, shares: 1000, sell_price: 0 },
-    { symbol: "3030.TW", date: "2026-05-13", price: 318.5, shares: 1000, sell_price: 0 },
-    { symbol: "3289.TWO", date: "2026-04-14", price: 0, shares: 0, sell_price: 0 },
-    { symbol: "3416.TW", date: "2026-05-13", price: 0, shares: 0, sell_price: 0 },
-    { symbol: "3563.TW", date: "2026-05-13", price: 0, shares: 0, sell_price: 0 },
-  ],
-  "ETF/指數基金": [
-    { symbol: "0050.TW", date: "2026-05-13", price: 170.0, shares: 1000, sell_price: 0 },
-    { symbol: "0056.TW", date: "2026-05-13", price: 38.5, shares: 2000, sell_price: 0 },
-  ],
-  "機械/電工/金融": [
-    { symbol: "2308.TW", date: "2026-06-21", price: 350.0, shares: 1000, sell_price: 0 },
-    { symbol: "2395.TW", date: "2026-05-13", price: 0, shares: 0, sell_price: 0 },
-    { symbol: "2449.TW", date: "2026-05-13", price: 0, shares: 0, sell_price: 0 },
-  ],
-  "其他/小型股": [
-    { symbol: "6419.TWO", date: "2026-05-14", price: 149.5, shares: 1000, sell_price: 0 },
-    { symbol: "6146.TWO", date: "2026-05-14", price: 0, shares: 0, sell_price: 0 },
-  ],
-};
+// 預設清單 (初始為空)
+const DEFAULT_WATCHLIST_DATA: Record<string, Array<{ symbol: string; date: string; price: number; shares: number; sell_price: number }>> = {};
 
 export interface StockEntry {
   symbol: string;
@@ -133,7 +111,7 @@ function getStoredWatchlistsIndex(): string[] {
   } catch (e) {
     console.warn(e);
   }
-  return ["李山任的清單"];
+  return ["我的自選股"];
 }
 
 function saveStoredWatchlistsIndex(lists: string[]) {
@@ -463,7 +441,7 @@ export async function invoke<T = any>(cmd: string, args: Record<string, any> = {
     }
 
     case "load_watchlist": {
-      const filename = args?.filename || "李山任的清單";
+      const filename = args?.filename || "我的自選股";
       const key = `stockt_watchlist_${filename}`;
       const raw = localStorage.getItem(key);
       if (raw) {
@@ -473,7 +451,7 @@ export async function invoke<T = any>(cmd: string, args: Record<string, any> = {
           // ignore
         }
       }
-      if (filename === "李山任的清單" || filename === "watchlist") {
+      if (filename === "我的自選股" || filename === "watchlist") {
         localStorage.setItem(key, JSON.stringify(DEFAULT_WATCHLIST_DATA));
         return DEFAULT_WATCHLIST_DATA as unknown as T;
       }
@@ -481,7 +459,7 @@ export async function invoke<T = any>(cmd: string, args: Record<string, any> = {
     }
 
     case "save_watchlist": {
-      const filename = args?.filename || "李山任的清單";
+      const filename = args?.filename || "我的自選股";
       const key = `stockt_watchlist_${filename}`;
       const data = args?.watchlist || args?.data || {};
       localStorage.setItem(key, JSON.stringify(data));
@@ -498,7 +476,7 @@ export async function invoke<T = any>(cmd: string, args: Record<string, any> = {
       if (filename) {
         localStorage.removeItem(`stockt_watchlist_${filename}`);
         const idx = getStoredWatchlistsIndex().filter((x) => x !== filename);
-        saveStoredWatchlistsIndex(idx.length > 0 ? idx : ["李山任的清單"]);
+        saveStoredWatchlistsIndex(idx.length > 0 ? idx : ["我的自選股"]);
       }
       return undefined as unknown as T;
     }

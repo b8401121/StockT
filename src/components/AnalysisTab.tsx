@@ -365,7 +365,7 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
     if (!info) return;
     try {
       const cat = await invoke<string>("get_category_by_symbol", { symbol: info.symbol });
-      const filename = localStorage.getItem("portfolio_current_list") || "李山任的清單";
+      const filename = localStorage.getItem("portfolio_current_list") || "我的自選股";
       const listData = await invoke<Record<string, any[]>>("load_watchlist", { filename });
       
       let exists = false;

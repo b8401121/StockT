@@ -134,8 +134,8 @@ export const PortfolioTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ 
   }, [getNormalizedSymbol]);
   
   // 多名單管理
-  const [availableLists, setAvailableLists] = useState<string[]>(["李山任的清單"]);
-  const [currentList, setCurrentList] = useState<string>(() => localStorage.getItem("portfolio_current_list") || "李山任的清單");
+  const [availableLists, setAvailableLists] = useState<string[]>(["我的自選股"]);
+  const [currentList, setCurrentList] = useState<string>(() => localStorage.getItem("portfolio_current_list") || "我的自選股");
   useEffect(() => {
     localStorage.setItem("portfolio_current_list", currentList);
   }, [currentList]);
@@ -509,7 +509,7 @@ export const PortfolioTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ 
 
   // ─── 刪除名單 ───────────────────────────────────────────────────────────────
   const deleteCurrentList = async () => {
-    if (currentList === "watchlist" || currentList === "李山任的清單") {
+    if (currentList === "watchlist" || currentList === "我的自選股") {
       alert("預設自選單無法刪除！");
       return;
     }
@@ -519,7 +519,7 @@ export const PortfolioTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ 
     try {
       await invoke("delete_watchlist", { filename: currentList });
       alert(`已成功刪除【${currentList}】的清單`);
-      setCurrentList("李山任的清單");
+      setCurrentList("我的自選股");
       loadWatchlist();
     } catch (err) {
       alert(`刪除失敗: ${err}`);
