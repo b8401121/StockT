@@ -1,4 +1,4 @@
-﻿// ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 // 多用戶加密保險箱管理器 (Vault Manager & GitHub Sync)
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -137,43 +137,110 @@ export async function loadUserVault<T = any>(
 }
 
 /**
+ * 測試 GitHub Token 與倉庫連線
+ */
+export async function testGitHubConnection(cfg: GitHubSyncConfig): Promise<{ success: boolean; message: string; user?: string }> {
+  const token = cfg.token.trim().replace(/^(token|Bearer)\s+/i, "");
+  if (!token) throw new Error("請先輸入 GitHub Personal Access Token (PAT)");
+  if (!cfg.repo.trim()) throw new Error("請輸入 GitHub 倉庫名稱 (例如: b8401121/StockT)");
+
+  // 1. 驗證 Token 身份
+  const userRes = await fetch("https://api.github.com/user", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+    },
+  });
+
+  if (!userRes.ok) {
+    if (userRes.status === 401) {
+      throw new Error("GitHub Token 無效或已過期，請重新確認！");
+    }
+    throw new Error(`GitHub 驗證失敗 (${userRes.status}): ${await userRes.text()}`);
+  }
+
+  const userData = await userRes.json();
+
+  // 2. 驗證倉庫存取權限
+  const repoRes = await fetch(`https://api.github.com/repos/${cfg.repo.trim()}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+    },
+  });
+
+  if (!repoRes.ok) {
+    if (repoRes.status === 404) {
+      throw new Error(`找不到倉庫【${cfg.repo.trim()}】，請確認名稱是否正確或 Token 是否具備私有倉庫權限。`);
+    }
+    if (repoRes.status === 403) {
+      throw new Error(`Token 權限不足，無法存取倉庫【${cfg.repo.trim()}】，建立 Token 時需勾選「repo」或「public_repo」！`);
+    }
+    throw new Error(`倉庫存取失敗 (${repoRes.status}): ${await repoRes.text()}`);
+  }
+
+  return {
+    success: true,
+    message: `連線成功！已成功驗證 GitHub 帳號: @${userData.login}`,
+    user: userData.login,
+  };
+}
+
+/**
  * 將加密檔案推送到 GitHub (使用 GitHub Contents API)
  */
 export async function pushEncryptedVaultToGitHub(
   cfg: GitHubSyncConfig,
   payload: EncryptedVaultPayload
-): Promise<void> {
-  const branch = cfg.branch || "main";
-  const path = `vaults/${encodeURIComponent(payload.username)}.vault.json`;
-  const url = `https://api.github.com/repos/${cfg.repo}/contents/${path}`;
+): Promise<{ commitUrl?: string }> {
+  const token = cfg.token.trim().replace(/^(token|Bearer)\s+/i, "");
+  if (!token) throw new Error("缺少 GitHub Token");
+  if (!cfg.repo.trim()) throw new Error("缺少 GitHub 倉庫名稱");
+
+  const branch = cfg.branch?.trim() || "main";
+  const repo = cfg.repo.trim();
+  const filename = `${encodeURIComponent(payload.username.trim())}.vault.json`;
+  const path = `vaults/${filename}`;
+  const url = `https://api.github.com/repos/${repo}/contents/${path}`;
 
   // 先查詢現有 SHA (如果檔案已存在)
   let sha: string | undefined;
   try {
     const getRes = await fetch(`${url}?ref=${branch}`, {
       headers: {
-        Authorization: `token ${cfg.token}`,
-        Accept: "application/vnd.github.v3+json",
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
       },
     });
     if (getRes.ok) {
       const getJson = await getRes.json();
       sha = getJson.sha;
     }
-  } catch {}
+  } catch (err) {
+    console.warn("Check file sha error:", err);
+  }
 
   const contentStr = JSON.stringify(payload, null, 2);
-  const contentBase64 = window.btoa(unescape(encodeURIComponent(contentStr)));
+  const contentBytes = new TextEncoder().encode(contentStr);
+  let binary = "";
+  for (let i = 0; i < contentBytes.byteLength; i++) {
+    binary += String.fromCharCode(contentBytes[i]);
+  }
+  const contentBase64 = window.btoa(binary);
 
   const putRes = await fetch(url, {
     method: "PUT",
     headers: {
-      Authorization: `token ${cfg.token}`,
-      Accept: "application/vnd.github.v3+json",
+      Authorization: `Bearer ${token}`,
+      Accept: "application/vnd.github+json",
       "Content-Type": "application/json",
+      "X-GitHub-Api-Version": "2022-11-28",
     },
     body: JSON.stringify({
-      message: `sync: update encrypted vault for ${payload.username}`,
+      message: `sync: update encrypted portfolio for @${payload.username}`,
       content: contentBase64,
       branch: branch,
       sha: sha,
@@ -181,9 +248,20 @@ export async function pushEncryptedVaultToGitHub(
   });
 
   if (!putRes.ok) {
-    const err = await putRes.text();
-    throw new Error(`GitHub 同步失敗: ${err}`);
+    let errText = await putRes.text();
+    try {
+      const errObj = JSON.parse(errText);
+      errText = errObj.message || errText;
+    } catch {}
+
+    if (putRes.status === 401) throw new Error("GitHub Token 驗證失敗 (401)，請檢查 Token 是否正確！");
+    if (putRes.status === 404) throw new Error(`找不到倉庫【${repo}】或分支【${branch}】(404)`);
+    if (putRes.status === 403 || putRes.status === 422) throw new Error(`GitHub 寫入被拒絕: ${errText} (請確認 Token 是否具備 repo 寫入權限)`);
+    throw new Error(`GitHub 同步失敗 (${putRes.status}): ${errText}`);
   }
+
+  const resJson = await putRes.json();
+  return { commitUrl: resJson?.commit?.html_url };
 }
 
 /**
@@ -193,22 +271,38 @@ export async function fetchEncryptedVaultFromGitHub(
   cfg: GitHubSyncConfig,
   username: string
 ): Promise<EncryptedVaultPayload> {
-  const branch = cfg.branch || "main";
-  const path = `vaults/${encodeURIComponent(username)}.vault.json`;
-  const url = `https://api.github.com/repos/${cfg.repo}/contents/${path}?ref=${branch}`;
+  const token = cfg.token.trim().replace(/^(token|Bearer)\s+/i, "");
+  const branch = cfg.branch?.trim() || "main";
+  const repo = cfg.repo.trim();
+  const filename = `${encodeURIComponent(username.trim())}.vault.json`;
+  const path = `vaults/${filename}`;
+  const url = `https://api.github.com/repos/${repo}/contents/${path}?ref=${branch}`;
 
-  const res = await fetch(url, {
-    headers: {
-      Authorization: `token ${cfg.token}`,
-      Accept: "application/vnd.github.v3+json",
-    },
-  });
+  const headers: Record<string, string> = {
+    Accept: "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+  };
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(url, { headers });
 
   if (!res.ok) {
-    throw new Error(`無法從 GitHub 找到使用者【${username}】的雲端存檔。`);
+    if (res.status === 404) {
+      throw new Error(`在 GitHub 倉庫【${repo}】中找不到使用者【${username}】的雲端檔案 (vaults/${filename})。請確認是否已備份過。`);
+    }
+    const errText = await res.text();
+    throw new Error(`從 GitHub 下載失敗 (${res.status}): ${errText}`);
   }
 
   const json = await res.json();
-  const rawText = decodeURIComponent(escape(window.atob(json.content.replace(/\s/g, ""))));
+  const rawBase64 = (json.content || "").replace(/\s/g, "");
+  const binary = window.atob(rawBase64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  const rawText = new TextDecoder().decode(bytes);
   return JSON.parse(rawText) as EncryptedVaultPayload;
 }

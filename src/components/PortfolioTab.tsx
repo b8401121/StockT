@@ -10,6 +10,7 @@ import {
   loadUserVault,
   getGitHubSyncConfig,
   saveGitHubSyncConfig,
+  testGitHubConnection,
   VaultUser,
   GitHubSyncConfig,
 } from "../utils/vault";
@@ -721,27 +722,62 @@ export const PortfolioTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ 
     setRows([]);
   };
 
-  const handleSyncToGitHub = async () => {
-    if (!currentUser || !currentPassword) {
-      alert("請先解鎖登入您的保險箱再進行同步！");
-      return;
-    }
-    if (!githubConfig.token || !githubConfig.repo) {
-      setGithubModalOpen(true);
+  // 帳號密碼（用於未登入時在 GitHub 視窗中直接操作）
+  const [modalUser, setModalUser] = useState("");
+  const [modalPass, setModalPass] = useState("");
+
+  const handleTestGitHub = async () => {
+    if (!githubConfig.token.trim()) {
+      setGithubSyncMsg("⚠️ 請先輸入 GitHub Token！");
       return;
     }
     setGithubSyncing(true);
-    setGithubSyncMsg("正在加密並推送至 GitHub...");
+    setGithubSyncMsg("⏳ 正在驗證 GitHub 連線與 Token 權限...");
+    try {
+      const res = await testGitHubConnection(githubConfig);
+      saveGitHubSyncConfig(githubConfig);
+      setGithubSyncMsg(`✅ ${res.message} (具備寫入權限)`);
+    } catch (err: any) {
+      setGithubSyncMsg(`❌ 連線失敗: ${err.message || err}`);
+    } finally {
+      setGithubSyncing(false);
+    }
+  };
+
+  const handleSyncToGitHub = async () => {
+    const userToSync = (currentUser || modalUser).trim();
+    const passToSync = currentPassword || modalPass;
+
+    if (!userToSync || !passToSync) {
+      setGithubSyncMsg("⚠️ 請輸入保險箱使用者名稱與密碼！");
+      return;
+    }
+    if (!githubConfig.token.trim() || !githubConfig.repo.trim()) {
+      setGithubSyncMsg("⚠️ 請填寫 GitHub Token 與 倉庫名稱！");
+      return;
+    }
+
+    setGithubSyncing(true);
+    setGithubSyncMsg("⏳ 正在進行 AES-256 加密並推送至 GitHub...");
     try {
       saveGitHubSyncConfig(githubConfig);
-      await saveUserVault(currentUser, currentPassword, watchlist, true);
-      setGithubSyncMsg("✅ 成功同步至 GitHub 倉庫！");
+      await saveUserVault(userToSync, passToSync, watchlist, true);
+      
+      // 若尚未登入則順便登入本機 Session
+      if (!currentUser) {
+        setCurrentUser(userToSync);
+        setCurrentPassword(passToSync);
+        sessionStorage.setItem("stockt_auth_user", userToSync);
+        sessionStorage.setItem("stockt_auth_pass", passToSync);
+      }
+
+      setGithubSyncMsg(`🎉 成功同步！已安全加密並推送至【${githubConfig.repo.trim()}/vaults/${userToSync}.vault.json】！`);
       setTimeout(() => {
-        setGithubSyncMsg("");
         setGithubModalOpen(false);
-      }, 1500);
+        setGithubSyncMsg("");
+      }, 3000);
     } catch (err: any) {
-      setGithubSyncMsg(`❌ 同步失敗: ${err.message || err}`);
+      setGithubSyncMsg(`❌ 備份失敗: ${err.message || err}`);
     } finally {
       setGithubSyncing(false);
     }
@@ -1425,9 +1461,9 @@ export const PortfolioTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ 
           zIndex: 10000, display: "flex", justifyContent: "center", alignItems: "center"
         }} onClick={() => setGithubModalOpen(false)}>
           <div style={{
-            background: "#161622", borderRadius: "14px", width: "450px", maxWidth: "90%",
+            background: "#161622", borderRadius: "14px", width: "480px", maxWidth: "90%",
             padding: "24px", display: "flex", flexDirection: "column", border: "1px solid rgba(255,255,255,0.15)",
-            boxShadow: "0 8px 32px rgba(0,0,0,0.8)", gap: "16px"
+            boxShadow: "0 8px 32px rgba(0,0,0,0.8)", gap: "14px"
           }} onClick={e => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -1443,25 +1479,59 @@ export const PortfolioTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ 
 
             {githubSyncMsg && (
               <div style={{
-                background: githubSyncMsg.includes("✅") ? "rgba(76,175,80,0.15)" : "rgba(255,82,82,0.15)",
-                border: `1px solid ${githubSyncMsg.includes("✅") ? "rgba(76,175,80,0.3)" : "rgba(255,82,82,0.3)"}`,
-                borderRadius: "6px", padding: "8px 12px", fontSize: "0.85rem"
+                background: githubSyncMsg.includes("✅") || githubSyncMsg.includes("🎉") ? "rgba(76,175,80,0.15)" : githubSyncMsg.includes("⏳") ? "rgba(77,148,255,0.15)" : "rgba(255,82,82,0.15)",
+                border: `1px solid ${githubSyncMsg.includes("✅") || githubSyncMsg.includes("🎉") ? "rgba(76,175,80,0.3)" : githubSyncMsg.includes("⏳") ? "rgba(77,148,255,0.3)" : "rgba(255,82,82,0.3)"}`,
+                borderRadius: "6px", padding: "10px 14px", fontSize: "0.85rem", color: "#fff", lineHeight: 1.4
               }}>
                 {githubSyncMsg}
               </div>
             )}
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              {/* 如果目前尚未解鎖登入，讓使用者直接在此輸入身分 */}
+              {!currentUser && (
+                <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "8px", padding: "10px", display: "flex", flexDirection: "column", gap: "8px" }}>
+                  <div style={{ fontSize: "0.8rem", color: "var(--accent-blue)", fontWeight: 600 }}>👤 保險箱使用者身份驗證：</div>
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    <input
+                      type="text" className="input-field" placeholder="使用者名稱 (例: 小李)"
+                      value={modalUser} onChange={e => setModalUser(e.target.value)}
+                      style={{ flex: 1, fontSize: "0.85rem" }}
+                    />
+                    <input
+                      type="password" className="input-field" placeholder="保險箱解密密碼"
+                      value={modalPass} onChange={e => setModalPass(e.target.value)}
+                      style={{ flex: 1, fontSize: "0.85rem" }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {currentUser && (
+                <div style={{ fontSize: "0.85rem", color: "#4caf50" }}>
+                  👤 目前保險箱身分：<b>【{currentUser}】(已解鎖)</b>
+                </div>
+              )}
+
               <div>
-                <label style={{ display: "block", fontSize: "0.82rem", color: "var(--text-muted)", marginBottom: "4px" }}>
-                  GitHub Personal Access Token (PAT)
-                </label>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+                  <label style={{ fontSize: "0.82rem", color: "var(--text-muted)" }}>
+                    GitHub Personal Access Token (PAT)
+                  </label>
+                  <a
+                    href="https://github.com/settings/tokens/new?scopes=repo&description=StockT-Portfolio-Sync"
+                    target="_blank" rel="noreferrer"
+                    style={{ fontSize: "0.75rem", color: "var(--accent-blue)", textDecoration: "none" }}
+                  >
+                    🔗 點此前建立 Token
+                  </a>
+                </div>
                 <input
-                  type="password" className="input-field" placeholder="ghp_xxxxxxxxxxxxxx"
+                  type="password" className="input-field" placeholder="請貼上 ghp_xxxxxxxxxxxxxx"
                   value={githubConfig.token} onChange={e => setGithubConfig({ ...githubConfig, token: e.target.value })}
                   style={{ width: "100%" }}
                 />
-                <span style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>需具備 <code>repo</code> 或 <code>public_repo</code> 寫入權限</span>
+                <span style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>建立 Token 時請務必勾選 <code>repo</code> 完整存取權限</span>
               </div>
 
               <div>
@@ -1475,8 +1545,11 @@ export const PortfolioTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ 
                 />
               </div>
 
-              <div style={{ display: "flex", gap: "8px", marginTop: "10px" }}>
-                <button className="btn btn-primary" onClick={handleSyncToGitHub} style={{ flex: 1 }} disabled={githubSyncing}>
+              <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
+                <button type="button" className="btn btn-outline btn-sm" onClick={handleTestGitHub} disabled={githubSyncing} style={{ padding: "8px 12px" }}>
+                  🔍 測試連線
+                </button>
+                <button type="button" className="btn btn-primary" onClick={handleSyncToGitHub} style={{ flex: 1 }} disabled={githubSyncing}>
                   {githubSyncing ? <span className="loading-spinner" /> : "🚀 立即備份至 GitHub"}
                 </button>
               </div>
