@@ -377,6 +377,8 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
     const winRate = realizedTrades.length > 0 ? (winTrades / realizedTrades.length) * 100 : 0;
 
     const grandTotalPnl = totalUnrealizedPnl + totalRealizedPnl;
+    const totalCombinedCost = totalUnrealizedCost + totalRealizedCost;
+    const grandTotalRoi = totalCombinedCost > 0 ? (grandTotalPnl / totalCombinedCost) * 100 : 0;
 
     return {
       unrealizedHoldings,
@@ -392,6 +394,7 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
         totalRealizedRoi,
         winRate,
         grandTotalPnl,
+        grandTotalRoi,
       },
     };
   }, [currentTrades, prices, deductFees, feeDiscount, stockDb]);
