@@ -253,24 +253,29 @@ async function fetchWebStockData(symbol: string, range = "1y"): Promise<StockDat
   let prevClose = 0;
   let stockName = getChineseStockName(normSym) || getChineseStockName(coId) || symbol;
 
-  // 嘗試多種即時資料來源 (Direct Yahoo Query, 反向後綴 .TW/.TWO, Proxy)
+  // 嘗試多種即時資料來源 (在瀏覽器環境使用 CORS 代理，在 Tauri 環境使用原生請求)
   const candidateSymbols = [normSym];
   if (normSym.endsWith(".TW")) candidateSymbols.push(`${coId}.TWO`);
   else if (normSym.endsWith(".TWO")) candidateSymbols.push(`${coId}.TW`);
 
+  const isBrowser = !isTauri();
+
   for (const symCandidate of candidateSymbols) {
     if (ohlcvData) break;
-    const urls = [
-      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symCandidate)}?range=${range}&interval=1d&includeAdjustedClose=true`,
-      `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symCandidate)}?range=${range}&interval=1d&includeAdjustedClose=true`,
-      `https://proxy.cors.sh/https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symCandidate)}?range=${range}&interval=1d&includeAdjustedClose=true`,
-      `https://api.allorigins.win/get?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${symCandidate}?range=${range}&interval=1d&includeAdjustedClose=true`)}`,
-    ];
+    const urls = isBrowser
+      ? [
+          `https://corsproxy.io/?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${symCandidate}?range=${range}&interval=1d&includeAdjustedClose=true`)}`,
+          `https://api.allorigins.win/get?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${symCandidate}?range=${range}&interval=1d&includeAdjustedClose=true`)}`,
+        ]
+      : [
+          `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symCandidate)}?range=${range}&interval=1d&includeAdjustedClose=true`,
+          `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symCandidate)}?range=${range}&interval=1d&includeAdjustedClose=true`,
+        ];
 
     for (const u of urls) {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 4000);
+        const timeoutId = setTimeout(() => controller.abort(), 3500);
         const res = await fetch(u, { signal: controller.signal });
         clearTimeout(timeoutId);
 
@@ -311,11 +316,10 @@ async function fetchWebStockData(symbol: string, range = "1y"): Promise<StockDat
             if (closes.length >= 10) {
               const meta = result.meta || {};
               curPrice = meta.regularMarketPrice ?? closes[closes.length - 1];
-              // 前一日昨收：優先使用昨日收盤價，避免誤用 1 年前起算價 (chartPreviousClose)
               prevClose = meta.previousClose ?? (closes.length > 1 ? closes[closes.length - 2] : curPrice);
               const zhName = getChineseStockName(symCandidate) || getChineseStockName(coId);
               stockName = zhName || meta.longName || meta.shortName || symbol;
-              normSym = symCandidate; // 確認有效後綴 (.TW 或 .TWO)
+              normSym = symCandidate;
               ohlcvData = {
                 timestamp: timestamps,
                 open: opens,
@@ -339,8 +343,7 @@ async function fetchWebStockData(symbol: string, range = "1y"): Promise<StockDat
     prevClose = ohlcvData.close[ohlcvData.close.length - 2] ?? curPrice;
   }
 
-  // 2. 抓取或生成基本面財務比率 (含法說會獲利警示與成長率)
-  // 生成多樣化、具有個別真實特徵的基本面財務數據
+  // 2. 抓取或生成基本面財務比率
   const seedFund = getDeterministicFundamentals(coId, normSym, curPrice, stockName);
   let revGrowth: number | null = seedFund.revGrowth;
   let earnGrowth: number | null = seedFund.earnGrowth;
@@ -357,11 +360,14 @@ async function fetchWebStockData(symbol: string, range = "1y"): Promise<StockDat
 
   // 嘗試透過 Proxy 抓取 Yahoo quoteSummary 即時數據 (若成功則覆蓋為即時數據)
   try {
-    const sumUrl = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(normSym)}?modules=financialData,defaultKeyStatistics,summaryDetail,assetProfile`;
-    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(sumUrl)}`;
+    const sumTarget = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(normSym)}?modules=financialData,defaultKeyStatistics,summaryDetail,assetProfile`;
+    const sumUrl = isBrowser
+      ? `https://corsproxy.io/?url=${encodeURIComponent(sumTarget)}`
+      : sumTarget;
+
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3500);
-    const res = await fetch(proxyUrl, { signal: controller.signal });
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+    const res = await fetch(sumUrl, { signal: controller.signal });
     clearTimeout(timeoutId);
 
     if (res.ok) {

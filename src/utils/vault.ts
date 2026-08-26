@@ -289,6 +289,9 @@ export async function fetchEncryptedVaultFromGitHub(
   const res = await fetch(url, { headers });
 
   if (!res.ok) {
+    if (res.status === 401) {
+      throw new Error(`GitHub Token 驗證失敗 (401 Bad credentials)：Token 已過期或輸入錯誤，請至「☁️ GitHub 雲端同步設定」更新 Token。`);
+    }
     if (res.status === 404) {
       throw new Error(`在 GitHub 倉庫【${repo}】中找不到使用者【${username}】的雲端檔案 (vaults/${filename})。請確認是否已備份過。`);
     }
