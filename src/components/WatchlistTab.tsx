@@ -46,8 +46,12 @@ export interface UnrealizedHolding {
     price: number;
     shares: number;
     buyFee: number;
+    isQualified: boolean;
+    lotGrossDividend: number;
     note?: string;
   }[];
+  exDate?: string;
+  qualifiedShares: number;
 }
 
 /** 已實現損益交易 */
@@ -66,6 +70,9 @@ export interface RealizedTrade {
   tax: number;
   pnl: number;
   roi: number;
+  exDate?: string;
+  realizedDividend?: number;
+  isExQualified?: boolean;
   note?: string;
 }
 
@@ -310,6 +317,14 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
             const pnl = netSellRevenue - buyCost;
             const roi = buyCost > 0 ? (pnl / buyCost) * 100 : 0;
 
+            const coCode = symbol.split(".")[0];
+            const fund = (twseFundamentals as Record<string, any>)[coCode];
+            const exDate = fund?.ex_dividend_date || null;
+            const cashDiv = fund?.cash_dividend != null ? Number(fund.cash_dividend) : 0;
+            // 持有期間涵蓋除息日判斷：買進日 < 除息日 且 賣出日 >= 除息日
+            const isExQualified = !!(exDate && cashDiv > 0 && lot.date < exDate && trade.date >= exDate);
+            const realizedDividend = isExQualified ? Math.round(cashDiv * matchShares) : 0;
+
             realizedTrades.push({
               id: `${trade.id}-${lot.id}`,
               symbol,
@@ -325,6 +340,9 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
               tax: propTax,
               pnl,
               roi,
+              exDate: exDate || undefined,
+              realizedDividend,
+              isExQualified,
               note: trade.note,
             });
 
@@ -357,9 +375,23 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
         const fund = (twseFundamentals as Record<string, any>)[coCode];
         const cashDiv = fund?.cash_dividend != null ? Number(fund.cash_dividend) : 0;
         const stockDiv = fund?.stock_dividend != null ? Number(fund.stock_dividend) : 0;
+        const exDate = fund?.ex_dividend_date || null;
         const exType = stockDiv > 0 && cashDiv > 0 ? "除權息" : stockDiv > 0 ? "除權" : cashDiv > 0 ? "除息" : "無配息";
+
+        // 依據各批次買進日期，驗證持有時間是否涵蓋除息日 (買進日 < 除息日)
+        const enrichedLots = buyLots.map((lot) => {
+          const isQualified = !!(exDate && cashDiv > 0 && lot.date < exDate);
+          const lotGrossDividend = isQualified ? Math.round(cashDiv * lot.shares) : 0;
+          return {
+            ...lot,
+            isQualified,
+            lotGrossDividend,
+          };
+        });
+
+        const qualifiedShares = enrichedLots.filter((l) => l.isQualified).reduce((acc, l) => acc + l.shares, 0);
+        const estGrossDividend = enrichedLots.reduce((acc, l) => acc + l.lotGrossDividend, 0);
         
-        const estGrossDividend = Math.round(cashDiv * remainingShares);
         // 單筆股利達 20,000 元扣 2.11% 二代健保補充保費
         const nhiPremium = estGrossDividend >= 20000 ? Math.floor(estGrossDividend * 0.0211) : 0;
         const bankFee = estGrossDividend > 0 ? 10 : 0;
@@ -388,7 +420,9 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
           taxCredit85,
           estNetDividend,
           exType,
-          buyLots,
+          exDate: exDate || undefined,
+          qualifiedShares,
+          buyLots: enrichedLots,
         });
       }
     }
@@ -1017,9 +1051,19 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                                       <span style={{ color: "#4ade80", marginLeft: "4px" }}>(免扣健保)</span>
                                     )}
                                   </div>
+                                  <div style={{ fontSize: "0.68rem", color: "#38bdf8", marginTop: "1px" }}>
+                                    ✓ 符除息日 {h.exDate}
+                                  </div>
+                                </div>
+                              ) : h.cashDividend > 0 ? (
+                                <div>
+                                  <span style={{ color: "#94a3b8", fontSize: "0.80rem" }}>0 元</span>
+                                  <div style={{ fontSize: "0.68rem", color: "#f87171", marginTop: "1px" }}>
+                                    除息後買進 (除息日 {h.exDate})
+                                  </div>
                                 </div>
                               ) : (
-                                <span style={{ color: "#94a3b8" }}>-</span>
+                                <span style={{ color: "#94a3b8" }}>無配息</span>
                               )}
                             </td>
 
@@ -1100,6 +1144,11 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                                       <span>買價: <b style={{ color: "#ffffff" }}>${lot.price}</b></span>
                                       <span>庫存剩餘: <b style={{ color: "#38bdf8" }}>{lot.shares.toLocaleString()} 股</b></span>
                                       <span>手續費: ${lot.buyFee}</span>
+                                      {lot.isQualified ? (
+                                        <span style={{ color: "#4ade80", fontWeight: 700 }}>✓ 跨越除息日 (可領 ${lot.lotGrossDividend} 元)</span>
+                                      ) : (
+                                        <span style={{ color: "#94a3b8" }}>✗ 除息後建倉 (無配息)</span>
+                                      )}
                                       {lot.note && <span style={{ color: "#94a3b8" }}>({lot.note})</span>}
                                     </div>
                                   ))}
