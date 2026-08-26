@@ -90,7 +90,7 @@ export function onAuthChange(callback: (user: User | null) => void): () => void 
 }
 
 /** 載入雲端收藏名單 */
-export async function loadWatchlistFromCloud(uid: string): Promise<{ lists: Record<string, string[]>; username: string }> {
+export async function loadWatchlistFromCloud(uid: string): Promise<{ lists: Record<string, any[]>; username: string }> {
   const snap = await getDoc(doc(db, "watchlists", uid));
   if (snap.exists()) {
     const data = snap.data();
@@ -103,16 +103,24 @@ export async function loadWatchlistFromCloud(uid: string): Promise<{ lists: Reco
 }
 
 /** 儲存收藏名單到雲端 */
-export async function saveWatchlistToCloud(uid: string, username: string, lists: Record<string, string[]>): Promise<void> {
+export async function saveWatchlistToCloud(uid: string, username: string, lists: Record<string, any[]>): Promise<void> {
   await setDoc(doc(db, "watchlists", uid), {
     username,
     lists,
     updatedAt: new Date().toISOString(),
   });
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("stockt_watchlist_updated", { detail: { lists } }));
+  }
 }
 
 /** 將特定股票加入用戶的自選股清單（雲端同步） */
-export async function addStockToUserWatchlist(symbol: string, listName = "我的自選股"): Promise<{ success: boolean; message: string }> {
+export async function addStockToUserWatchlist(
+  symbol: string,
+  listName = "我的自選股",
+  price = 0,
+  shares = 1000
+): Promise<{ success: boolean; message: string }> {
   const user = auth.currentUser;
   if (!user) {
     return { success: false, message: "🔒 請先登入帳號以啟用雲端收藏功能！" };
@@ -121,10 +129,16 @@ export async function addStockToUserWatchlist(symbol: string, listName = "我的
   try {
     const { lists, username } = await loadWatchlistFromCloud(user.uid);
     const targetList = lists[listName] ? [...lists[listName]] : [];
-    if (targetList.includes(cleanSym)) {
+    const exists = targetList.some((it: any) => (typeof it === "string" ? it === cleanSym : it.symbol === cleanSym));
+    if (exists) {
       return { success: true, message: `ℹ️【${cleanSym}】已在您的「${listName}」收藏清單中！` };
     }
-    targetList.push(cleanSym);
+    targetList.push({
+      symbol: cleanSym,
+      date: new Date().toISOString().slice(0, 10),
+      price: price || 0,
+      shares: shares || 1000,
+    });
     const updatedLists = { ...lists, [listName]: targetList };
     await saveWatchlistToCloud(user.uid, username, updatedLists);
     return { success: true, message: `🎉 已成功將【${cleanSym}】加入「${listName}」！` };
@@ -137,7 +151,7 @@ export async function addStockToUserWatchlist(symbol: string, listName = "我的
 /** 實時監聽用戶收藏名單變更 */
 export function subscribeWatchlist(
   uid: string,
-  callback: (data: { lists: Record<string, string[]>; username: string }) => void
+  callback: (data: { lists: Record<string, any[]>; username: string }) => void
 ): () => void {
   const unsub = onSnapshot(
     doc(db, "watchlists", uid),
