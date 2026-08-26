@@ -1,10 +1,12 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { registerUser, loginUser } from "../utils/firebase";
 
 interface AuthScreenProps {
   onLoginSuccess: (username: string) => void;
   onGuestMode: () => void;
 }
+
+const KNOWN_USERS_KEY = "stockt_known_users";
 
 export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess, onGuestMode }) => {
   const [tab, setTab] = useState<"login" | "register">("login");
@@ -13,6 +15,43 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess, onGuestM
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [loading, setLoading] = useState(false);
   const [statusMsg, setStatusMsg] = useState<{ type: "error" | "success" | "info"; text: string } | null>(null);
+
+  // 本機已記錄的帳號清單
+  const [savedUsers, setSavedUsers] = useState<string[]>([]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(KNOWN_USERS_KEY);
+      if (raw) {
+        const arr = JSON.parse(raw);
+        if (Array.isArray(arr) && arr.length > 0) {
+          setSavedUsers(arr);
+          setUsername(arr[0]); // 預設帶入最近一次登入的帳號
+        }
+      }
+    } catch {}
+  }, []);
+
+  const rememberUser = (u: string) => {
+    try {
+      const filtered = savedUsers.filter((x) => x !== u);
+      const updated = [u, ...filtered];
+      setSavedUsers(updated);
+      localStorage.setItem(KNOWN_USERS_KEY, JSON.stringify(updated));
+    } catch {}
+  };
+
+  const removeUser = (u: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const updated = savedUsers.filter((x) => x !== u);
+      setSavedUsers(updated);
+      localStorage.setItem(KNOWN_USERS_KEY, JSON.stringify(updated));
+      if (username === u) {
+        setUsername(updated.length > 0 ? updated[0] : "");
+      }
+    } catch {}
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,6 +72,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess, onGuestM
       } else {
         await loginUser(u, password);
       }
+      rememberUser(u);
       setStatusMsg({ type: "success", text: `🎉 歡迎，【${u}】！` });
       setTimeout(() => onLoginSuccess(u), 600);
     } catch (err: any) {
@@ -61,7 +101,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess, onGuestM
         borderRadius: "20px",
         border: "1px solid rgba(255, 255, 255, 0.12)",
         boxShadow: "0 20px 60px rgba(0, 0, 0, 0.7)",
-        width: "420px", maxWidth: "100%",
+        width: "440px", maxWidth: "100%",
         padding: "36px 32px",
         display: "flex", flexDirection: "column", gap: "20px"
       }}>
@@ -76,7 +116,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess, onGuestM
             阿山股市終端機 v2.0
           </h1>
           <p style={{ margin: 0, fontSize: "0.82rem", color: "rgba(255,255,255,0.5)" }}>
-            雲端同步 ｜ 個人收藏名單
+            雲端同步 ｜ 個人專屬收藏名單
           </p>
         </div>
 
@@ -92,7 +132,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess, onGuestM
               }}
               onClick={() => { setTab(t); setStatusMsg(null); }}
             >
-              {t === "login" ? "🔑 登入帳號" : "✨ 建立帳號"}
+              {t === "login" ? "🔑 登入已有帳號" : "✨ 註冊新帳號"}
             </button>
           ))}
         </div>
@@ -112,16 +152,84 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess, onGuestM
         {/* 表單 */}
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
           <div>
-            <label style={{ display: "block", fontSize: "0.82rem", color: "rgba(255,255,255,0.7)", marginBottom: "6px" }}>
-              👤 帳號名稱
-            </label>
-            <input
-              type="text" className="input-field" placeholder="輸入您的帳號名稱（如：小李、Alan）"
-              value={username} onChange={(e) => setUsername(e.target.value)}
-              style={{ width: "100%", padding: "10px 12px", fontSize: "0.9rem", boxSizing: "border-box" }}
-              required autoFocus
-            />
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+              <label style={{ fontSize: "0.82rem", color: "rgba(255, 255, 255, 0.7)" }}>
+                👤 帳號名稱
+              </label>
+              {tab === "login" && savedUsers.length > 0 && (
+                <span style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.45)" }}>
+                  可由右側選單快速切換
+                </span>
+              )}
+            </div>
+
+            {tab === "login" && savedUsers.length > 0 ? (
+              <div style={{ display: "flex", gap: "8px" }}>
+                <input
+                  type="text" className="input-field" placeholder="請輸入或由右側選擇帳號"
+                  value={username} onChange={(e) => setUsername(e.target.value)}
+                  style={{ flex: 1, padding: "10px 12px", fontSize: "0.9rem", boxSizing: "border-box" }}
+                  required autoFocus
+                />
+                <select
+                  className="select-field"
+                  value={savedUsers.includes(username) ? username : ""}
+                  onChange={(e) => { if (e.target.value) setUsername(e.target.value); }}
+                  style={{
+                    width: "145px",
+                    fontSize: "0.85rem",
+                    background: "rgba(255,255,255,0.08)",
+                    borderColor: "rgba(255,255,255,0.2)",
+                    color: "#fff",
+                    cursor: "pointer"
+                  }}
+                >
+                  <option value="" style={{ background: "#1a1a2e", color: "rgba(255,255,255,0.6)" }}>選擇已有帳號...</option>
+                  {savedUsers.map((u) => (
+                    <option key={u} value={u} style={{ background: "#1a1a2e", color: "#fff" }}>
+                      👤 {u}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <input
+                type="text" className="input-field" placeholder="輸入您的帳號名稱（如：小李、Alan）"
+                value={username} onChange={(e) => setUsername(e.target.value)}
+                style={{ width: "100%", padding: "10px 12px", fontSize: "0.9rem", boxSizing: "border-box" }}
+                required autoFocus
+              />
+            )}
+
+            {/* 快速點選帳號標籤 (Chips) */}
+            {tab === "login" && savedUsers.length > 0 && (
+              <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginTop: "8px" }}>
+                {savedUsers.map((u) => (
+                  <div
+                    key={u}
+                    onClick={() => setUsername(u)}
+                    style={{
+                      display: "flex", alignItems: "center", gap: "4px",
+                      background: username === u ? "rgba(33, 150, 243, 0.2)" : "rgba(255, 255, 255, 0.05)",
+                      border: `1px solid ${username === u ? "var(--accent-blue)" : "rgba(255, 255, 255, 0.12)"}`,
+                      color: username === u ? "#64b5f6" : "rgba(255, 255, 255, 0.75)",
+                      borderRadius: "6px", padding: "4px 8px", fontSize: "0.78rem", cursor: "pointer"
+                    }}
+                  >
+                    <span>👤 {u}</span>
+                    <span
+                      onClick={(e) => removeUser(u, e)}
+                      title="清除此紀錄"
+                      style={{ color: "rgba(255,255,255,0.3)", marginLeft: "4px", fontSize: "0.72rem" }}
+                    >
+                      ✕
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
+
           <div>
             <label style={{ display: "block", fontSize: "0.82rem", color: "rgba(255,255,255,0.7)", marginBottom: "6px" }}>
               🔒 密碼（至少 6 個字元）
@@ -133,6 +241,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess, onGuestM
               required
             />
           </div>
+
           {tab === "register" && (
             <div>
               <label style={{ display: "block", fontSize: "0.82rem", color: "rgba(255,255,255,0.7)", marginBottom: "6px" }}>
@@ -146,6 +255,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess, onGuestM
               />
             </div>
           )}
+
           <button
             type="submit"
             className={`btn ${tab === "login" ? "btn-primary" : "btn-success"}`}
