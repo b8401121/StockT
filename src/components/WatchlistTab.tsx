@@ -687,10 +687,10 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
       </div>
 
       {/* ─── 右側：主持股與交易明細區 ──────────────────────────────── */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <div className="watchlist-main-content" style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
         
         {/* 頂部總覽看板 */}
-        <div style={{
+        <div className="watchlist-dashboard" style={{
           padding: "14px 20px", background: "linear-gradient(180deg, rgba(20, 26, 42, 0.95), rgba(13, 17, 27, 0.95))",
           borderBottom: "1px solid rgba(255,255,255,0.08)", display: "flex", flexDirection: "column", gap: "10px", flexShrink: 0
         }}>
@@ -810,9 +810,10 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
         </div>
 
         {/* ─── 次級分頁切換按鈕 ───────────────────────────────────── */}
-        <div style={{
+        <div className="watchlist-tabs-bar" style={{
           display: "flex", alignItems: "center", gap: "8px", padding: "8px 20px",
-          background: "rgba(15, 20, 32, 0.7)", borderBottom: "1px solid rgba(255,255,255,0.08)", flexShrink: 0
+          background: "rgba(15, 20, 32, 0.7)", borderBottom: "1px solid rgba(255,255,255,0.08)", flexShrink: 0,
+          overflowX: "auto"
         }}>
           <button
             onClick={() => setViewTab("unrealized")}

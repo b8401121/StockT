@@ -462,6 +462,16 @@ select {
 
 /* 📱 手機直向 (Mobile < 768px) */
 @media (max-width: 768px) {
+  html, body, #root, .app-root {
+    height: auto !important;
+    min-height: 100vh !important;
+    overflow-y: auto !important;
+  }
+  .app-main, .tab-content.active {
+    height: auto !important;
+    min-height: calc(100vh - 60px) !important;
+    overflow: visible !important;
+  }
   .app-header {
     height: auto;
     padding: 8px 12px;
@@ -493,7 +503,7 @@ select {
   .analysis-layout {
     flex-direction: column;
     overflow-y: auto;
-    height: 100%;
+    height: auto;
   }
   .analysis-sidebar {
     width: 100%;
@@ -510,10 +520,14 @@ select {
     flex: none;
   }
 
-  /* 投資組合與自選股手機排版 */
+  /* 投資組合與自選股手機排版：允許整頁垂直滾動與橫向表格滑動 */
   .watchlist-container {
+    display: flex !important;
     flex-direction: column !important;
-    overflow-y: auto !important;
+    height: auto !important;
+    min-height: 100% !important;
+    overflow-y: visible !important;
+    overflow-x: hidden !important;
   }
   .watchlist-sidebar {
     width: 100% !important;
@@ -521,19 +535,44 @@ select {
     border-right: none !important;
     border-bottom: 1px solid rgba(255,255,255,0.08) !important;
     padding: 10px 12px !important;
+    flex: none !important;
+  }
+  .watchlist-main-content {
+    flex: none !important;
+    width: 100% !important;
+    overflow: visible !important;
+  }
+  .watchlist-dashboard {
+    flex: none !important;
+    padding: 10px 12px !important;
   }
   .watchlist-cards-grid {
     grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+  }
+  .watchlist-tabs-bar {
+    flex: none !important;
+    overflow-x: auto !important;
+    padding: 8px 12px !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  .watchlist-tabs-bar button {
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+    font-size: 0.80rem !important;
+    padding: 6px 12px !important;
   }
   .watchlist-table-scroll {
     overflow-x: auto !important;
+    overflow-y: visible !important;
+    width: 100% !important;
+    padding: 10px 12px !important;
     -webkit-overflow-scrolling: touch;
   }
   .criteria-grid {
     grid-template-columns: 1fr !important;
   }
 }
-
 /* 📱 iPad / 平板 (Tablet 768px ~ 1024px) */
 @media (min-width: 769px) and (max-width: 1024px) {
   .app-header {
