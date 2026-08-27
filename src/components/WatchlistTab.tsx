@@ -357,74 +357,72 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
         }
       }
 
-      // 剩餘庫存 = 未實現持股
-      if (buyLots.length > 0) {
-        const remainingShares = buyLots.reduce((acc, l) => acc + l.shares, 0);
-        const totalCost = buyLots.reduce((acc, l) => acc + (l.price * l.shares + l.buyFee), 0);
-        const avgBuyPrice = remainingShares > 0 ? buyLots.reduce((acc, l) => acc + l.price * l.shares, 0) / remainingShares : 0;
+      // 剩餘庫存 = 未實現持股 (包含庫存為 0 的觀察股)
+      const remainingShares = buyLots.reduce((acc, l) => acc + l.shares, 0);
+      const totalCost = buyLots.reduce((acc, l) => acc + (l.price * l.shares + l.buyFee), 0);
+      const avgBuyPrice = remainingShares > 0 ? buyLots.reduce((acc, l) => acc + l.price * l.shares, 0) / remainingShares : 0;
 
-        const curPrice = prices[symbol] || avgBuyPrice;
-        const rawMarketValue = curPrice * remainingShares;
-        const estSellFee = deductFees ? Math.max(Math.floor(rawMarketValue * feeRate), 1) : 0;
-        const estTax = deductFees ? Math.floor(rawMarketValue * (isEtf ? 0.001 : 0.003)) : 0;
-        const netMarketValue = rawMarketValue - estSellFee - estTax;
-        const pnl = netMarketValue - totalCost;
-        const roi = totalCost > 0 ? (pnl / totalCost) * 100 : 0;
+      const curPrice = prices[symbol] || avgBuyPrice || 0;
+      const rawMarketValue = curPrice * remainingShares;
+      const estSellFee = deductFees && remainingShares > 0 ? Math.max(Math.floor(rawMarketValue * feeRate), 1) : 0;
+      const estTax = deductFees && remainingShares > 0 ? Math.floor(rawMarketValue * (isEtf ? 0.001 : 0.003)) : 0;
+      const netMarketValue = rawMarketValue - estSellFee - estTax;
+      const pnl = remainingShares > 0 ? netMarketValue - totalCost : 0;
+      const roi = totalCost > 0 ? (pnl / totalCost) * 100 : 0;
 
-        const coCode = symbol.split(".")[0];
-        const fund = (twseFundamentals as Record<string, any>)[coCode];
-        const cashDiv = fund?.cash_dividend != null ? Number(fund.cash_dividend) : 0;
-        const stockDiv = fund?.stock_dividend != null ? Number(fund.stock_dividend) : 0;
-        const exDate = fund?.ex_dividend_date || null;
-        const exType = stockDiv > 0 && cashDiv > 0 ? "除權息" : stockDiv > 0 ? "除權" : cashDiv > 0 ? "除息" : "無配息";
+      const coCode = symbol.split(".")[0];
+      const fund = (twseFundamentals as Record<string, any>)[coCode];
+      const cashDiv = fund?.cash_dividend != null ? Number(fund.cash_dividend) : 0;
+      const stockDiv = fund?.stock_dividend != null ? Number(fund.stock_dividend) : 0;
+      const exDate = fund?.ex_dividend_date || null;
+      const exType = stockDiv > 0 && cashDiv > 0 ? "除權息" : stockDiv > 0 ? "除權" : cashDiv > 0 ? "除息" : "無配息";
 
-        // 依據各批次買進日期，驗證持有時間是否涵蓋除息日 (買進日 < 除息日)
-        const enrichedLots = buyLots.map((lot) => {
-          const isQualified = !!(exDate && cashDiv > 0 && lot.date < exDate);
-          const lotGrossDividend = isQualified ? Math.round(cashDiv * lot.shares) : 0;
-          return {
-            ...lot,
-            isQualified,
-            lotGrossDividend,
-          };
-        });
+      // 依據各批次買進日期，驗證持有時間是否涵蓋除息日 (買進日 < 除息日)
+      const enrichedLots = buyLots.map((lot) => {
+        const isQualified = !!(exDate && cashDiv > 0 && lot.date < exDate);
+        const lotGrossDividend = isQualified ? Math.round(cashDiv * lot.shares) : 0;
+        return {
+          ...lot,
+          isQualified,
+          lotGrossDividend,
+        };
+      });
 
-        const qualifiedShares = enrichedLots.filter((l) => l.isQualified).reduce((acc, l) => acc + l.shares, 0);
-        const estGrossDividend = enrichedLots.reduce((acc, l) => acc + l.lotGrossDividend, 0);
-        
-        // 單筆股利達 20,000 元扣 2.11% 二代健保補充保費
-        const nhiPremium = estGrossDividend >= 20000 ? Math.floor(estGrossDividend * 0.0211) : 0;
-        const bankFee = estGrossDividend > 0 ? 10 : 0;
-        const taxCredit85 = Math.min(Math.floor(estGrossDividend * 0.085), 80000);
-        const estNetDividend = Math.max(estGrossDividend - nhiPremium - bankFee, 0);
+      const qualifiedShares = enrichedLots.filter((l) => l.isQualified).reduce((acc, l) => acc + l.shares, 0);
+      const estGrossDividend = enrichedLots.reduce((acc, l) => acc + l.lotGrossDividend, 0);
+      
+      // 單筆股利達 20,000 元扣 2.11% 二代健保補充保費
+      const nhiPremium = estGrossDividend >= 20000 ? Math.floor(estGrossDividend * 0.0211) : 0;
+      const bankFee = estGrossDividend > 0 ? 10 : 0;
+      const taxCredit85 = Math.min(Math.floor(estGrossDividend * 0.085), 80000);
+      const estNetDividend = Math.max(estGrossDividend - nhiPremium - bankFee, 0);
 
-        unrealizedHoldings.push({
-          symbol,
-          name: stockName,
-          remainingShares,
-          avgBuyPrice,
-          curPrice,
-          cost: totalCost,
-          marketValue: rawMarketValue,
-          netMarketValue,
-          pnl,
-          roi,
-          buyFee: buyLots.reduce((acc, l) => acc + l.buyFee, 0),
-          estSellFee,
-          estTax,
-          cashDividend: cashDiv,
-          stockDividend: stockDiv,
-          estGrossDividend,
-          nhiPremium,
-          bankFee,
-          taxCredit85,
-          estNetDividend,
-          exType,
-          exDate: exDate || undefined,
-          qualifiedShares,
-          buyLots: enrichedLots,
-        });
-      }
+      unrealizedHoldings.push({
+        symbol,
+        name: stockName,
+        remainingShares,
+        avgBuyPrice,
+        curPrice,
+        cost: totalCost,
+        marketValue: rawMarketValue,
+        netMarketValue,
+        pnl,
+        roi,
+        buyFee: buyLots.reduce((acc, l) => acc + l.buyFee, 0),
+        estSellFee,
+        estTax,
+        cashDividend: cashDiv,
+        stockDividend: stockDiv,
+        estGrossDividend,
+        nhiPremium,
+        bankFee,
+        taxCredit85,
+        estNetDividend,
+        exType,
+        exDate: exDate || undefined,
+        qualifiedShares,
+        buyLots: enrichedLots,
+      });
     }
 
     // 總結統計
@@ -447,6 +445,13 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
     const grandTotalPnl = totalUnrealizedPnl + totalRealizedPnl + totalNetDividends;
     const totalCombinedCost = totalUnrealizedCost + totalRealizedCost;
     const grandTotalRoi = totalCombinedCost > 0 ? (grandTotalPnl / totalCombinedCost) * 100 : 0;
+
+    // 排序：持股數大於 0 的排在前面，0 股（觀察股/僅收藏）排在後面
+    unrealizedHoldings.sort((a, b) => {
+      if (a.remainingShares > 0 && b.remainingShares === 0) return -1;
+      if (a.remainingShares === 0 && b.remainingShares > 0) return 1;
+      return a.symbol.localeCompare(b.symbol);
+    });
 
     return {
       unrealizedHoldings,
@@ -585,6 +590,16 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
   const deleteTradeRecord = async (tradeId: string) => {
     if (!window.confirm("確定刪除此筆交易紀錄嗎？")) return;
     const updatedTrades = currentTrades.filter((t) => t.id !== tradeId);
+    const updatedLists = { ...lists, [activeList]: updatedTrades };
+    setLists(updatedLists);
+    await saveToCloud(updatedLists);
+  };
+
+  // 移除該股的所有交易紀錄（適用於取消收藏或清除已平倉觀察股）
+  const removeSymbolFromWatchlist = async (symbol: string) => {
+    const stockName = stockDb.find((s) => s.symbol === symbol)?.name || symbol;
+    if (!window.confirm(`確定要從自選清單中移除【${stockName} (${symbol})】嗎？`)) return;
+    const updatedTrades = currentTrades.filter((t) => t.symbol !== symbol);
     const updatedLists = { ...lists, [activeList]: updatedTrades };
     setLists(updatedLists);
     await saveToCloud(updatedLists);
@@ -921,7 +936,7 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
               color: viewTab === "unrealized" ? "#ffffff" : "#94a3b8",
             }}
           >
-            📈 未實現損益・持倉中 ({unrealizedHoldings.length})
+            📈 持股與自選 ({unrealizedHoldings.length})
           </button>
           <button
             onClick={() => setViewTab("realized")}
@@ -943,7 +958,7 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
               color: viewTab === "trades" ? "#ffffff" : "#94a3b8",
             }}
           >
-            📜 全部買賣流水帳 ({currentTrades.length})
+            📜 全部買賣流水帳 ({currentTrades.filter(t => t.price > 0).length})
           </button>
         </div>
 
@@ -1007,13 +1022,13 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                             </td>
 
                             {/* 股數 */}
-                            <td style={{ padding: "12px", textAlign: "right", color: "#ffffff", fontWeight: 700 }}>
-                              {h.remainingShares.toLocaleString()} 股
+                            <td style={{ padding: "12px", textAlign: "right", color: h.remainingShares > 0 ? "#ffffff" : "rgba(255,255,255,0.4)", fontWeight: h.remainingShares > 0 ? 700 : 500 }}>
+                              {h.remainingShares > 0 ? `${h.remainingShares.toLocaleString()} 股` : "觀察中"}
                             </td>
 
                             {/* 均價 */}
                             <td style={{ padding: "12px", textAlign: "right", color: "#cbd5e1", fontWeight: 600 }}>
-                              ${h.avgBuyPrice.toFixed(2)}
+                              {h.remainingShares > 0 ? `$${h.avgBuyPrice.toFixed(2)}` : "-"}
                             </td>
 
                             {/* 即時市價 */}
@@ -1023,7 +1038,7 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
 
                             {/* 市值 */}
                             <td style={{ padding: "12px", textAlign: "right", color: "#ffffff", fontWeight: 700 }}>
-                              NT$ {h.marketValue.toLocaleString()}
+                              {h.remainingShares > 0 ? `NT$ ${h.marketValue.toLocaleString()}` : "-"}
                             </td>
 
                             {/* 每股現金股利與除權息性質 */}
@@ -1069,23 +1084,23 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
 
                             {/* 成本 */}
                             <td style={{ padding: "12px", textAlign: "right", color: "#cbd5e1" }}>
-                              NT$ {h.cost.toLocaleString()}
+                              {h.remainingShares > 0 ? `NT$ ${h.cost.toLocaleString()}` : "-"}
                             </td>
 
                             {/* 損益 */}
                             <td style={{
                               padding: "12px", textAlign: "right", fontWeight: 800,
-                              color: h.pnl >= 0 ? "#ff5252" : "#4caf50"
+                              color: h.remainingShares > 0 ? (h.pnl >= 0 ? "#ff5252" : "#4caf50") : "var(--text-secondary)"
                             }}>
-                              {h.pnl >= 0 ? "+" : ""}NT$ {h.pnl.toLocaleString()}
+                              {h.remainingShares > 0 ? `${h.pnl >= 0 ? "+" : ""}NT$ ${h.pnl.toLocaleString()}` : "-"}
                             </td>
 
                             {/* 報酬率 */}
                             <td style={{
                               padding: "12px", textAlign: "right", fontWeight: 800,
-                              color: h.pnl >= 0 ? "#ff5252" : "#4caf50"
+                              color: h.remainingShares > 0 ? (h.pnl >= 0 ? "#ff5252" : "#4caf50") : "var(--text-secondary)"
                             }}>
-                              {h.pnl >= 0 ? "+" : ""}{h.roi.toFixed(2)}%
+                              {h.remainingShares > 0 ? `${h.pnl >= 0 ? "+" : ""}${h.roi.toFixed(2)}%` : "-"}
                             </td>
 
                             {/* 操作按鈕 */}
@@ -1102,17 +1117,31 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                                 >
                                   ＋ 買進
                                 </button>
-                                <button
-                                  onClick={() => openTradeModal("SELL", h.symbol, h.curPrice, h.remainingShares)}
-                                  title="賣出平倉"
-                                  style={{
-                                    background: "rgba(220,38,38,0.2)", border: "1px solid rgba(248,113,113,0.4)",
-                                    borderRadius: "4px", color: "#fca5a5", fontSize: "0.76rem", padding: "3px 8px",
-                                    cursor: "pointer", fontWeight: 700
-                                  }}
-                                >
-                                  💰 賣出
-                                </button>
+                                {h.remainingShares > 0 ? (
+                                  <button
+                                    onClick={() => openTradeModal("SELL", h.symbol, h.curPrice, h.remainingShares)}
+                                    title="賣出平倉"
+                                    style={{
+                                      background: "rgba(220,38,38,0.2)", border: "1px solid rgba(248,113,113,0.4)",
+                                      borderRadius: "4px", color: "#fca5a5", fontSize: "0.76rem", padding: "3px 8px",
+                                      cursor: "pointer", fontWeight: 700
+                                    }}
+                                  >
+                                    💰 賣出
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => removeSymbolFromWatchlist(h.symbol)}
+                                    title="從自選清單移除"
+                                    style={{
+                                      background: "rgba(220,38,38,0.15)", border: "1px solid rgba(248,113,113,0.3)",
+                                      borderRadius: "4px", color: "#f87171", fontSize: "0.76rem", padding: "3px 8px",
+                                      cursor: "pointer", fontWeight: 700
+                                    }}
+                                  >
+                                    🗑️ 移除
+                                  </button>
+                                )}
                                 {onAnalyze && (
                                   <button
                                     onClick={() => onAnalyze(h.symbol)}
