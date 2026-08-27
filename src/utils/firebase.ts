@@ -122,18 +122,45 @@ export async function saveWatchlistToCloud(uid: string, username: string, lists:
   }
 }
 
-/** 將特定股票加入用戶的自選股清單（雲端同步） */
+/** 將特定股票加入用戶的自選股清單（支援雲端同步與未登入本機暫存） */
 export async function addStockToUserWatchlist(
   symbol: string,
   listName = "我的自選股",
   price = 0,
-  shares = 1000
+  shares = 0
 ): Promise<{ success: boolean; message: string }> {
   const user = auth.currentUser;
-  if (!user) {
-    return { success: false, message: "🔒 請先登入帳號以啟用雲端收藏功能！" };
-  }
   const cleanSym = symbol.trim().toUpperCase();
+
+  // 若尚未登入，支援本機 localStorage 暫存收藏
+  if (!user) {
+    try {
+      const LOCAL_KEY = "stockt_guest_watchlist";
+      const raw = localStorage.getItem(LOCAL_KEY);
+      const localLists: Record<string, any[]> = raw ? JSON.parse(raw) : { "我的自選股": [] };
+      const targetList = localLists[listName] ? [...localLists[listName]] : [];
+      const exists = targetList.some((it: any) => (typeof it === "string" ? it === cleanSym : it.symbol === cleanSym));
+      if (exists) {
+        return { success: true, message: `ℹ️【${cleanSym}】已在「${listName}」自選清單中！` };
+      }
+      targetList.push({
+        symbol: cleanSym,
+        date: new Date().toISOString().slice(0, 10),
+        price: price || 0,
+        shares: shares || 0,
+        type: "BUY",
+      });
+      localLists[listName] = targetList;
+      localStorage.setItem(LOCAL_KEY, JSON.stringify(localLists));
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("stockt_watchlist_updated", { detail: { lists: localLists } }));
+      }
+      return { success: true, message: `🎉 已成功將【${cleanSym}】加入「${listName}」！` };
+    } catch (e: any) {
+      return { success: false, message: `收藏失敗：${e?.message || e}` };
+    }
+  }
+
   try {
     const { lists, username } = await loadWatchlistFromCloud(user.uid);
     const targetList = lists[listName] ? [...lists[listName]] : [];
@@ -145,7 +172,8 @@ export async function addStockToUserWatchlist(
       symbol: cleanSym,
       date: new Date().toISOString().slice(0, 10),
       price: price || 0,
-      shares: shares || 1000,
+      shares: shares || 0,
+      type: "BUY",
     });
     const updatedLists = { ...lists, [listName]: targetList };
     await saveWatchlistToCloud(user.uid, username, updatedLists);

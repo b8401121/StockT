@@ -187,37 +187,74 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
     }
   }, []);
 
-  // 雲端資料同步與監聽
+  // 雲端與本機資料同步與監聽
   useEffect(() => {
-    if (!user) return;
-
     const reloadData = () => {
-      setLoading(true);
-      loadWatchlistFromCloud(user.uid)
-        .then(({ lists: cloudLists }) => {
-          if (cloudLists && Object.keys(cloudLists).length > 0) {
-            const norm = normalizeLists(cloudLists);
+      if (user) {
+        setLoading(true);
+        loadWatchlistFromCloud(user.uid)
+          .then(async ({ lists: cloudLists }) => {
+            let merged: Record<string, any[]> = cloudLists && Object.keys(cloudLists).length > 0 ? { ...cloudLists } : { "我的自選股": [] };
+            // 合併訪客暫存清單
+            try {
+              const guestRaw = localStorage.getItem("stockt_guest_watchlist");
+              if (guestRaw) {
+                const guestLists = JSON.parse(guestRaw);
+                for (const [k, arr] of Object.entries(guestLists)) {
+                  if (!merged[k]) merged[k] = [];
+                  for (const item of (arr as any[])) {
+                    const sym = typeof item === "string" ? item : item?.symbol;
+                    if (sym && !merged[k].some((it: any) => (typeof it === "string" ? it === sym : it?.symbol === sym))) {
+                      merged[k].push(item);
+                    }
+                  }
+                }
+                localStorage.removeItem("stockt_guest_watchlist");
+                await saveWatchlistToCloud(user.uid, username, merged);
+              }
+            } catch (e) {
+              console.warn("Merge guest watchlist error:", e);
+            }
+
+            const norm = normalizeLists(merged);
+            setLists(norm);
+            setActiveList((prev) => (norm[prev] ? prev : Object.keys(norm)[0]));
+            fetchQuotes(norm);
+          })
+          .catch(console.error)
+          .finally(() => setLoading(false));
+      } else {
+        // 未登入時讀取本機暫存
+        try {
+          const guestRaw = localStorage.getItem("stockt_guest_watchlist");
+          if (guestRaw) {
+            const guestLists = JSON.parse(guestRaw);
+            const norm = normalizeLists(guestLists);
             setLists(norm);
             setActiveList((prev) => (norm[prev] ? prev : Object.keys(norm)[0]));
             fetchQuotes(norm);
           }
-        })
-        .catch(console.error)
-        .finally(() => setLoading(false));
+        } catch (e) {
+          console.warn("Load guest watchlist error:", e);
+        }
+      }
     };
 
     if (isActive !== false) {
       reloadData();
     }
 
-    const unsub = subscribeWatchlist(user.uid, ({ lists: cloudLists }) => {
-      if (cloudLists && Object.keys(cloudLists).length > 0) {
-        const norm = normalizeLists(cloudLists);
-        setLists(norm);
-        setActiveList((prev) => (norm[prev] ? prev : Object.keys(norm)[0]));
-        fetchQuotes(norm);
-      }
-    });
+    let unsub = () => {};
+    if (user) {
+      unsub = subscribeWatchlist(user.uid, ({ lists: cloudLists }) => {
+        if (cloudLists && Object.keys(cloudLists).length > 0) {
+          const norm = normalizeLists(cloudLists);
+          setLists(norm);
+          setActiveList((prev) => (norm[prev] ? prev : Object.keys(norm)[0]));
+          fetchQuotes(norm);
+        }
+      });
+    }
 
     const handleCustomUpdate = (e: any) => {
       if (e.detail?.lists) {
@@ -235,7 +272,7 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
       unsub();
       window.removeEventListener("stockt_watchlist_updated", handleCustomUpdate);
     };
-  }, [user, isActive, fetchQuotes, normalizeLists]);
+  }, [user, username, isActive, fetchQuotes, normalizeLists]);
 
   // 儲存到雲端
   const saveToCloud = useCallback(async (updatedLists: Record<string, TradeRecord[]>) => {
@@ -671,12 +708,14 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
     await saveToCloud(updated);
   };
 
-  if (!user) {
+  const hasAnyRecords = Object.values(lists).some((arr) => arr.length > 0);
+
+  if (!user && !hasAnyRecords) {
     return (
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: "16px", color: "var(--text-muted)" }}>
         <div style={{ fontSize: "3.5rem" }}>🔒</div>
         <div style={{ fontSize: "1.2rem", fontWeight: 700, color: "#ffffff" }}>請先登入帳號</div>
-        <div style={{ fontSize: "0.92rem", color: "#94a3b8" }}>登入後即可享有個人化多筆買賣交易記帳、未實現/已實現損益即時試算與雲端即時同步功能</div>
+        <div style={{ fontSize: "0.92rem", color: "#94a3b8" }}>登入後即可享有個人化自選股收藏、多筆買賣交易記帳與跨裝置即時同步功能</div>
       </div>
     );
   }
