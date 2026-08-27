@@ -568,8 +568,8 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                 const summary = getCompanyBusinessSummary(coId, info.symbol, info.name || info.symbol, info.sector || undefined);
                 return (
                   <div className="info-section">
-                    <div className="info-section-header"><span style={{ color: "#ffffff", fontWeight: 700 }}>🏢 四、公司業務與營業項目介紹</span> <span style={{ fontSize: "0.80rem", color: "#93c5fd", fontWeight: 600 }}>(MOPS 官方登記)</span></div>
-                    <div className="info-section-body" style={{ fontSize: "0.82rem", color: "var(--text-secondary)", lineHeight: 1.6 }}>
+                    <div className="info-section-header"><span style={{ color: "#ffffff", fontWeight: 700 }}>🏢 四、公司業務與營業項目介紹</span> <span style={{ fontSize: "0.80rem", color: "#93c5fd", fontWeight: 600 }}>(官方公開資訊與產業深度分析)</span></div>
+                    <div className="info-section-body" style={{ fontSize: "0.86rem", color: "#e2e8f0", lineHeight: 1.75, whiteSpace: "pre-line", padding: "10px 14px", background: "rgba(15, 23, 42, 0.4)", borderRadius: "6px" }}>
                       {summary}
                     </div>
                   </div>

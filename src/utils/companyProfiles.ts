@@ -18,15 +18,13 @@ const MOPS_MAP: Record<string, MopsProfile> = mopsData as unknown as Record<stri
  */
 export function getCompanyBusinessSummary(coId: string, normSym: string, stockName: string, category?: string): string {
   const code = coId.replace(/[^0-9]/g, "");
-  
-  // 1. 優先匹配官方 MOPS 登記主要營業項目
-  if (MOPS_MAP[code] && MOPS_MAP[code].business && MOPS_MAP[code].business.length > 1) {
-    const biz = MOPS_MAP[code].business;
-    const cleanName = (stockName || MOPS_MAP[code].name || normSym).replace(/\(.*\)/, "").replace(/\.TW.*/, "").replace(/\.TWO.*/, "").trim();
-    return `【${cleanName} (${normSym}) 主要營業項目】：${biz}。`;
+  const cleanName = (stockName || MOPS_MAP[code]?.name || normSym).replace(/\(.*\)/, "").replace(/\.TW.*/, "").replace(/\.TWO.*/, "").trim();
+
+  // 1. 優先匹配官方 MOPS / 深度業務資料庫
+  if (MOPS_MAP[code] && MOPS_MAP[code].business && MOPS_MAP[code].business.length > 5) {
+    return MOPS_MAP[code].business;
   }
 
-  const cleanName = (stockName || normSym).replace(/\(.*\)/, "").replace(/\.TW.*/, "").replace(/\.TWO.*/, "").trim();
   const num = parseInt(code, 10);
   const cat = category || "";
 
