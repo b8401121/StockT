@@ -446,6 +446,50 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
     const totalCombinedCost = totalUnrealizedCost + totalRealizedCost;
     const grandTotalRoi = totalCombinedCost > 0 ? (grandTotalPnl / totalCombinedCost) * 100 : 0;
 
+    // 補入純收藏（price=0, shares=0）但尚未出現在 unrealizedHoldings 中的股票（觀察中）
+    const existingSymbols = new Set(unrealizedHoldings.map((h) => h.symbol));
+    const observingSymbols = new Set<string>();
+    for (const t of currentTrades) {
+      if (!t.symbol) continue;
+      // 純收藏：price=0 且 shares=0，表示僅加入觀察清單，無實際買賣
+      if (Number(t.price) === 0 && Number(t.shares) === 0 && !existingSymbols.has(t.symbol) && !observingSymbols.has(t.symbol)) {
+        observingSymbols.add(t.symbol);
+        const stockName = stockDb.find((s) => s.symbol === t.symbol)?.name || t.name || t.symbol;
+        const coCode = t.symbol.split(".")[0];
+        const fund = (twseFundamentals as Record<string, any>)[coCode];
+        const cashDiv = fund?.cash_dividend != null ? Number(fund.cash_dividend) : 0;
+        const stockDiv = fund?.stock_dividend != null ? Number(fund.stock_dividend) : 0;
+        const exDate = fund?.ex_dividend_date || null;
+        const exType = stockDiv > 0 && cashDiv > 0 ? "除權息" : stockDiv > 0 ? "除權" : cashDiv > 0 ? "除息" : "無配息";
+        unrealizedHoldings.push({
+          symbol: t.symbol,
+          name: stockName,
+          remainingShares: 0,
+          avgBuyPrice: 0,
+          curPrice: prices[t.symbol] || 0,
+          cost: 0,
+          marketValue: 0,
+          netMarketValue: 0,
+          pnl: 0,
+          roi: 0,
+          buyFee: 0,
+          estSellFee: 0,
+          estTax: 0,
+          cashDividend: cashDiv,
+          stockDividend: stockDiv,
+          estGrossDividend: 0,
+          nhiPremium: 0,
+          bankFee: 0,
+          taxCredit85: 0,
+          estNetDividend: 0,
+          exType,
+          exDate: exDate || undefined,
+          qualifiedShares: 0,
+          buyLots: [],
+        });
+      }
+    }
+
     // 排序：持股數大於 0 的排在前面，0 股（觀察股/僅收藏）排在後面
     unrealizedHoldings.sort((a, b) => {
       if (a.remainingShares > 0 && b.remainingShares === 0) return -1;
