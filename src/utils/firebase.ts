@@ -122,15 +122,56 @@ export async function saveWatchlistToCloud(uid: string, username: string, lists:
   }
 }
 
+/** 檢查某股票是否已在自選收藏名單中 */
+export async function isStockInWatchlist(symbol: string): Promise<boolean> {
+  if (!symbol) return false;
+  const cleanSym = symbol.trim().toUpperCase();
+  const cleanCode = cleanSym.split(".")[0];
+  const user = auth.currentUser;
+
+  if (!user) {
+    try {
+      const raw = localStorage.getItem("stockt_guest_watchlist");
+      if (!raw) return false;
+      const lists: Record<string, any[]> = JSON.parse(raw);
+      return Object.values(lists).some((arr) =>
+        (arr || []).some((it: any) => {
+          const s = typeof it === "string" ? it : it?.symbol;
+          if (!s) return false;
+          const sc = s.trim().toUpperCase();
+          return sc === cleanSym || sc === cleanCode || sc.split(".")[0] === cleanCode;
+        })
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  try {
+    const { lists } = await loadWatchlistFromCloud(user.uid);
+    return Object.values(lists).some((arr) =>
+      (arr || []).some((it: any) => {
+        const s = typeof it === "string" ? it : it?.symbol;
+        if (!s) return false;
+        const sc = s.trim().toUpperCase();
+        return sc === cleanSym || sc === cleanCode || sc.split(".")[0] === cleanCode;
+      })
+    );
+  } catch {
+    return false;
+  }
+}
+
 /** 將特定股票加入用戶的自選股清單（支援雲端同步與未登入本機暫存） */
 export async function addStockToUserWatchlist(
   symbol: string,
   listName = "我的自選股",
   price = 0,
   shares = 0
-): Promise<{ success: boolean; message: string }> {
+): Promise<{ success: boolean; message: string; isAlreadyAdded?: boolean }> {
   const user = auth.currentUser;
   const cleanSym = symbol.trim().toUpperCase();
+  const cleanCode = cleanSym.split(".")[0];
 
   // 若尚未登入，支援本機 localStorage 暫存收藏
   if (!user) {
@@ -139,15 +180,20 @@ export async function addStockToUserWatchlist(
       const raw = localStorage.getItem(LOCAL_KEY);
       const localLists: Record<string, any[]> = raw ? JSON.parse(raw) : { "我的自選股": [] };
       const targetList = localLists[listName] ? [...localLists[listName]] : [];
-      const exists = targetList.some((it: any) => (typeof it === "string" ? it === cleanSym : it.symbol === cleanSym));
+      const exists = targetList.some((it: any) => {
+        const s = typeof it === "string" ? it : it?.symbol;
+        if (!s) return false;
+        const sc = s.trim().toUpperCase();
+        return sc === cleanSym || sc === cleanCode || sc.split(".")[0] === cleanCode;
+      });
       if (exists) {
-        return { success: true, message: `ℹ️【${cleanSym}】已在「${listName}」自選清單中！` };
+        return { success: true, message: `ℹ️【${cleanSym}】已在「${listName}」自選清單中！`, isAlreadyAdded: true };
       }
       targetList.push({
         symbol: cleanSym,
         date: new Date().toISOString().slice(0, 10),
-        price: price || 0,
-        shares: shares || 0,
+        price: 0,
+        shares: 0,
         type: "BUY",
       });
       localLists[listName] = targetList;
@@ -164,9 +210,14 @@ export async function addStockToUserWatchlist(
   try {
     const { lists, username } = await loadWatchlistFromCloud(user.uid);
     const targetList = lists[listName] ? [...lists[listName]] : [];
-    const exists = targetList.some((it: any) => (typeof it === "string" ? it === cleanSym : it.symbol === cleanSym));
+    const exists = targetList.some((it: any) => {
+      const s = typeof it === "string" ? it : it?.symbol;
+      if (!s) return false;
+      const sc = s.trim().toUpperCase();
+      return sc === cleanSym || sc === cleanCode || sc.split(".")[0] === cleanCode;
+    });
     if (exists) {
-      return { success: true, message: `ℹ️【${cleanSym}】已在您的「${listName}」收藏清單中！` };
+      return { success: true, message: `ℹ️【${cleanSym}】已在您的「${listName}」收藏清單中！`, isAlreadyAdded: true };
     }
     targetList.push({
       symbol: cleanSym,

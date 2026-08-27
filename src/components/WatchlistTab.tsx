@@ -132,16 +132,21 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
     return subscribeStocks((s) => setStockDb(s));
   }, []);
 
-  // 標準化資料結構 (支援舊版 PortfolioEntry 相容轉換)
+  // 標準化資料結構 (支援舊版 PortfolioEntry 相容轉換與代號標準化)
   const normalizeLists = useCallback((rawLists: Record<string, any[]>): Record<string, TradeRecord[]> => {
     const normalized: Record<string, TradeRecord[]> = {};
     for (const [k, arr] of Object.entries(rawLists)) {
       normalized[k] = (arr || []).map((item, idx) => {
+        const rawSym = (typeof item === "string" ? item : item.symbol || "").trim().toUpperCase();
+        const matched = stockDb.find((s) => s.symbol === rawSym || s.symbol.split(".")[0] === rawSym.split(".")[0]);
+        const cleanSym = matched ? matched.symbol : (rawSym.includes(".") ? rawSym : `${rawSym}.TW`);
+        const stockName = matched?.name || (typeof item === "object" ? item.name : "") || cleanSym;
+
         if (typeof item === "string") {
           return {
             id: `legacy-${idx}-${Date.now()}`,
-            symbol: item,
-            name: stockDb.find((s) => s.symbol === item)?.name || "",
+            symbol: cleanSym,
+            name: stockName,
             type: "BUY",
             date: new Date().toISOString().slice(0, 10),
             price: 0,
@@ -150,8 +155,8 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
         }
         return {
           id: item.id || `trade-${idx}-${item.date || Date.now()}`,
-          symbol: item.symbol || "",
-          name: item.name || stockDb.find((s) => s.symbol === item.symbol)?.name || "",
+          symbol: cleanSym,
+          name: stockName,
           type: item.type === "SELL" ? "SELL" : "BUY",
           date: item.date || new Date().toISOString().slice(0, 10),
           price: Number(item.price) || 0,
