@@ -41,7 +41,7 @@ try {
   app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
   auth = getAuth(app);
   // 設定 Session 持久化：關閉分頁或瀏覽器後，登入狀態自動失效，下次開啟必須重新登入
-  setPersistence(auth, browserSessionPersistence).catch((err) => {
+  setPersistence(auth, browserSessionPersistence).catch((err: any) => {
     console.warn("[Firebase] setPersistence error:", err);
   });
   db = getFirestore(app);
@@ -163,7 +163,7 @@ export function subscribeWatchlist(
 ): () => void {
   const unsub = onSnapshot(
     doc(db, "watchlists", uid),
-    (snap) => {
+    (snap: any) => {
       if (snap.exists()) {
         const data = snap.data();
         callback({
@@ -174,7 +174,7 @@ export function subscribeWatchlist(
         callback({ lists: { "我的自選股": [] }, username: "" });
       }
     },
-    (err) => {
+    (err: any) => {
       console.error("Watchlist snapshot error:", err);
     }
   );

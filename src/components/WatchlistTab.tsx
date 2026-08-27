@@ -444,7 +444,7 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
     const totalNhiPremium = unrealizedHoldings.reduce((acc, h) => acc + h.nhiPremium, 0);
     const totalTaxCredit85 = Math.min(unrealizedHoldings.reduce((acc, h) => acc + h.taxCredit85, 0), 80000);
     const totalNetDividends = unrealizedHoldings.reduce((acc, h) => acc + h.estNetDividend, 0);
-    const grandTotalPnl = totalUnrealizedPnl + totalRealizedPnl;
+    const grandTotalPnl = totalUnrealizedPnl + totalRealizedPnl + totalNetDividends;
     const totalCombinedCost = totalUnrealizedCost + totalRealizedCost;
     const grandTotalRoi = totalCombinedCost > 0 ? (grandTotalPnl / totalCombinedCost) * 100 : 0;
 
@@ -880,7 +880,7 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
               borderRadius: "8px", padding: "10px 14px"
             }}>
               <div style={{ fontSize: "0.76rem", color: "#ffffff", fontWeight: 700, marginBottom: "2px" }}>
-                📈 總累積獲利 (未實現 + 已實現)
+                📈 總累積獲利 (未實現 + 已實現 + 股利)
               </div>
               <div style={{ fontSize: "1.25rem", fontWeight: 800, color: totals.grandTotalPnl >= 0 ? "#ff5252" : "#4caf50" }}>
                 {totals.grandTotalPnl >= 0 ? "+" : ""}NT$ {totals.grandTotalPnl.toLocaleString()}
@@ -900,7 +900,7 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                 </span>
               </div>
               <div style={{ fontSize: "0.70rem", color: "#cbd5e1", marginTop: "4px" }}>
-                未實現 {totals.totalUnrealizedPnl >= 0 ? "+" : ""}{totals.totalUnrealizedPnl.toLocaleString()} ｜ 已實現 {totals.totalRealizedPnl >= 0 ? "+" : ""}{totals.totalRealizedPnl.toLocaleString()}
+                未實現 {totals.totalUnrealizedPnl >= 0 ? "+" : ""}{totals.totalUnrealizedPnl.toLocaleString()} ｜ 已實現 {totals.totalRealizedPnl >= 0 ? "+" : ""}{totals.totalRealizedPnl.toLocaleString()} ｜ 股息 +NT$ {totals.totalNetDividends.toLocaleString()}
               </div>
             </div>
           </div>
