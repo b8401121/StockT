@@ -76,11 +76,12 @@ export interface RealizedTrade {
   note?: string;
 }
 
-/** 自選觀察股 (未持倉) */
+/** 自選觀察股 */
 export interface ObservingStock {
   symbol: string;
   name: string;
   curPrice: number;
+  remainingShares: number;
   cashDividend: number;
   stockDividend: number;
   exType: string;
@@ -481,16 +482,15 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
       }
     }
 
-    // 自選觀察股名單（當前清單中，未持倉的收藏觀察股票）
+    // 自選觀察股名單（當前清單中的所有自選追蹤與收藏股票）
     const observingStocks: ObservingStock[] = [];
-    const holdingSymbols = new Set(unrealizedHoldings.map((h) => h.symbol));
     const seenObserving = new Set<string>();
 
     for (const [symbol, symTrades] of Object.entries(bySymbol)) {
-      if (holdingSymbols.has(symbol) || seenObserving.has(symbol)) continue;
+      if (!symbol || seenObserving.has(symbol)) continue;
       seenObserving.add(symbol);
 
-      const stockName = stockDb.find((s) => s.symbol === symbol)?.name || symTrades[0]?.name || symbol;
+      const stockName = stockDb.find((s) => s.symbol === symbol || s.symbol.split(".")[0] === symbol.split(".")[0])?.name || symTrades[0]?.name || symbol;
       const coCode = symbol.split(".")[0];
       const fund = (twseFundamentals as Record<string, any>)[coCode];
       const cashDiv = fund?.cash_dividend != null ? Number(fund.cash_dividend) : 0;
@@ -498,11 +498,14 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
       const exDate = fund?.ex_dividend_date || null;
       const exType = stockDiv > 0 && cashDiv > 0 ? "除權息" : stockDiv > 0 ? "除權" : cashDiv > 0 ? "除息" : "無配息";
       const note = symTrades.find((t) => t.note)?.note || "";
+      const holding = unrealizedHoldings.find((h) => h.symbol === symbol);
+      const remainingShares = holding ? holding.remainingShares : 0;
 
       observingStocks.push({
         symbol,
         name: stockName,
         curPrice: prices[symbol] || 0,
+        remainingShares,
         cashDividend: cashDiv,
         stockDividend: stockDiv,
         exType,
@@ -513,7 +516,10 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
 
     // 排序
     unrealizedHoldings.sort((a, b) => a.symbol.localeCompare(b.symbol));
-    observingStocks.sort((a, b) => a.symbol.localeCompare(b.symbol));
+    observingStocks.sort((a, b) => {
+      // 0股觀察中與有持倉均按代號排序
+      return a.symbol.localeCompare(b.symbol);
+    });
 
     // 總結統計
     const totalUnrealizedCost = unrealizedHoldings.reduce((acc, h) => acc + h.cost, 0);
@@ -1306,6 +1312,7 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                   <thead>
                     <tr style={{ background: "rgba(30, 41, 59, 0.8)", borderBottom: "2px solid rgba(255,255,255,0.15)", color: "#ffffff" }}>
                       <th style={{ padding: "10px 12px", textAlign: "left" }}>股票代號 / 名稱</th>
+                      <th style={{ padding: "10px 12px", textAlign: "center" }}>持股狀態</th>
                       <th style={{ padding: "10px 12px", textAlign: "right" }}>即時市價</th>
                       <th style={{ padding: "10px 12px", textAlign: "right" }}>每股現金股利</th>
                       <th style={{ padding: "10px 12px", textAlign: "right" }}>除權息性質 / 日期</th>
@@ -1320,6 +1327,25 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                           <span style={{ color: "#38bdf8", cursor: "pointer" }} onClick={() => onAnalyze && onAnalyze(s.symbol)}>
                             {s.name} ({s.symbol})
                           </span>
+                        </td>
+                        <td style={{ padding: "12px", textAlign: "center" }}>
+                          {s.remainingShares > 0 ? (
+                            <span style={{
+                              padding: "2px 8px", borderRadius: "4px",
+                              background: "rgba(56, 189, 248, 0.15)", border: "1px solid rgba(56, 189, 248, 0.4)",
+                              color: "#38bdf8", fontSize: "0.76rem", fontWeight: 700
+                            }}>
+                              持倉 {s.remainingShares.toLocaleString()} 股
+                            </span>
+                          ) : (
+                            <span style={{
+                              padding: "2px 8px", borderRadius: "4px",
+                              background: "rgba(255, 255, 255, 0.06)",
+                              color: "#94a3b8", fontSize: "0.76rem"
+                            }}>
+                              觀察中
+                            </span>
+                          )}
                         </td>
                         <td style={{ padding: "12px", textAlign: "right", color: "#ffffff", fontWeight: 800 }}>
                           ${s.curPrice > 0 ? s.curPrice.toFixed(2) : "-"}
@@ -1344,14 +1370,14 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
                             <button
                               onClick={() => openTradeModal("BUY", s.symbol, s.curPrice)}
-                              title="買進建倉"
+                              title={s.remainingShares > 0 ? "加碼買進" : "買進建倉"}
                               style={{
                                 background: "rgba(37,99,235,0.2)", border: "1px solid rgba(96,165,250,0.4)",
                                 borderRadius: "4px", color: "#93c5fd", fontSize: "0.76rem", padding: "3px 8px",
                                 cursor: "pointer", fontWeight: 700
                               }}
                             >
-                              ➕ 買進
+                              {s.remainingShares > 0 ? "＋ 加碼" : "➕ 買進"}
                             </button>
                             {onAnalyze && (
                               <button
