@@ -149,8 +149,8 @@ export const HybridScanTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({
           // 3. 雙維度融合評分 (基本面權重 60% + 技術面權重 40%)
           const hybridScore = Number((fs.score * 0.6 + techScore * 0.4).toFixed(1));
 
-          // 4. 🧠 CPU 內建多因子神經網路 AI 勝率推論
-          const aiAlpha = evaluateAIAlpha(info, curP, prevP);
+          // 4. 🧠 Data-backed Multi-Factor Model v1 多因子量化勝率評估
+          const aiAlpha = evaluateAIAlpha(info, curP, prevP, ohlcv);
 
           // 嚴格菁英優選標準：
           // 1. 基本面評級：必須達到 A 優質以上 (fs.score >= 7)，徹底排除 C 普通與平庸股

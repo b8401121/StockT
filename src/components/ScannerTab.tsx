@@ -124,7 +124,7 @@ export const ScannerTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ on
           const prevP = data.info.previous_close || curP;
           const changePct = prevP > 0 ? ((curP - prevP) / prevP) * 100 : 0;
 
-          const aiAlpha = evaluateAIAlpha(data.info, curP, prevP);
+          const aiAlpha = evaluateAIAlpha(data.info, curP, prevP, ohlcv);
 
           if (mode === "buy") {
             let score = 0;

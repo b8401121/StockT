@@ -485,9 +485,9 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                 </div>
               </div>
 
-              {/* 🧠 CPU 內建 AI 深度多因子診斷卡片 */}
+              {/* 🧠 Data-backed Multi-Factor Model v1 多因子量化診斷卡片 */}
               {(() => {
-                const aiResult = evaluateAIAlpha(info, info.current_price || 0, info.previous_close || (info.current_price || 0));
+                const aiResult = evaluateAIAlpha(info, info.current_price || 0, info.previous_close || (info.current_price || 0), ohlcv);
                 const winRate = aiResult.winRatePct;
                 const alphaColor = winRate >= 75 ? "#38bdf8" : winRate >= 50 ? "#c084fc" : "#ef4444";
                 const dq = aiResult.dataQuality;
