@@ -2,6 +2,7 @@ import { StockInfoFull } from "./analysis";
 import type { AvailabilityPolicy, Metric } from "./platform";
 import { HardwareTier, getCachedHardwareInfo } from "./hardwareDetector";
 import { OhlcvData } from "./indicators";
+import { evaluateMLModel, MLInferenceResult } from "./mlTreeModel";
 
 /**
  * 因子分析結果單項 (Factor Result)
@@ -84,6 +85,7 @@ export interface AIAlphaResult {
     | "⚠️ 資料不全・謹慎參考";
   dataQuality: DataQualityReport;
   calibration: BacktestCalibration;
+  mlInference?: MLInferenceResult; // 機器學習決策樹與交互特徵推論
   positiveDrivers: string[];
   riskDrivers: string[];
   factors: FactorResult[];
@@ -468,10 +470,11 @@ export function evaluateAIAlpha(
   }
 
   // 1.8 volumeRatio (成交量比: 5日均量 / 20日均量)
+  let vRatio: number | null = null;
   const vol5 = calcSMA(volumes, 5);
   const vol20 = calcSMA(volumes, 20);
   if (vol5 !== null && vol20 !== null && vol20 > 0) {
-    const vRatio = vol5 / vol20;
+    vRatio = vol5 / vol20;
     const score = vRatio >= 1.3 ? 2.2 : vRatio >= 1.0 ? 1.0 : vRatio >= 0.7 ? -0.2 : -1.5;
     factors.push({
       name: "volumeRatio",
@@ -837,7 +840,35 @@ export function evaluateAIAlpha(
   }
 
   const normalizedScore = totalWeight > 0 ? (weightedScore / totalWeight) : 0;
-  const rawProb = sigmoid(normalizedScore * 0.85) * 100;
+  const heuristicRawProb = sigmoid(normalizedScore * 0.85) * 100;
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // 4. ML Track (決策樹集成 & 特徵交互推論)
+  // ──────────────────────────────────────────────────────────────────────────
+  const currP = curP || 100;
+
+  const mlResult = evaluateMLModel({
+    momentum20: (m20 ?? 0) / 100,
+    momentum60: (m60 ?? 0) / 100,
+    momentum120: (m120 ?? 0) / 100,
+    ma20Bias: (currP && ma20) ? (currP - ma20) / ma20 : 0,
+    ma60Bias: (currP && ma60) ? (currP - ma60) / ma60 : 0,
+    ma120Bias: (currP && ma120) ? (currP - ma120) / ma120 : 0,
+    ma240Bias: (currP && ma240) ? (currP - ma240) / ma240 : 0,
+    volumeRatio: vRatio ?? 1.0,
+    roe: roeVal ?? 0.15,
+    pe: metricVal(info.tw_pe ?? info.pe) ?? 18.0,
+    pb: metricVal(info.pb) ?? 2.5,
+    dividendYield: metricVal(info.dividend_yield) ?? 0.035,
+    grossMargins: grossM ?? 0.30,
+    profitMargins: operM ?? 0.15,
+    debtToEquity: debtVal ?? 45.0,
+  });
+
+  // 雙軌 Ensemble: 60% 規則多因子 + 40% 機器學習決策樹
+  const rawProb = ohlcv && ohlcv.close.length >= 20
+    ? heuristicRawProb * 0.60 + mlResult.mlWinProbabilityPct * 0.40
+    : heuristicRawProb;
 
   // 依據 backtest/results.json 實證回測校準曲線映射 (含 49.25 bps 完整交易摩擦扣除)
   let calibratedWinRate = 50.0;
@@ -914,6 +945,7 @@ export function evaluateAIAlpha(
     convictionTier,
     dataQuality,
     calibration,
+    mlInference: mlResult,
     positiveDrivers,
     riskDrivers,
     factors,

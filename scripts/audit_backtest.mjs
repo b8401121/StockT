@@ -62,6 +62,7 @@ function computeEngineSourceSha256() {
     "src/backtest/backtestEngine.ts",
     "src/backtest/backtestRunner.ts",
     "src/utils/aiAlphaModel.ts",
+    "src/utils/mlTreeModel.ts",
     "src/utils/marketCalendar.ts",
     "src/utils/pitValidator.ts",
   ];

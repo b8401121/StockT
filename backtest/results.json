@@ -1,12 +1,12 @@
 {
   "provenance": {
-    "run_id": "RUN-PIT-1787933373268",
-    "git_commit": "7531a50",
+    "run_id": "RUN-PIT-1787934814256",
+    "git_commit": "8f6a1c8",
     "config_sha256": "0e80b50903deda83169ffc47daaf10e7e424296a3f728b0ada01e0a0baad7c55",
     "dataset_sha256": "6594d56f77c52df583bc3fbee66c57f6df17fd2827d8d6db8cf80cf0318194c6",
-    "engine_sha256": "15faddf9bc5ee6fd3237c9926aee11cb653da225e55d53d41561f8610c07aae9",
+    "engine_sha256": "a481648273a8eb811d68b2aaf144737c6156076d40de718f4e45bed8afc9df60",
     "engine_version": "v1.0.0-pit-audited",
-    "generated_at": "2026-08-28T16:09:33.628Z",
+    "generated_at": "2026-08-28T16:33:34.675Z",
     "audit_status": "AUDITED_VERIFIED_POINT_IN_TIME",
     "dataset_spec": "TWSE / TPEx / MOPS Point-in-Time Historical Database (Institutional Grade)",
     "benchmark": "^TWII (Synchronized T+1 Open to T+20 Close)"
@@ -101,7 +101,7 @@
       "benchmark_return_pct": 24.25,
       "net_alpha_pct": -6.07,
       "sharpe_ratio": 0.47,
-      "max_drawdown_pct": -2.7,
+      "max_drawdown_pct": -2.9,
       "friction_paid_ntd": 585070
     },
     {
@@ -131,7 +131,7 @@
       "benchmark_return_pct": 3.59,
       "net_alpha_pct": 8.86,
       "sharpe_ratio": 0.36,
-      "max_drawdown_pct": -4.8,
+      "max_drawdown_pct": -4.9,
       "friction_paid_ntd": 634108
     },
     {
@@ -176,7 +176,7 @@
       "benchmark_return_pct": -3.89,
       "net_alpha_pct": 13.08,
       "sharpe_ratio": 0.22,
-      "max_drawdown_pct": -6.6,
+      "max_drawdown_pct": -6.8,
       "friction_paid_ntd": 726084
     },
     {
@@ -198,39 +198,39 @@
   "calibration_curve": [
     {
       "raw_probability_min": 90,
-      "empirical_win_rate_pct": 50,
-      "sample_count": 0,
-      "avg_net_return_pct": 0
+      "empirical_win_rate_pct": 100,
+      "sample_count": 1,
+      "avg_net_return_pct": 3.77
     },
     {
       "raw_probability_min": 80,
-      "empirical_win_rate_pct": 58.9,
-      "sample_count": 56,
-      "avg_net_return_pct": 2.94
+      "empirical_win_rate_pct": 54.4,
+      "sample_count": 147,
+      "avg_net_return_pct": 1.55
     },
     {
       "raw_probability_min": 70,
-      "empirical_win_rate_pct": 52.2,
-      "sample_count": 347,
-      "avg_net_return_pct": 0.82
+      "empirical_win_rate_pct": 62,
+      "sample_count": 71,
+      "avg_net_return_pct": 2.67
     },
     {
       "raw_probability_min": 60,
-      "empirical_win_rate_pct": 57.4,
-      "sample_count": 209,
-      "avg_net_return_pct": 2.64
+      "empirical_win_rate_pct": 54.6,
+      "sample_count": 346,
+      "avg_net_return_pct": 1.57
     },
     {
       "raw_probability_min": 50,
-      "empirical_win_rate_pct": 51.3,
-      "sample_count": 154,
-      "avg_net_return_pct": 0.6
+      "empirical_win_rate_pct": 52.9,
+      "sample_count": 227,
+      "avg_net_return_pct": 1.48
     },
     {
       "raw_probability_min": 0,
-      "empirical_win_rate_pct": 52.9,
-      "sample_count": 274,
-      "avg_net_return_pct": 1.3
+      "empirical_win_rate_pct": 50,
+      "sample_count": 248,
+      "avg_net_return_pct": 0.61
     }
   ],
   "audit_metadata": {
