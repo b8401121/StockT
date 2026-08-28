@@ -106,14 +106,21 @@ export interface ZoomModalProps {
 }
 
 export const ZoomChartModal: React.FC<ZoomModalProps> = ({ type, ohlcv, ind, symbol, name, onClose }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const chartRef = useRef<IChartApi | null>(null);
+  const mainContainerRef = useRef<HTMLDivElement>(null);
+  const subContainerRef = useRef<HTMLDivElement>(null);
+  const mainChartRef = useRef<IChartApi | null>(null);
+  const subChartRef = useRef<IChartApi | null>(null);
   const [hoverInfo, setHoverInfo] = useState<TooltipData | null>(null);
 
   const resetZoom = () => {
-    if (chartRef.current) {
+    if (mainChartRef.current) {
       try {
-        chartRef.current.timeScale().fitContent();
+        mainChartRef.current.timeScale().fitContent();
+      } catch {}
+    }
+    if (subChartRef.current) {
+      try {
+        subChartRef.current.timeScale().fitContent();
       } catch {}
     }
   };
@@ -151,173 +158,207 @@ export const ZoomChartModal: React.FC<ZoomModalProps> = ({ type, ohlcv, ind, sym
   };
 
   const displayData = hoverInfo || getLatestBarInfo();
-  
+
   useEffect(() => {
-    if (!containerRef.current) return;
-    
+    if (!mainContainerRef.current) return;
+
     const times = ohlcv.timestamp.map((t) => (t < 1e12 ? t : Math.floor(t / 1000)) as UTCTimestamp);
     const toLineData = (arr: number[]) =>
       times.map((t, i) => ({ time: t, value: arr[i] })).filter((d) => !isNaN(d.value) && d.value !== null && d.value !== undefined);
 
-    const width = containerRef.current.clientWidth;
-    const height = containerRef.current.clientHeight - 40;
-    
-    const chart = createChart(containerRef.current, {
+    const isDual = type !== "main";
+    const mainWidth = mainContainerRef.current.clientWidth;
+    const mainHeight = mainContainerRef.current.clientHeight || (isDual ? 320 : 540);
+
+    const mainChart = createChart(mainContainerRef.current, {
       ...CHART_OPTS,
-      width,
-      height,
+      width: mainWidth,
+      height: mainHeight,
     });
-    chartRef.current = chart;
-    
-    if (type === "main") {
-      // 1. 蠟燭 K 線 (無橫向虛線與刻度盒)
-      const candleSeries = chart.addCandlestickSeries({
-        upColor: "#ff5252", downColor: "#4caf50",
-        borderUpColor: "#ff5252", borderDownColor: "#4caf50",
-        wickUpColor: "#ff5252", wickDownColor: "#4caf50",
-        priceLineVisible: false,
-        lastValueVisible: false,
+    mainChartRef.current = mainChart;
+
+    // 蠟燭線
+    const candleSeries = mainChart.addCandlestickSeries({
+      upColor: "#ff5252", downColor: "#4caf50",
+      borderUpColor: "#ff5252", borderDownColor: "#4caf50",
+      wickUpColor: "#ff5252", wickDownColor: "#4caf50",
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+    const candleData = ohlcv.timestamp.map((_, i) => ({
+      time: times[i],
+      open: ohlcv.open[i] ?? 0, high: ohlcv.high[i] ?? 0,
+      low: ohlcv.low[i] ?? 0, close: ohlcv.close[i] ?? 0,
+    })).filter((d) => d.open && d.close);
+    candleSeries.setData(candleData);
+
+    // 成交量
+    const volumeSeries = mainChart.addHistogramSeries({
+      color: "#26a69a",
+      priceFormat: { type: "volume" },
+      priceScaleId: "",
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+    volumeSeries.priceScale().applyOptions({
+      scaleMargins: { top: 0.76, bottom: 0 },
+    });
+    const volData = times.map((t, i) => {
+      const o = ohlcv.open[i] ?? 0;
+      const c = ohlcv.close[i] ?? 0;
+      const isUp = c >= o;
+      return {
+        time: t,
+        value: ohlcv.volume[i] ?? 0,
+        color: isUp ? "rgba(255, 82, 82, 0.65)" : "rgba(76, 175, 80, 0.65)",
+      };
+    }).filter((d) => d.value > 0);
+    volumeSeries.setData(volData);
+
+    // 均線與布林
+    const sma5s = mainChart.addLineSeries({ color: "#ff9800", lineWidth: 1, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
+    const sma10s = mainChart.addLineSeries({ color: "#03a9f4", lineWidth: 1, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
+    const sma20s = mainChart.addLineSeries({ color: "#ffea00", lineWidth: 2, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
+    const bbUpS = mainChart.addLineSeries({ color: "rgba(179, 157, 219, 0.8)", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
+    const bbLoS = mainChart.addLineSeries({ color: "rgba(179, 157, 219, 0.8)", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
+
+    sma5s.setData(toLineData(ind.sma5));
+    sma10s.setData(toLineData(ind.sma10));
+    sma20s.setData(toLineData(ind.sma20));
+    bbUpS.setData(toLineData(ind.bbUpper));
+    bbLoS.setData(toLineData(ind.bbLower));
+
+    // 懸停十字線 HUD
+    mainChart.subscribeCrosshairMove((param) => {
+      if (
+        !param.point ||
+        !param.time ||
+        param.point.x < 0 ||
+        param.point.x > (mainContainerRef.current?.clientWidth ?? 0) ||
+        param.point.y < 0 ||
+        param.point.y > (mainContainerRef.current?.clientHeight ?? 0)
+      ) {
+        setHoverInfo(null);
+        return;
+      }
+
+      const tNum = typeof param.time === "number" ? param.time : (param.time as any);
+      const idx = times.findIndex((t) => t === tNum);
+      if (idx === -1) {
+        setHoverInfo(null);
+        return;
+      }
+
+      const o = ohlcv.open[idx] ?? 0;
+      const h = ohlcv.high[idx] ?? 0;
+      const l = ohlcv.low[idx] ?? 0;
+      const c = ohlcv.close[idx] ?? 0;
+      const prevC = idx > 0 ? (ohlcv.close[idx - 1] ?? o) : o;
+      const change = c - prevC;
+      const changePct = prevC > 0 ? (change / prevC) * 100 : 0;
+      const vol = ohlcv.volume[idx] ?? 0;
+
+      const rawDate = ohlcv.timestamp[idx];
+      const dateObj = new Date(rawDate < 1e12 ? rawDate * 1000 : rawDate);
+      const dateStr = `${dateObj.getFullYear()}/${String(dateObj.getMonth() + 1).padStart(2, "0")}/${String(dateObj.getDate()).padStart(2, "0")}`;
+
+      setHoverInfo({
+        date: dateStr,
+        open: o,
+        high: h,
+        low: l,
+        close: c,
+        change,
+        changePct,
+        volume: vol,
+        sma5: ind.sma5[idx],
+        sma10: ind.sma10[idx],
+        sma20: ind.sma20[idx],
       });
-      const candleData = ohlcv.timestamp.map((_, i) => ({
-        time: times[i],
-        open: ohlcv.open[i] ?? 0, high: ohlcv.high[i] ?? 0,
-        low: ohlcv.low[i] ?? 0, close: ohlcv.close[i] ?? 0,
-      })).filter((d) => d.open && d.close);
-      candleSeries.setData(candleData);
+    });
 
-      // 2. 主圖內建成交量柱狀圖 (佔下方 22% 區塊)
-      const volumeSeries = chart.addHistogramSeries({
-        color: "#26a69a",
-        priceFormat: { type: "volume" },
-        priceScaleId: "",
-        priceLineVisible: false,
-        lastValueVisible: false,
+    let subChart: IChartApi | null = null;
+
+    if (isDual && subContainerRef.current) {
+      const subWidth = subContainerRef.current.clientWidth;
+      const subHeight = subContainerRef.current.clientHeight || 240;
+      subChart = createChart(subContainerRef.current, {
+        ...CHART_OPTS,
+        width: subWidth,
+        height: subHeight,
       });
-      volumeSeries.priceScale().applyOptions({
-        scaleMargins: {
-          top: 0.76,
-          bottom: 0,
-        },
+      subChartRef.current = subChart;
+
+      if (type === "kd") {
+        const kS = subChart.addLineSeries({ color: "#00bcd4", lineWidth: 2, title: "K" });
+        const dS = subChart.addLineSeries({ color: "#ffc107", lineWidth: 2, title: "D" });
+        const ob = subChart.addLineSeries({ color: "rgba(255,82,82,0.5)", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false });
+        const os = subChart.addLineSeries({ color: "rgba(76,175,80,0.5)", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false });
+        kS.setData(toLineData(ind.k));
+        dS.setData(toLineData(ind.d));
+        ob.setData(times.map((t) => ({ time: t, value: 80 })));
+        os.setData(times.map((t) => ({ time: t, value: 20 })));
+      } else if (type === "macd") {
+        const macdS = subChart.addLineSeries({ color: "#ffffff", lineWidth: 2, title: "DIF" });
+        const sigS = subChart.addLineSeries({ color: "#03a9f4", lineWidth: 2, title: "DEA" });
+        const histS = subChart.addHistogramSeries({ color: "#4caf50", title: "OSC 柱狀圖" });
+        const zero = subChart.addLineSeries({ color: "rgba(255,255,255,0.2)", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false });
+        macdS.setData(toLineData(ind.macd));
+        sigS.setData(toLineData(ind.signal));
+        zero.setData(times.map((t) => ({ time: t, value: 0 })));
+        histS.setData(times.map((t, i) => ({
+          time: t, value: ind.hist[i],
+          color: (ind.hist[i] ?? 0) >= 0 ? "rgba(255,82,82,0.75)" : "rgba(76,175,80,0.75)",
+        })).filter((d) => !isNaN(d.value)));
+      } else if (type === "rsi") {
+        const rsiS = subChart.addLineSeries({ color: "#f06292", lineWidth: 2, title: "RSI" });
+        const ob = subChart.addLineSeries({ color: "rgba(255,82,82,0.5)", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false });
+        const os = subChart.addLineSeries({ color: "rgba(76,175,80,0.5)", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false });
+        const mid = subChart.addLineSeries({ color: "rgba(255,255,255,0.2)", lineWidth: 1, lineStyle: 3, lastValueVisible: false, priceLineVisible: false });
+        rsiS.setData(toLineData(ind.rsi));
+        ob.setData(times.map((t) => ({ time: t, value: 70 })));
+        os.setData(times.map((t) => ({ time: t, value: 30 })));
+        mid.setData(times.map((t) => ({ time: t, value: 50 })));
+      } else if (type === "obv") {
+        const obvS = subChart.addLineSeries({ color: "#c084fc", lineWidth: 2, title: "OBV" });
+        const obvMaS = subChart.addLineSeries({ color: "#ff9800", lineWidth: 1, lineStyle: 2, title: "OBV 10MA" });
+        obvS.setData(toLineData(ind.obv));
+        obvMaS.setData(toLineData(ind.obvMa10));
+      } else if (type === "wr") {
+        const wrS = subChart.addLineSeries({ color: "#fb923c", lineWidth: 2, title: "Wm%R" });
+        const wob = subChart.addLineSeries({ color: "rgba(255,82,82,0.5)", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false });
+        const wos = subChart.addLineSeries({ color: "rgba(76,175,80,0.5)", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false });
+        wrS.setData(toLineData(ind.williamsR));
+        wob.setData(times.map((t) => ({ time: t, value: -20 })));
+        wos.setData(times.map((t) => ({ time: t, value: -80 })));
+      } else if (type === "atr") {
+        const atrS = subChart.addLineSeries({ color: "#2dd4bf", lineWidth: 2, title: "ATR" });
+        atrS.setData(toLineData(ind.atr));
+      }
+
+      // 雙圖時間軸連動同步
+      mainChart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+        if (range && subChartRef.current) subChartRef.current.timeScale().setVisibleLogicalRange(range);
       });
-      const volData = times.map((t, i) => {
-        const o = ohlcv.open[i] ?? 0;
-        const c = ohlcv.close[i] ?? 0;
-        const isUp = c >= o;
-        return {
-          time: t,
-          value: ohlcv.volume[i] ?? 0,
-          color: isUp ? "rgba(255, 82, 82, 0.65)" : "rgba(76, 175, 80, 0.65)",
-        };
-      }).filter((d) => d.value > 0);
-      volumeSeries.setData(volData);
-
-      // 3. 乾淨均線與布林通道 (不帶 title、關閉價格線與最後數值標籤)
-      const sma5s = chart.addLineSeries({ color: "#ff9800", lineWidth: 1, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
-      const sma10s = chart.addLineSeries({ color: "#03a9f4", lineWidth: 1, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
-      const sma20s = chart.addLineSeries({ color: "#ffea00", lineWidth: 2, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
-      const bbUpS = chart.addLineSeries({ color: "rgba(179, 157, 219, 0.8)", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
-      const bbLoS = chart.addLineSeries({ color: "rgba(179, 157, 219, 0.8)", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
-
-      sma5s.setData(toLineData(ind.sma5));
-      sma10s.setData(toLineData(ind.sma10));
-      sma20s.setData(toLineData(ind.sma20));
-      bbUpS.setData(toLineData(ind.bbUpper));
-      bbLoS.setData(toLineData(ind.bbLower));
-
-      // 4. 懸停十字線 HUD 互動事件
-      chart.subscribeCrosshairMove((param) => {
-        if (
-          !param.point ||
-          !param.time ||
-          param.point.x < 0 ||
-          param.point.x > (containerRef.current?.clientWidth ?? 0) ||
-          param.point.y < 0 ||
-          param.point.y > (containerRef.current?.clientHeight ?? 0)
-        ) {
-          setHoverInfo(null);
-          return;
-        }
-
-        const tNum = typeof param.time === "number" ? param.time : (param.time as any);
-        const idx = times.findIndex((t) => t === tNum);
-        if (idx === -1) {
-          setHoverInfo(null);
-          return;
-        }
-
-        const o = ohlcv.open[idx] ?? 0;
-        const h = ohlcv.high[idx] ?? 0;
-        const l = ohlcv.low[idx] ?? 0;
-        const c = ohlcv.close[idx] ?? 0;
-        const prevC = idx > 0 ? (ohlcv.close[idx - 1] ?? o) : o;
-        const change = c - prevC;
-        const changePct = prevC > 0 ? (change / prevC) * 100 : 0;
-        const vol = ohlcv.volume[idx] ?? 0;
-
-        const rawDate = ohlcv.timestamp[idx];
-        const dateObj = new Date(rawDate < 1e12 ? rawDate * 1000 : rawDate);
-        const dateStr = `${dateObj.getFullYear()}/${String(dateObj.getMonth() + 1).padStart(2, "0")}/${String(dateObj.getDate()).padStart(2, "0")}`;
-
-        setHoverInfo({
-          date: dateStr,
-          open: o,
-          high: h,
-          low: l,
-          close: c,
-          change,
-          changePct,
-          volume: vol,
-          sma5: ind.sma5[idx],
-          sma10: ind.sma10[idx],
-          sma20: ind.sma20[idx],
-        });
+      subChart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+        if (range && mainChartRef.current) mainChartRef.current.timeScale().setVisibleLogicalRange(range);
       });
-    } else if (type === "kd") {
-      const kS = chart.addLineSeries({ color: "#00bcd4", lineWidth: 1, title: "K" });
-      const dS = chart.addLineSeries({ color: "#ffc107", lineWidth: 1, title: "D" });
-      kS.setData(toLineData(ind.k));
-      dS.setData(toLineData(ind.d));
-    } else if (type === "macd") {
-      const macdS = chart.addLineSeries({ color: "#ffffff", lineWidth: 1, title: "DIF" });
-      const sigS = chart.addLineSeries({ color: "#03a9f4", lineWidth: 1, title: "DEA" });
-      const histS = chart.addHistogramSeries({ color: "#4caf50", title: "Hist" });
-      macdS.setData(toLineData(ind.macd));
-      sigS.setData(toLineData(ind.signal));
-      histS.setData(times.map((t, i) => ({
-        time: t, value: ind.hist[i],
-        color: (ind.hist[i] ?? 0) >= 0 ? "rgba(255,82,82,0.7)" : "rgba(76,175,80,0.7)",
-      })).filter((d) => !isNaN(d.value)));
-    } else if (type === "rsi") {
-      const rsiS = chart.addLineSeries({ color: "#f06292", lineWidth: 1, title: "RSI" });
-      const ob = chart.addLineSeries({ color: "rgba(255,82,82,0.4)", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false });
-      const os = chart.addLineSeries({ color: "rgba(76,175,80,0.4)", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false });
-      rsiS.setData(toLineData(ind.rsi));
-      ob.setData(times.map((t) => ({ time: t, value: 70 })));
-      os.setData(times.map((t) => ({ time: t, value: 30 })));
-    } else if (type === "obv") {
-      const obvS = chart.addLineSeries({ color: "#9c27b0", lineWidth: 1, title: "OBV" });
-      const obvMaS = chart.addLineSeries({ color: "#ff9800", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false });
-      obvS.setData(toLineData(ind.obv));
-      obvMaS.setData(toLineData(ind.obvMa10));
-    } else if (type === "wr") {
-      const wrS = chart.addLineSeries({ color: "#e65100", lineWidth: 1, title: "Wm%R" });
-      const wob = chart.addLineSeries({ color: "rgba(255,82,82,0.4)", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false });
-      const wos = chart.addLineSeries({ color: "rgba(76,175,80,0.4)", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false });
-      wrS.setData(toLineData(ind.williamsR));
-      wob.setData(times.map((t) => ({ time: t, value: -20 })));
-      wos.setData(times.map((t) => ({ time: t, value: -80 })));
-    } else if (type === "atr") {
-      const atrS = chart.addLineSeries({ color: "#1abc9c", lineWidth: 1, title: "ATR" });
-      atrS.setData(toLineData(ind.atr));
     }
-    
-    chart.timeScale().fitContent();
+
+    mainChart.timeScale().fitContent();
+    if (subChart) subChart.timeScale().fitContent();
 
     const handleResize = () => {
-      if (containerRef.current) {
-        chart.applyOptions({
-          width: containerRef.current.clientWidth,
-          height: containerRef.current.clientHeight - 40,
+      if (mainContainerRef.current) {
+        mainChart.applyOptions({
+          width: mainContainerRef.current.clientWidth,
+          height: mainContainerRef.current.clientHeight,
+        });
+      }
+      if (subContainerRef.current && subChart) {
+        subChart.applyOptions({
+          width: subContainerRef.current.clientWidth,
+          height: subContainerRef.current.clientHeight,
         });
       }
     };
@@ -325,60 +366,57 @@ export const ZoomChartModal: React.FC<ZoomModalProps> = ({ type, ohlcv, ind, sym
 
     return () => {
       window.removeEventListener("resize", handleResize);
-      chartRef.current = null;
-      chart.remove();
+      mainChartRef.current = null;
+      subChartRef.current = null;
+      mainChart.remove();
+      if (subChart) subChart.remove();
     };
   }, [type, ohlcv, ind]);
 
   const getTitle = () => {
-    if (type === "main") return "K線與技術分析 (含成交量)";
-    if (type === "kd") return "KD 隨機指標";
-    if (type === "macd") return "MACD 指標";
-    if (type === "rsi") return "RSI 相對強弱指標";
-    if (type === "obv") return "OBV 能量潮指標";
-    if (type === "wr") return "Williams %R 威廉指標";
-    return "ATR 真實波幅指標";
+    if (type === "main") return "K線與均線全景 (含成交量)";
+    if (type === "kd") return "KD 隨機指標 (9, 3, 3)";
+    if (type === "macd") return "MACD 平滑異同移動平均線 (12, 26, 9)";
+    if (type === "rsi") return "RSI 相對強弱指標 (14)";
+    if (type === "obv") return "OBV 能量潮指標 (含 10MA)";
+    if (type === "wr") return "Williams %R 威廉指標 (14)";
+    return "ATR 真實波動區間指標 (14)";
   };
 
   return (
     <div style={{
       position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-      zIndex: 9999, background: "rgba(10, 10, 18, 0.98)",
+      zIndex: 50000, background: "rgba(10, 10, 18, 0.98)",
       backdropFilter: "blur(20px)", display: "flex", flexDirection: "column",
-      padding: "24px", color: "#f0f2f5"
+      padding: "20px 24px", color: "#f0f2f5"
     }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
         <div>
-          <h3 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 600, color: "var(--accent-blue)" }}>
+          <h3 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 700, color: "var(--accent-blue)" }}>
             {name} ({symbol}) — {getTitle()}
           </h3>
-          {type === "main" && (
-            <div style={{ fontSize: "0.8rem", color: "rgba(255,255,255,0.6)", marginTop: "4px", display: "flex", gap: "12px" }}>
-              <span><span style={{ color: "#ff9800" }}>●</span> MA5 (橘)</span>
-              <span><span style={{ color: "#03a9f4" }}>●</span> MA10 (藍)</span>
-              <span><span style={{ color: "#ffea00" }}>●</span> MA20 (黃)</span>
-              <span><span style={{ color: "rgba(179, 157, 219, 0.9)" }}>- -</span> 布林通道 (紫)</span>
-              <span><span style={{ color: "#26a69a" }}>■</span> 成交量 (紅/綠柱)</span>
-            </div>
-          )}
+          <div style={{ fontSize: "0.8rem", color: "rgba(255,255,255,0.6)", marginTop: "4px", display: "flex", gap: "12px", flexWrap: "wrap" }}>
+            <span><span style={{ color: "#ff9800" }}>●</span> MA5 (橘)</span>
+            <span><span style={{ color: "#03a9f4" }}>●</span> MA10 (藍)</span>
+            <span><span style={{ color: "#ffea00" }}>●</span> MA20 (黃)</span>
+            <span><span style={{ color: "rgba(179, 157, 219, 0.9)" }}>- -</span> 布林通道 (紫)</span>
+            <span><span style={{ color: "#26a69a" }}>■</span> 成交量 (紅/綠柱)</span>
+            {type === "kd" && <span><span style={{ color: "#00bcd4" }}>●</span> K線 <span style={{ color: "#ffc107" }}>●</span> D線 <span style={{ color: "rgba(255,82,82,0.8)" }}>- -</span> 80超買 <span style={{ color: "rgba(76,175,80,0.8)" }}>- -</span> 20超賣</span>}
+            {type === "macd" && <span><span style={{ color: "#ffffff" }}>●</span> DIF快線 <span style={{ color: "#03a9f4" }}>●</span> DEA慢線 <span style={{ color: "#4caf50" }}>■</span> OSC柱狀圖</span>}
+            {type === "rsi" && <span><span style={{ color: "#f06292" }}>●</span> RSI(14) <span style={{ color: "rgba(255,82,82,0.8)" }}>- -</span> 70超買 <span style={{ color: "rgba(76,175,80,0.8)" }}>- -</span> 30超賣</span>}
+            {type === "obv" && <span><span style={{ color: "#c084fc" }}>●</span> OBV能量潮 <span style={{ color: "#ff9800" }}>- -</span> 10日均線</span>}
+            {type === "wr" && <span><span style={{ color: "#fb923c" }}>●</span> Williams %R <span style={{ color: "rgba(255,82,82,0.8)" }}>- -</span> -20超買 <span style={{ color: "rgba(76,175,80,0.8)" }}>- -</span> -80超賣</span>}
+            {type === "atr" && <span><span style={{ color: "#2dd4bf" }}>●</span> ATR(14) 真實波動幅度</span>}
+          </div>
         </div>
         <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
           <button 
             onClick={resetZoom}
             style={{
               background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.1)",
-              borderRadius: "4px", padding: "6px 12px", color: "#fff",
+              borderRadius: "6px", padding: "6px 14px", color: "#fff",
               cursor: "pointer", fontSize: "0.85rem", transition: "all 0.2s"
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "rgba(2, 136, 209, 0.2)";
-              e.currentTarget.style.borderColor = "rgba(2, 136, 209, 0.4)";
-              e.currentTarget.style.color = "#29b6f6";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "rgba(255,255,255,0.08)";
-              e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)";
-              e.currentTarget.style.color = "#fff";
             }}
           >
             🔄 重設縮放
@@ -386,28 +424,36 @@ export const ZoomChartModal: React.FC<ZoomModalProps> = ({ type, ohlcv, ind, sym
           <button 
             onClick={onClose}
             style={{
-              background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.1)",
-              borderRadius: "50%", width: "36px", height: "36px", color: "#fff",
+              background: "rgba(255,82,82,0.15)", border: "1px solid rgba(255,82,82,0.4)",
+              borderRadius: "50%", width: "36px", height: "36px", color: "#fca5a5",
               cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
               fontSize: "1.1rem", transition: "all 0.2s"
             }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "rgba(255,82,82,0.2)";
-              e.currentTarget.style.borderColor = "rgba(255,82,82,0.4)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "rgba(255,255,255,0.08)";
-              e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)";
-            }}
+            title="關閉技術圖表視窗"
           >
             ✕
           </button>
         </div>
       </div>
-      <div style={{ position: "relative", flex: 1, width: "100%", height: "100%" }}>
-        <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
-        {type === "main" && displayData && (
-          <ChartHUDView data={displayData} />
+
+      {/* Chart Containers */}
+      <div style={{ position: "relative", flex: 1, width: "100%", height: "100%", display: "flex", flexDirection: "column", gap: "8px" }}>
+        {/* Main K-line chart */}
+        <div style={{ position: "relative", width: "100%", flex: type === "main" ? 1 : 0.58, minHeight: 0 }}>
+          <div ref={mainContainerRef} style={{ width: "100%", height: "100%" }} />
+          {displayData && (
+            <ChartHUDView data={displayData} />
+          )}
+        </div>
+
+        {/* Sub-chart if type !== 'main' */}
+        {type !== "main" && (
+          <div style={{ position: "relative", width: "100%", flex: 0.42, minHeight: 0, borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: "4px" }}>
+            <div style={{ position: "absolute", top: "6px", left: "10px", zIndex: 10, fontSize: "0.75rem", fontWeight: 700, color: "#38bdf8", background: "rgba(15,23,42,0.8)", padding: "2px 8px", borderRadius: "4px", border: "1px solid rgba(56,189,248,0.3)" }}>
+              📊 {getTitle()}
+            </div>
+            <div ref={subContainerRef} style={{ width: "100%", height: "100%" }} />
+          </div>
         )}
       </div>
     </div>
