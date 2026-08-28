@@ -134,26 +134,38 @@ function generateFallbackOhlcv(symbol: string, days = 250): OhlcvData {
   const closes: number[] = [];
   const volumes: number[] = [];
 
-  const symCode = parseInt(symbol.split(".")[0], 10);
-  const seed = isNaN(symCode) ? 100 : (symCode % 500) + 50;
-  let price = symbol.includes("2330") ? 980 : symbol.includes("2454") ? 1220 : seed;
+  const coCode = symbol.split(".")[0];
+  const fund = (FUND_MAP && FUND_MAP[coCode]) ? FUND_MAP[coCode] : null;
+  const officialClose = fund?.close_price != null && Number(fund.close_price) > 0 
+    ? Number(fund.close_price) 
+    : (fund?.eps && fund?.pe ? Number((fund.eps * fund.pe).toFixed(2)) : 50.0);
+
+  const basePrice = officialClose;
   const now = Math.floor(Date.now() / 1000);
 
-  for (let i = days; i >= 0; i--) {
-    const t = now - i * 86400;
-    const change = (Math.sin(i * 0.15) * 0.015 + (Math.random() - 0.49) * 0.025) * price;
-    const open = price;
-    price = Math.max(1, price + change);
-    const high = Math.max(open, price) + Math.random() * (price * 0.015);
-    const low = Math.min(open, price) - Math.random() * (price * 0.015);
-    const vol = Math.floor(500000 + Math.random() * 4500000);
+  // 依據官方真實收盤價生成平滑連續的歷史價格序列
+  let price = basePrice;
+  const dayPrices: number[] = [basePrice];
+  for (let i = 1; i <= days; i++) {
+    const change = (Math.sin(i * 0.12) * 0.008 + (Math.random() - 0.5) * 0.012) * basePrice;
+    price = Math.max(1, price - change);
+    dayPrices.unshift(Number(price.toFixed(2)));
+  }
+
+  for (let i = 0; i <= days; i++) {
+    const t = now - (days - i) * 86400;
+    const c = dayPrices[i];
+    const o = i > 0 ? dayPrices[i - 1] : (fund?.open_price ? Number(fund.open_price) : c);
+    const h = Math.max(o, c) + Math.abs(c - o) * 0.3 + c * 0.005;
+    const l = Math.min(o, c) - Math.abs(c - o) * 0.3 - c * 0.005;
+    const v = fund?.volume ? Math.round(Number(fund.volume) * (0.8 + Math.random() * 0.4)) : 1000000;
 
     timestamps.push(t);
-    opens.push(Number(open.toFixed(2)));
-    highs.push(Number(high.toFixed(2)));
-    lows.push(Number(low.toFixed(2)));
-    closes.push(Number(price.toFixed(2)));
-    volumes.push(vol);
+    opens.push(Number(o.toFixed(2)));
+    highs.push(Number(h.toFixed(2)));
+    lows.push(Number(Math.max(0.1, l).toFixed(2)));
+    closes.push(Number(c.toFixed(2)));
+    volumes.push(v);
   }
 
   return {
@@ -231,7 +243,13 @@ async function fetchWebStockData(symbol: string, range = "1y"): Promise<StockDat
   let prevClose = 0;
   let stockName = getChineseStockName(normSym) || getChineseStockName(coId) || symbol;
 
-  // 嘗試多種即時資料來源 (在瀏覽器環境使用 CORS 代理，在 Tauri 環境使用原生請求)
+  const officialFund = (FUND_MAP && FUND_MAP[coId]) ? FUND_MAP[coId] : null;
+  if (officialFund && officialFund.close_price != null && Number(officialFund.close_price) > 0) {
+    curPrice = Number(officialFund.close_price);
+    prevClose = officialFund.open_price ? Number(officialFund.open_price) : (officialFund.change ? curPrice - Number(officialFund.change) : curPrice);
+  }
+
+  // 嘗試多種即時資料來源 (在瀏覽器環境使用多組 CORS 代理，在 Tauri 環境使用原生請求)
   const candidateSymbols = [normSym];
   if (normSym.endsWith(".TW")) candidateSymbols.push(`${coId}.TWO`);
   else if (normSym.endsWith(".TWO")) candidateSymbols.push(`${coId}.TW`);
@@ -240,20 +258,23 @@ async function fetchWebStockData(symbol: string, range = "1y"): Promise<StockDat
 
   for (const symCandidate of candidateSymbols) {
     if (ohlcvData) break;
+    const rawTarget = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symCandidate)}?range=${range}&interval=1d&includeAdjustedClose=true`;
     const urls = isBrowser
       ? [
-          `https://corsproxy.io/?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${symCandidate}?range=${range}&interval=1d&includeAdjustedClose=true`)}`,
-          `https://api.allorigins.win/get?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${symCandidate}?range=${range}&interval=1d&includeAdjustedClose=true`)}`,
+          `https://api.allorigins.win/raw?url=${encodeURIComponent(rawTarget)}`,
+          `https://corsproxy.org/?url=${encodeURIComponent(rawTarget)}`,
+          `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(rawTarget)}`,
+          `https://corsproxy.io/?url=${encodeURIComponent(rawTarget)}`,
         ]
       : [
-          `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symCandidate)}?range=${range}&interval=1d&includeAdjustedClose=true`,
+          rawTarget,
           `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symCandidate)}?range=${range}&interval=1d&includeAdjustedClose=true`,
         ];
 
     for (const u of urls) {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3500);
+        const timeoutId = setTimeout(() => controller.abort(), 4500);
         const res = await fetch(u, { signal: controller.signal });
         clearTimeout(timeoutId);
 
@@ -291,10 +312,10 @@ async function fetchWebStockData(symbol: string, range = "1y"): Promise<StockDat
               }
             }
 
-            if (closes.length >= 10) {
+            if (closes.length >= 5) {
               const meta = result.meta || {};
               curPrice = meta.regularMarketPrice ?? closes[closes.length - 1];
-              prevClose = meta.previousClose ?? (closes.length > 1 ? closes[closes.length - 2] : curPrice);
+              prevClose = meta.chartPreviousClose ?? meta.previousClose ?? (closes.length > 1 ? closes[closes.length - 2] : curPrice);
               const zhName = getChineseStockName(symCandidate) || getChineseStockName(coId);
               stockName = zhName || meta.longName || meta.shortName || symbol;
               normSym = symCandidate;
@@ -314,11 +335,11 @@ async function fetchWebStockData(symbol: string, range = "1y"): Promise<StockDat
     }
   }
 
-  // 若無網路 K 棒則使用結構化回退 K 棒
+  // 若無網路 K 棒則使用以官方真實收盤價為基準的回退 K 棒
   if (!ohlcvData) {
     ohlcvData = generateFallbackOhlcv(normSym, range === "3mo" ? 65 : 250);
-    curPrice = ohlcvData.close[ohlcvData.close.length - 1];
-    prevClose = ohlcvData.close[ohlcvData.close.length - 2] ?? curPrice;
+    curPrice = curPrice > 0 ? curPrice : ohlcvData.close[ohlcvData.close.length - 1];
+    prevClose = prevClose > 0 ? prevClose : (ohlcvData.close[ohlcvData.close.length - 2] ?? curPrice);
   }
 
   // 2. 抓取或生成基本面財務比率
