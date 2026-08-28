@@ -269,6 +269,18 @@ export const ChartPanel: React.FC<ChartPanelProps> = ({ ohlcv, ind, symbol, name
     });
   };
 
+  if (!ohlcv || ohlcv.timestamp.length < 5) {
+    return (
+      <div className="empty-state" style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "12px", padding: "40px" }}>
+        <div style={{ fontSize: "2.8rem" }}>⏳</div>
+        <div style={{ color: "var(--text-primary)", fontWeight: 700, fontSize: "1.1rem" }}>正在連線載入【{name || symbol}】完整歷史日 K 棒...</div>
+        <div style={{ color: "#94a3b8", fontSize: "0.85rem", textAlign: "center", maxWidth: "420px" }}>
+          目前僅獲取到交易所最新即時快照，技術指標需 20 根以上日 K 棒進行運算。請稍候或重新點擊「分析」。
+        </div>
+      </div>
+    );
+  }
+
   useEffect(() => {
     if (!mainRef.current || ohlcv.timestamp.length === 0) return;
 

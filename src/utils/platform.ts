@@ -282,10 +282,10 @@ async function fetchWebStockData(symbol: string, range = "1y"): Promise<StockDat
     const rawTarget = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symCandidate)}?range=${range}&interval=1d&includeAdjustedClose=true`;
     const urls = isBrowser
       ? [
+          `https://proxy.cors.sh/${rawTarget}`,
           `https://corsproxy.io/?url=${encodeURIComponent(rawTarget)}`,
           `https://api.allorigins.win/raw?url=${encodeURIComponent(rawTarget)}`,
           `https://corsproxy.org/?url=${encodeURIComponent(rawTarget)}`,
-          `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(rawTarget)}`,
         ]
       : [
           rawTarget,
