@@ -140,6 +140,61 @@ const METRIC_EXPLANATIONS: Record<string, { label: string, explanation: string }
   }
 };
 
+const getTechIndicatorExplanation = (title: string): { label: string, explanation: string } => {
+  if (title.includes("長線趨勢") || title.includes("短線趨勢")) {
+    return {
+      label: "均線趨勢與多空排列 (MA Trend)",
+      explanation: "利用短中長期均線（50MA / 200MA 或 20MA）的交叉排列判定主升段或空頭格局。50MA > 200MA 為黃金交叉多頭排列，具備極強之均線支撐保護與趨勢慣性。"
+    };
+  }
+  if (title.includes("布林通道")) {
+    return {
+      label: "布林通道統計區間 (Bollinger Bands)",
+      explanation: "由 20 日均線加減 2 個標準差構成的動態統計通道，約有 95.4% 的價格波動落在通道內。價格處於通道中線上方向上運行代表多方發球局，突破上軌需防過熱回檔，跌破下軌則為超賣反彈機會。"
+    };
+  }
+  if (title.includes("RSI")) {
+    return {
+      label: "相對強弱指標 (Relative Strength Index)",
+      explanation: "衡量一定期間內多空買賣力道強弱的震盪指標（0~100）。>70 為超買過熱區、<30 為超賣低迷區，50 以上代表多頭力道佔優，未達極端值代表健康推升。"
+    };
+  }
+  if (title.includes("KD")) {
+    return {
+      label: "隨機指標 (Stochastic Oscillator KD)",
+      explanation: "藉由最高價、最低價與收盤價計算當前股價在近期區間的相對強弱位置。K 值反應靈敏、D 值為平滑訊號。K > D 形成多頭優勢向上發散；若在 20 以下發生黃金交叉常為極佳買點。"
+    };
+  }
+  if (title.includes("MACD")) {
+    return {
+      label: "平滑異同移動平均線 (MACD)",
+      explanation: "由快慢兩條指數平滑移動平均線（EMA12 - EMA26 = DIF）與其訊號線（MACD9）之差離值（OSC 柱狀圖）組成。柱狀體為正且向上放大代表多頭動能加速發散。"
+    };
+  }
+  if (title.includes("OBV")) {
+    return {
+      label: "能量潮指標 (On-Balance Volume)",
+      explanation: "將成交量根據每日股價漲跌進行累加，用以觀測主力資金進出與量價配合結構。OBV 高於其均線代表資金持續淨流入，量先價行，多頭結構扎實。"
+    };
+  }
+  if (title.includes("威廉指標")) {
+    return {
+      label: "威廉指標 (Williams %R)",
+      explanation: "反向震盪指標（0 至 -100），衡量市場超買超賣程度。>-20 為高檔超買超熱區、<-80 為低檔超賣區，-20~-80 之間代表震盪平衡無過熱風險。"
+    };
+  }
+  if (title.includes("ATR")) {
+    return {
+      label: "真實波動區間 (Average True Range)",
+      explanation: "衡量股價真實震盪幅度的波動度指標。ATR 處於常態範圍代表波動穩定；可作為動態風控基準（一般建議以 2 倍 ATR 作為移動停損點）。"
+    };
+  }
+  return {
+    label: "量化技術分析指標",
+    explanation: "透過數學統計與歷史價量運算，提供客觀量化交易參考依據。"
+  };
+};
+
 // ─── 主元件 ───────────────────────────────────────────────────────────────────
 interface Props { initialSymbol?: string; }
 export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
@@ -160,6 +215,7 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
   const [showFundModal, setShowFundModal] = useState(false);
   const [showAIModal, setShowAIModal] = useState(false);
   const [showFsModal, setShowFsModal] = useState(false);
+  const [showTechModal, setShowTechModal] = useState(false);
   const [aiModalFilter, setAiModalFilter] = useState<"ALL" | "OHLCV" | "Fundamental" | "Valuation" | "Safety">("ALL");
   const [fundData, setFundData] = useState<any>(null);
   const [fundLoading, setFundLoading] = useState(false);
@@ -480,8 +536,18 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                 </div>
               )}
 
-              {/* 技術建議 */}
-              <div className="advice-card" style={{ background: advice.bg, borderColor: advice.border }}>
+              {/* 技術建議 (點擊展開 8 大技術指標智慧診斷全景視窗) */}
+              <div
+                className="advice-card"
+                onClick={() => setShowTechModal(true)}
+                style={{
+                  background: advice.bg,
+                  borderColor: advice.border,
+                  cursor: "pointer",
+                  transition: "transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease",
+                }}
+                title="點擊展開 8 大技術指標智慧診斷全景視窗"
+              >
                 <div className="advice-title" style={{ color: advice.color }}>{advice.title}</div>
                 <div className="advice-desc" style={{ color: "var(--text-secondary)" }}>
                   綜合評分：<b style={{ color: advice.color }}>{(finalScore ?? 0) > 0 ? "+" : ""}{finalScore != null && !isNaN(finalScore) ? finalScore.toFixed(1) : "0.0"}</b> 分
@@ -658,17 +724,6 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                   </div>
                 );
               })()}
-
-              {/* 智慧診斷細節 */}
-              <div style={{ marginBottom: "8px" }}>
-                <div style={{ fontSize: "0.88rem", fontWeight: 600, color: "var(--accent-blue-light)", marginBottom: "8px" }}>📡 智慧診斷細節</div>
-                {suggestions.map((s, i) => (
-                  <div className="signal-card" key={i} style={{ borderLeftColor: s.color }}>
-                    <div className="signal-title" style={{ color: s.color }}>{s.title}</div>
-                    <div className="signal-desc">{s.desc}</div>
-                  </div>
-                ))}
-              </div>
 
               {/* 相關新聞 */}
               {news.length > 0 && (
@@ -1632,6 +1687,117 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                 點擊個別項目可查看財務指標詳細定義與健康門檻
               </span>
               <button className="btn btn-primary btn-sm" onClick={() => setShowFsModal(false)}>
+                確定關閉
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* 📡 8 大技術指標智慧診斷與操作建議全景 Modal */}
+      {showTechModal && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+          background: "rgba(3, 7, 18, 0.85)", backdropFilter: "blur(12px)",
+          zIndex: 25000, display: "flex", justifyContent: "center", alignItems: "center",
+          padding: "20px"
+        }} onClick={() => setShowTechModal(false)}>
+          <div style={{
+            background: "linear-gradient(145deg, #111827, #0f172a)",
+            borderRadius: "16px", width: "840px", maxWidth: "98vw", maxHeight: "90vh",
+            padding: "24px", border: `1px solid ${advice.border}`,
+            boxShadow: "0 25px 60px rgba(0, 0, 0, 0.8)",
+            display: "flex", flexDirection: "column", gap: "16px", overflow: "hidden"
+          }} onClick={e => e.stopPropagation()}>
+            
+            {/* Header */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: "12px" }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 800, color: advice.color }}>
+                  📡 技術面指標與操作建議全景診斷
+                </h3>
+                <div style={{ fontSize: "0.85rem", color: "#94a3b8", marginTop: "3px" }}>
+                  標的：<b style={{ color: "#ffffff" }}>{info?.name || info?.symbol} ({info?.symbol})</b> ｜ 操作建議：<b style={{ color: advice.color }}>{advice.title}</b> ｜ 綜合評分：<b style={{ color: advice.color }}>{(finalScore ?? 0) > 0 ? "+" : ""}{finalScore != null && !isNaN(finalScore) ? finalScore.toFixed(1) : "0.0"} 分</b>
+                </div>
+              </div>
+              <button className="btn btn-outline btn-sm" onClick={() => setShowTechModal(false)} style={{ borderRadius: "50%", width: "32px", height: "32px", padding: 0, fontSize: "1rem" }}>✕</button>
+            </div>
+
+            {/* Content List */}
+            <div style={{ overflowY: "auto", display: "flex", flexDirection: "column", gap: "14px", paddingRight: "4px" }}>
+              
+              {/* Scoring Summary Banner */}
+              <div style={{
+                background: "rgba(0,0,0,0.35)", padding: "14px 16px", borderRadius: "10px",
+                border: "1px solid rgba(255,255,255,0.06)", display: "flex", justifyContent: "space-between",
+                alignItems: "center", flexWrap: "wrap", gap: "10px"
+              }}>
+                <div>
+                  <div style={{ fontSize: "0.76rem", color: "#94a3b8" }}>當前技術綜合判定</div>
+                  <div style={{ fontSize: "1.25rem", fontWeight: 800, color: advice.color }}>{advice.title}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: "0.76rem", color: "#94a3b8" }}>多空淨得分</div>
+                  <div style={{ fontSize: "1.25rem", fontWeight: 800, color: advice.color }}>
+                    {(finalScore ?? 0) > 0 ? "+" : ""}{finalScore != null && !isNaN(finalScore) ? finalScore.toFixed(1) : "0.0"} 分
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: "0.76rem", color: "#94a3b8" }}>偵測潛在地雷風險</div>
+                  <div style={{ fontSize: "1.25rem", fontWeight: 800, color: risks.length === 0 ? "#4ade80" : "#f87171" }}>
+                    {risks.length === 0 ? "0 項 (無風險扣分)" : `扣除 ${risks.length} 分`}
+                  </div>
+                </div>
+              </div>
+
+              {/* Suggestions Signal Cards with Full Explanations */}
+              <div>
+                <div style={{ fontWeight: 700, color: "#93c5fd", fontSize: "0.9rem", marginBottom: "10px" }}>
+                  📡 8 大技術指標即時量化診斷與深度解說：
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))", gap: "10px" }}>
+                  {suggestions.map((s, i) => {
+                    const exp = getTechIndicatorExplanation(s.title);
+                    return (
+                      <div
+                        key={i}
+                        style={{
+                          background: "rgba(15, 23, 42, 0.6)",
+                          border: `1px solid ${s.color}40`,
+                          borderLeft: `4px solid ${s.color}`,
+                          borderRadius: "10px", padding: "12px 14px",
+                          display: "flex", flexDirection: "column", gap: "4px"
+                        }}
+                      >
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <span style={{ fontWeight: 700, color: s.color, fontSize: "0.88rem" }}>
+                            {s.title}
+                          </span>
+                          <span style={{ fontSize: "0.68rem", color: "#94a3b8", background: "rgba(255,255,255,0.06)", padding: "1px 6px", borderRadius: "4px" }}>
+                            {exp.label}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: "0.82rem", color: "#f8fafc", fontWeight: 500, marginTop: "2px" }}>
+                          {s.desc}
+                        </div>
+                        <div style={{ fontSize: "0.75rem", color: "#94a3b8", lineHeight: 1.45, marginTop: "4px", borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "4px" }}>
+                          💡 <b>量化定義：</b>{exp.explanation}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+            </div>
+
+            {/* Footer */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: "12px" }}>
+              <span style={{ fontSize: "0.75rem", color: "#64748b" }}>
+                以 8 大指標數值及 20/50/200 日價量統計為依據進行量化加權
+              </span>
+              <button className="btn btn-primary btn-sm" onClick={() => setShowTechModal(false)}>
                 確定關閉
               </button>
             </div>
