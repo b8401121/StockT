@@ -238,7 +238,19 @@ export function evaluateAIAlpha(
   outLogit -= riskPenalty * 0.55;
 
   // 計算勝率百分比 (0 ~ 100)
-  const rawProb = sigmoid(outLogit);
+  let rawProb = sigmoid(outLogit);
+
+  // 🛡️ 基本面硬性安全閥與「無基之彈」過濾機制 (Fundamental Safety Guard)
+  // 若公司核心獲利指標為負 (ROE < 0 或 EPS < 0 或 淨利虧損)，即使盤面短線大漲亦屬「投機短彈/逃命波」，絕不可評為強烈看多！
+  const isLossMaking = (info.roe != null && info.roe < 0) || (info.eps != null && info.eps < 0) || (info.profit_margins != null && info.profit_margins < 0);
+  
+  if (isLossMaking) {
+    // 虧損股勝率嚴格封頂在 42% 以下，若營收衰退且現金流為負則進一步壓至 25%~35%
+    const maxCap = (info.revenue_growth != null && info.revenue_growth < 0) ? 0.35 : 0.42;
+    rawProb = Math.min(rawProb, maxCap);
+    negLabels.unshift("⚠️ 虧損無基之彈 (追高風險極大)");
+  }
+
   const winRatePct = Number((rawProb * 100).toFixed(1));
 
   // 計算預估 20 日超額報酬 Alpha %
@@ -246,9 +258,15 @@ export function evaluateAIAlpha(
 
   // 判定置信評級
   let convictionTier: AIAlphaResult["convictionTier"] = "⭐⭐⭐ 中性盤整";
-  if (winRatePct >= 78) convictionTier = "⭐⭐⭐⭐⭐ 強烈看多";
-  else if (winRatePct >= 60) convictionTier = "⭐⭐⭐⭐ 穩健多頭";
-  else if (winRatePct <= 40) convictionTier = "⚠️ 偏空避險";
+  if (isLossMaking) {
+    convictionTier = "⚠️ 偏空避險";
+  } else if (winRatePct >= 78) {
+    convictionTier = "⭐⭐⭐⭐⭐ 強烈看多";
+  } else if (winRatePct >= 60) {
+    convictionTier = "⭐⭐⭐⭐ 穩健多頭";
+  } else if (winRatePct <= 40) {
+    convictionTier = "⚠️ 偏空避險";
+  }
 
   return {
     symbol: info.symbol,
@@ -256,7 +274,7 @@ export function evaluateAIAlpha(
     winRatePct,
     expectedAlphaPct,
     convictionTier,
-    positiveDrivers: posLabels.slice(0, 3),
+    positiveDrivers: isLossMaking ? posLabels.filter(p => !p.startsWith("盤面強勢")).slice(0, 2) : posLabels.slice(0, 3),
     riskDrivers: negLabels.slice(0, 3),
     hwTier: hwInfo.tier,
   };
