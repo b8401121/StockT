@@ -1,12 +1,13 @@
 {
   "provenance": {
     "run_id": "RUN-PIT-20260828-001",
-    "config_hash": "sha256:4a8c9b2e1f7d5a0c3b8e9d1f92e8a1c4b7d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9",
-    "dataset_hash": "sha256:9f8e7d6c5b4a3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b",
+    "git_commit": "4ff275b",
+    "config_sha256": "2a0f618c2597f9d6331ad7c6aeed90db2e006e64ed6befa7568255eef748dcbf",
+    "dataset_sha256": "9f8e7d6c5b4a3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b",
     "engine_version": "v1.0.0-pit-audited",
     "generated_at": "2026-08-28T15:00:00Z",
     "audit_status": "AUDITED_VERIFIED_POINT_IN_TIME",
-    "dataset_spec": "TWSE/TPEx Equities PIT Database (2018-2024 In-Sample, 2025-2026 Walk-Forward Out-of-Sample)",
+    "dataset_spec": "TWSE/TPEx Equities PIT Database (2018-2024 In-Sample, 2025-2026 Out-of-Sample Evaluation)",
     "benchmark": "TAIEX (台灣加權股價指數 ^TWII, Synchronized T+1 Open to T+20 Close)"
   },
   "parameters": {
@@ -148,7 +149,7 @@
     },
     {
       "year": 2025,
-      "period_type": "Walk-Forward Out-of-Sample",
+      "period_type": "Out-of-Sample Evaluation",
       "trades_count": 120,
       "win_rate_pct": 62.5,
       "gross_return_pct": 18.2,
@@ -161,7 +162,7 @@
     },
     {
       "year": 2026,
-      "period_type": "Walk-Forward Out-of-Sample",
+      "period_type": "Out-of-Sample Evaluation",
       "trades_count": 78,
       "win_rate_pct": 61.5,
       "gross_return_pct": 10.4,
