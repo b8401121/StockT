@@ -132,21 +132,62 @@ export const ScannerTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ on
           if (mode === "buy") {
             let score = 0;
             const reasons: string[] = [];
-            if (ohlcv && ohlcv.close.length >= 20) {
+            const hasTechKlines = ohlcv && ohlcv.close && ohlcv.close.length >= 20;
+
+            if (hasTechKlines) {
               const ind = calculateAllIndicators(ohlcv);
               const n = ohlcv.close.length - 1;
               const techRes = calcTechScanScore(ind, n);
-              score = techRes.score;
+              score = Math.max(0, techRes.score);
               reasons.push(...techRes.reasons);
-            } else {
-              if (changePct >= 3.0) { score += 2.0; reasons.push(`強勢起漲 +${changePct.toFixed(2)}%`); }
-              else if (changePct >= 1.0) { score += 1.0; reasons.push(`盤面走揚 +${changePct.toFixed(2)}%`); }
-              else if (changePct > 0) { score += 0.5; reasons.push(`收紅上漲`); }
+
+              if (changePct >= 2.0) {
+                score += 1.5;
+                reasons.push(`強勢起漲 +${changePct.toFixed(2)}%`);
+              } else if (changePct > 0) {
+                score += 0.5;
+                reasons.push(`盤面收紅 +${changePct.toFixed(2)}%`);
+              }
+
               const fs = computeFundamentalScore(data.info);
-              if (fs.score >= 3) { score += 1.0; reasons.push("基本面優良"); }
+              if (fs.score >= 3) {
+                score += 1.0;
+                reasons.push("基本面優良");
+              }
+              if (aiAlpha.winRatePct >= 60) {
+                score += 1.0;
+                reasons.push(`AI勝率優異(${aiAlpha.winRatePct.toFixed(1)}%)`);
+              }
+            } else {
+              // 快速/無長K線多因子評估
+              if (changePct >= 3.0) { score += 2.0; reasons.push(`強勢起漲 +${changePct.toFixed(2)}%`); }
+              else if (changePct >= 1.0) { score += 1.2; reasons.push(`盤面走揚 +${changePct.toFixed(2)}%`); }
+              else if (changePct > 0) { score += 0.6; reasons.push(`收紅上漲 +${changePct.toFixed(2)}%`); }
+
+              const fs = computeFundamentalScore(data.info);
+              if (fs.score >= 4) { score += 2.0; reasons.push(`基本面頂級 (${getFsGrade(fs.score)})`); }
+              else if (fs.score >= 2) { score += 1.0; reasons.push(`基本面穩健 (${getFsGrade(fs.score)})`); }
+
+              const roeVal = data.info.roe?.value;
+              if (roeVal != null && roeVal >= 0.12) {
+                score += 1.0;
+                reasons.push(`高ROE (${(roeVal * 100).toFixed(1)}%)`);
+              }
+              const revVal = data.info.revenue_growth?.value;
+              if (revVal != null && revVal >= 0.08) {
+                score += 0.8;
+                reasons.push(`營收成長 YoY +${(revVal * 100).toFixed(1)}%`);
+              }
+
+              if (aiAlpha.winRatePct >= 60) {
+                score += 1.2;
+                reasons.push(`AI預估高勝率 (${aiAlpha.winRatePct.toFixed(1)}%)`);
+              } else if (aiAlpha.winRatePct >= 54) {
+                score += 0.6;
+              }
             }
 
-            if (score >= 1.5 && reasons.length >= 1) {
+            if (score >= 1.0 && reasons.length >= 1) {
               scanResults.push({
                 symbol: data.info.symbol,
                 name,
@@ -162,7 +203,7 @@ export const ScannerTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ on
             const fsResult = computeFundamentalScore(data.info);
             const fsScore = fsResult.score;
             let techScore = 0;
-            if (ohlcv && ohlcv.close.length >= 20) {
+            if (ohlcv && ohlcv.close && ohlcv.close.length >= 20) {
               const ind = calculateAllIndicators(ohlcv);
               const n = ohlcv.close.length - 1;
               const techRes = calcTechScanScore(ind, n);
@@ -171,9 +212,9 @@ export const ScannerTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ on
               techScore = changePct < 0 ? -1.0 : 0.5;
             }
 
-            if (fsScore >= 3) {
+            if (fsScore >= 2) {
               const passedItems = fsResult.passed.map(([label]) => label);
-              const desc = `【價值尋寶】基本面評級為 ${getFsGrade(fsScore)}(分數:${fsScore})；優秀指標: ${passedItems.slice(0, 3).join(", ")}`;
+              const desc = `【價值尋寶】基本面評級為 ${getFsGrade(fsScore)}(分數:${fsScore})；優秀指標: ${passedItems.slice(0, 3).join(", ") || "財務健全"}`;
               const composite = fsScore - techScore;
               scanResults.push({
                 symbol: data.info.symbol,
@@ -196,21 +237,31 @@ export const ScannerTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ on
               const failedItems = fsResult.failed.map(([, reason]) => reason);
               lmFundRisks.push(`財務警示：${getFsGrade(fsScore)}(分數:${fsScore}) ${failedItems.slice(0, 2).join("、")}`);
             }
-            if (data.info.roe != null && data.info.roe < 0) lmFundRisks.push(`ROE為負(${(data.info.roe * 100).toFixed(1)}%)`);
-            if (data.info.profit_margins != null && data.info.profit_margins < 0) lmFundRisks.push(`淨利虧損(${(data.info.profit_margins * 100).toFixed(1)}%)`);
-            if (data.info.debt_to_equity != null && data.info.debt_to_equity > 250) lmFundRisks.push(`高負債比(${data.info.debt_to_equity.toFixed(0)}%)`);
+            if (data.info.roe != null && data.info.roe.value < 0) lmFundRisks.push(`ROE為負(${(data.info.roe.value * 100).toFixed(1)}%)`);
+            if (data.info.profit_margins != null && data.info.profit_margins.value < 0) lmFundRisks.push(`淨利虧損(${(data.info.profit_margins.value * 100).toFixed(1)}%)`);
+            if (data.info.debt_to_equity != null && data.info.debt_to_equity.value > 250) lmFundRisks.push(`高負債比(${data.info.debt_to_equity.value.toFixed(0)}%)`);
 
-            if (lmFundRisks.length >= 1) {
+            let techRisks: string[] = [];
+            let techScore = 0;
+            if (ohlcv && ohlcv.close && ohlcv.close.length >= 20) {
+              const ind = calculateAllIndicators(ohlcv);
+              const n = ohlcv.close.length - 1;
+              const techRes = calcTechScanScore(ind, n);
+              techRisks = techRes.risks;
+              techScore = techRes.score;
+            }
+
+            if (lmFundRisks.length >= 1 || techRisks.length >= 2 || techScore <= -2) {
               scanResults.push({
                 symbol: data.info.symbol,
                 name,
-                score: `地雷風險: ${lmFundRisks.length}項`,
-                numericScore: -lmFundRisks.length,
-                compositeScore: -lmFundRisks.length,
+                score: `地雷風險: ${lmFundRisks.length + techRisks.length}項`,
+                numericScore: techScore <= 0 ? techScore : -1,
+                compositeScore: -(lmFundRisks.length * 1.5 + techRisks.length),
                 aiWinRate: aiAlpha.winRatePct,
                 aiConviction: aiAlpha.convictionTier,
-                desc: lmFundRisks.join("、"),
-                techRisks: [],
+                desc: [...techRisks, ...lmFundRisks].join("、") || "綜合風險警示",
+                techRisks,
                 fundRisks: lmFundRisks,
                 fundScore: fsScore,
                 mode
@@ -219,19 +270,82 @@ export const ScannerTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ on
           } else if (mode === "short") {
             const fsResult = computeFundamentalScore(data.info);
             const fsScore = fsResult.score;
-            if (changePct > 0 && fsScore <= -1) {
-              const failedItems = fsResult.failed.map(([label]) => label);
-              const fsDesc = `【放空警示】基本面評級為 ${getFsGrade(fsScore)}(分數:${fsScore})；股價逆勢上漲 +${changePct.toFixed(1)}%${failedItems.length ? `。異常指標: ${failedItems.join(", ")}` : ""}`;
-              const composite = 1.0 - fsScore;
+            const shortReasons: string[] = [];
+            let shortScore = 0;
+
+            const hasTechKlines = ohlcv && ohlcv.close && ohlcv.close.length >= 20;
+            if (hasTechKlines) {
+              const ind = calculateAllIndicators(ohlcv);
+              const n = ohlcv.close.length - 1;
+              const techRes = calcTechScanScore(ind, n);
+              
+              if (techRes.score < 0) {
+                shortScore += Math.abs(techRes.score);
+              }
+              if (techRes.risks.length > 0) {
+                shortReasons.push(...techRes.risks);
+                shortScore += techRes.risks.length * 0.6;
+              }
+            }
+
+            // 技術弱勢下跌動能
+            if (changePct <= -2.0) {
+              shortScore += 1.5;
+              shortReasons.push(`弱勢重挫 ${changePct.toFixed(2)}%`);
+            } else if (changePct < 0) {
+              shortScore += 0.8;
+              shortReasons.push(`盤面走弱 ${changePct.toFixed(2)}%`);
+            } else if (changePct > 2.0 && fsScore <= -1) {
+              // 逆勢誘多反彈 (基本面極差但股價衝高)
+              shortScore += 1.8;
+              shortReasons.push(`基本面劣質逆勢虛漲 +${changePct.toFixed(2)}%(逢高放空點)`);
+            }
+
+            // 基本面劣質放空加分
+            if (fsScore <= -2) {
+              shortScore += 2.0;
+              shortReasons.push(`基本面極度劣質(${getFsGrade(fsScore)})`);
+            } else if (fsScore <= 0) {
+              shortScore += 1.0;
+              shortReasons.push(`基本面偏弱(${getFsGrade(fsScore)})`);
+            }
+
+            const roeVal = data.info.roe?.value;
+            if (roeVal != null && roeVal < 0) {
+              shortScore += 1.2;
+              shortReasons.push(`ROE虧損(${(roeVal * 100).toFixed(1)}%)`);
+            }
+
+            const pmVal = data.info.profit_margins?.value;
+            if (pmVal != null && pmVal < 0) {
+              shortScore += 1.0;
+              shortReasons.push(`淨利率為負(${(pmVal * 100).toFixed(1)}%)`);
+            }
+
+            const deVal = data.info.debt_to_equity?.value;
+            if (deVal != null && deVal > 200) {
+              shortScore += 1.0;
+              shortReasons.push(`高負債比(${deVal.toFixed(0)}%)`);
+            }
+
+            // AI 偏空避險
+            if (aiAlpha.winRatePct <= 45) {
+              shortScore += 1.5;
+              shortReasons.push(`AI量化評估偏空(勝率${aiAlpha.winRatePct.toFixed(1)}%)`);
+            } else if (aiAlpha.winRatePct <= 50) {
+              shortScore += 0.8;
+            }
+
+            if (shortScore >= 1.2 && shortReasons.length >= 1) {
               scanResults.push({
                 symbol: data.info.symbol,
                 name,
-                score: `技術: +1.0 | 基本: ${fsScore}`,
-                numericScore: 1.0,
-                compositeScore: composite,
+                score: `放空評級: +${shortScore.toFixed(1)}`,
+                numericScore: shortScore,
+                compositeScore: shortScore,
                 aiWinRate: aiAlpha.winRatePct,
                 aiConviction: aiAlpha.convictionTier,
-                desc: fsDesc,
+                desc: shortReasons.join("、"),
                 fundScore: fsScore,
                 mode
               });
@@ -248,7 +362,9 @@ export const ScannerTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ on
           scanResults.sort((a, b) => b.numericScore - a.numericScore);
         }
         setResults([...scanResults]);
-      } catch {}
+      } catch (err) {
+        console.error("Scanner error:", err);
+      }
       
     }
 
