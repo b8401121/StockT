@@ -6,12 +6,16 @@
  * 
  * Strict Cryptographic Invariant:
  * - 100% NIST FIPS 180-4 / RFC 6234 Compliant SHA-256 only (Zero non-cryptographic fallback)
- * - Dynamic Mathematical Model Binding (modelHash computed from model canonical serialization)
+ * - Dynamic Mathematical Model Binding (modelHash computed from CANONICAL_QUANT_SPEC)
  * - Separation of Execution Event ID (scanId) vs Content-Derived Identity (deterministicRunId)
  */
 
-import { CANONICAL_FACTOR_DEFINITIONS } from "./aiAlphaModel";
-import { CANONICAL_ML_MODEL_SPEC } from "./mlTreeModel";
+import {
+  CANONICAL_QUANT_SPEC,
+  CANONICAL_RANKING_ALGORITHM,
+} from "./canonicalQuantSpec";
+
+export { CANONICAL_QUANT_SPEC, CANONICAL_RANKING_ALGORITHM };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. Strict RFC 6234 / FIPS 180-4 Standard SHA-256 Implementation
@@ -135,9 +139,6 @@ export async function computeSHA256(input: string): Promise<string> {
 // 2. Cryptographic Provenance Model & Interface Definitions
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const CANONICAL_MODEL_VERSION = "17-factor-ensemble-v2.0.0";
-export const CANONICAL_RANKING_ALGORITHM = "deterministic-multitier-v2.0";
-
 export interface DeterministicProvenanceReport {
   /** Execution Event Identity (when & how the scan was triggered) */
   scanId: string;
@@ -164,20 +165,15 @@ export interface DeterministicProvenanceReport {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 3. Dynamic Model Hash Generator (Mathematically Bound)
+// 3. Dynamic Model Hash Generator (Mathematically Bound to SSOT Spec)
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Dynamically computes mathematical SHA-256 of the 17-Factor Rules and ML Model Specifications
- * Guarantees zero hardcoded hash strings. Any change in weights or trees alters this hash.
+ * Dynamically computes mathematical SHA-256 of CANONICAL_QUANT_SPEC
+ * Guarantees zero hardcoded hash strings. Any change in spec alters this hash automatically.
  */
 export async function computeModelHash(): Promise<string> {
-  const modelCanonicalPayload = {
-    version: CANONICAL_MODEL_VERSION,
-    factorDefinitions: CANONICAL_FACTOR_DEFINITIONS,
-    mlSpec: CANONICAL_ML_MODEL_SPEC,
-  };
-  return computeSHA256(JSON.stringify(modelCanonicalPayload));
+  return computeSHA256(JSON.stringify(CANONICAL_QUANT_SPEC));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -224,7 +220,7 @@ export async function computeInputSnapshotHash(symbols: string[], fundamentals: 
  * Compute reproducible hash of the selected strategy config
  */
 export async function computeStrategyConfigHash(strategyId: string, strategyLabel: string): Promise<string> {
-  return computeSHA256(JSON.stringify({ strategyId, strategyLabel, modelVersion: CANONICAL_MODEL_VERSION }));
+  return computeSHA256(JSON.stringify({ strategyId, strategyLabel, modelVersion: CANONICAL_QUANT_SPEC.version }));
 }
 
 /**

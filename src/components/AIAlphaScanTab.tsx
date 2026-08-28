@@ -135,6 +135,7 @@ import {
   computeResultHash,
   computeDeterministicRunId,
 } from "../utils/quantProvenance";
+import { TOTAL_CANONICAL_FACTORS } from "../utils/canonicalQuantSpec";
 
 /**
  * 🛡️ Priority 5: Deterministic Ranking Invariant
@@ -625,7 +626,7 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
                           border: `1px solid ${r.dataQuality.availableCount >= 17 ? "rgba(34, 197, 94, 0.4)" : "rgba(59, 130, 246, 0.4)"}`,
                           fontWeight: 700
                         }}>
-                          {r.coverageDisplay || `${r.dataQuality.availableCount}/18`}
+                          {r.coverageDisplay || `${r.dataQuality.availableCount}/${TOTAL_CANONICAL_FACTORS}`}
                         </span>
                         <span style={{ fontSize: "0.68rem", color: "var(--text-muted)" }}>
                           標準分: <b style={{ color: r.normalizedScore >= 0 ? (isWarm ? "#15803d" : "#4ade80") : "#f87171" }}>{r.normalizedScore >= 0 ? "+" : ""}{r.normalizedScore.toFixed(2)}</b>

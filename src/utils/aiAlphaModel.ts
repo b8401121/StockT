@@ -23,30 +23,16 @@ export interface FactorResult {
   explanation: string;
 }
 
-export const CANONICAL_FACTOR_DEFINITIONS = [
-  { name: "momentum20", category: "OHLCV", weight: 0.09 },
-  { name: "momentum60", category: "OHLCV", weight: 0.08 },
-  { name: "momentum120", category: "OHLCV", weight: 0.06 },
-  { name: "MA20", category: "OHLCV", weight: 0.07 },
-  { name: "MA60", category: "OHLCV", weight: 0.06 },
-  { name: "MA120", category: "OHLCV", weight: 0.05 },
-  { name: "MA240", category: "OHLCV", weight: 0.07 },
-  { name: "VolumeSurge", category: "OHLCV", weight: 0.06 },
-  { name: "ROE", category: "Fundamental", weight: 0.10 },
-  { name: "GrossMargins", category: "Fundamental", weight: 0.05 },
-  { name: "OperatingMargins", category: "Fundamental", weight: 0.06 },
-  { name: "RevenueGrowthYoY", category: "Fundamental", weight: 0.08 },
-  { name: "DebtToEquity", category: "Safety", weight: 0.04 },
-  { name: "CurrentRatio", category: "Safety", weight: 0.04 },
-  { name: "FCF", category: "Fundamental", weight: 0.05 },
-  { name: "PE", category: "Valuation", weight: 0.05 },
-  { name: "PB", category: "Valuation", weight: 0.04 },
-  { name: "Dividend Yield", category: "Valuation", weight: 0.05 },
-];
+import {
+  CANONICAL_FEATURES,
+  CANONICAL_WEIGHT_BY_NAME,
+  CANONICAL_TOTAL_WEIGHT,
+  TOTAL_CANONICAL_FACTORS,
+} from "./canonicalQuantSpec";
 
-export const CANONICAL_WEIGHT_MAP: Record<string, number> = Object.fromEntries(
-  CANONICAL_FACTOR_DEFINITIONS.map(f => [f.name, f.weight])
-);
+export { TOTAL_CANONICAL_FACTORS, CANONICAL_TOTAL_WEIGHT };
+export const CANONICAL_FACTOR_DEFINITIONS = CANONICAL_FEATURES;
+export const CANONICAL_WEIGHT_MAP = CANONICAL_WEIGHT_BY_NAME;
 
 /** 舊版相容性介面 */
 export type AIFactorItem = {
@@ -948,9 +934,9 @@ export function evaluateAIAlpha(
   // ═══════════════════════════════════════════════════════════════════════════
   // 4. Honest Composite Score & Backtest Probability Calibration
   // ═══════════════════════════════════════════════════════════════════════════
-  // 🛡️ 嚴格防止 Denominator Bias：分母固定使用全 17 因子之總權重 (Full Schema Total Weight)
+  // 🛡️ 嚴格防止 Denominator Bias：分母固定使用全 18 因子之總權重 (CANONICAL_TOTAL_WEIGHT = 1.0000)
   // 缺失因子得分貢獻為 0 (中性)，決不縮小分母造成殘餘強勢因子虛假膨脹！
-  const fullSchemaTotalWeight = factors.reduce((sum, f) => sum + f.weight, 0) || 1.0;
+  const fullSchemaTotalWeight = CANONICAL_TOTAL_WEIGHT;
   let availableWeight = 0;
   let rawWeightedScore = 0;
 
