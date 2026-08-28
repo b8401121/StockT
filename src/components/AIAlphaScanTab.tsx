@@ -6,6 +6,7 @@ import { HardwareBadge } from "./HardwareBadge";
 import { AddToWatchlistBtn } from "./AddToWatchlistBtn";
 import { stockService } from "../services/stockService";
 import twseFundamentals from "../utils/twse_mops_fundamentals.json";
+import { useAppTheme } from "../utils/theme";
 
 const fundamentalsMap: Record<string, any> = twseFundamentals as any;
 
@@ -112,6 +113,8 @@ const STRATEGIES = [
 ];
 
 export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => {
+  const [theme] = useAppTheme();
+  const isWarm = theme === "warm";
   const [market, setMarket] = useState("ALL");
   const [strategy, setStrategy] = useState("strong_bull");
   const [scanning, setScanning] = useState(false);
@@ -466,7 +469,7 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
                       <span className="badge" style={{
                         fontSize: "0.72rem",
                         backgroundColor: r.dataQuality.availableCount >= 16 ? "rgba(34, 197, 94, 0.2)" : r.dataQuality.availableCount >= 12 ? "rgba(59, 130, 246, 0.2)" : "rgba(245, 158, 11, 0.2)",
-                        color: r.dataQuality.availableCount >= 16 ? "#4ade80" : r.dataQuality.availableCount >= 12 ? "#60a5fa" : "#fbbf24",
+                        color: r.dataQuality.availableCount >= 16 ? (isWarm ? "#15803d" : "#4ade80") : r.dataQuality.availableCount >= 12 ? (isWarm ? "#0284c7" : "#60a5fa") : (isWarm ? "#b45309" : "#fbbf24"),
                         border: `1px solid ${r.dataQuality.availableCount >= 16 ? "rgba(34, 197, 94, 0.4)" : "rgba(59, 130, 246, 0.4)"}`,
                         fontWeight: 700
                       }}>
@@ -498,14 +501,14 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
                     </td>
                     <td style={{ fontSize: "0.78rem" }}>
                       {r.positiveDrivers.length > 0 ? (
-                        <span style={{ color: "#4ade80" }}>{r.positiveDrivers.slice(0, 2).join("、")}</span>
+                        <span style={{ color: isWarm ? "#15803d" : "#4ade80" }}>{r.positiveDrivers.slice(0, 2).join("、")}</span>
                       ) : (
                         <span style={{ color: "#f87171" }}>{r.riskDrivers.slice(0, 2).join("、")}</span>
                       )}
                     </td>
                     <td style={{ fontSize: "0.78rem", color: "var(--text-muted)" }}>
                       <div>PE: <b style={{ color: "var(--text-primary)" }}>{fmtFixed(metricVal(r.info.tw_pe ?? r.info.pe), 1, "-")}</b></div>
-                      <div>ROE: <b style={{ color: (metricVal(r.info.roe) ?? 0) < 0 ? "#ff5252" : (metricVal(r.info.roe) ?? 0) >= 0.15 ? "#4ade80" : "var(--text-primary)" }}>{metricVal(r.info.roe) != null ? fmtFixed(metricVal(r.info.roe)! * 100, 1) + "%" : "-"}</b></div>
+                      <div>ROE: <b style={{ color: (metricVal(r.info.roe) ?? 0) < 0 ? "#ff5252" : (metricVal(r.info.roe) ?? 0) >= 0.15 ? (isWarm ? "#15803d" : "#4ade80") : "var(--text-primary)" }}>{metricVal(r.info.roe) != null ? fmtFixed(metricVal(r.info.roe)! * 100, 1) + "%" : "-"}</b></div>
                     </td>
                     <td>
                       <button
@@ -545,7 +548,7 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
             left: 0,
             right: 0,
             bottom: 0,
-            backgroundColor: "rgba(0,0,0,0.75)",
+            backgroundColor: isWarm ? "rgba(40, 30, 20, 0.4)" : "rgba(0,0,0,0.75)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -556,30 +559,30 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
         >
           <div
             style={{
-              backgroundColor: "#1e1b4b",
-              border: "1px solid #7c3aed",
+              backgroundColor: isWarm ? "#ffffff" : "#1e1b4b",
+              border: isWarm ? "1px solid rgba(140, 110, 80, 0.3)" : "1px solid #7c3aed",
               borderRadius: "12px",
               padding: "20px",
               width: "100%",
               maxWidth: "680px",
               maxHeight: "85vh",
               overflowY: "auto",
-              boxShadow: "0 10px 30px rgba(0,0,0,0.5)"
+              boxShadow: isWarm ? "0 10px 30px rgba(90, 60, 30, 0.2)" : "0 10px 30px rgba(0,0,0,0.5)"
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid rgba(124, 58, 237, 0.4)", paddingBottom: "10px", marginBottom: "12px" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: isWarm ? "1px solid rgba(140, 110, 80, 0.2)" : "1px solid rgba(124, 58, 237, 0.4)", paddingBottom: "10px", marginBottom: "12px" }}>
               <div>
-                <span style={{ fontSize: "1.2rem", fontWeight: 800, color: "#f3e8ff" }}>
+                <span style={{ fontSize: "1.2rem", fontWeight: 800, color: isWarm ? "#18181b" : "#f3e8ff" }}>
                   🧠 {selectedStockForDetail.name} ({selectedStockForDetail.symbol.split(".")[0]}) 17 維真實多因子全景
                 </span>
-                <div style={{ fontSize: "0.82rem", color: "#c084fc", marginTop: "2px" }}>
+                <div style={{ fontSize: "0.82rem", color: isWarm ? "#9a3412" : "#c084fc", marginTop: "2px" }}>
                   20 日超額勝率：<b>{fmtFixed(selectedStockForDetail.winRatePct, 1)}%</b> ｜ 評級：<b>{selectedStockForDetail.convictionTier}</b> ｜ 預估 Alpha：<b>{selectedStockForDetail.expectedAlphaPct >= 0 ? '+' : ''}{fmtFixed(selectedStockForDetail.expectedAlphaPct, 1)}%</b>
                 </div>
               </div>
               <button
                 onClick={() => setSelectedStockForDetail(null)}
-                style={{ background: "transparent", border: "none", color: "#cbd5e1", fontSize: "1.2rem", cursor: "pointer" }}
+                style={{ background: "transparent", border: "none", color: isWarm ? "#57534e" : "#cbd5e1", fontSize: "1.2rem", cursor: "pointer" }}
               >
                 ✕
               </button>
@@ -588,8 +591,8 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
             {/* 資料可信度與回測摘要 */}
             {selectedStockForDetail.dataQuality && (
               <div style={{
-                background: "rgba(15, 23, 42, 0.6)",
-                border: "1px solid rgba(148, 163, 184, 0.25)",
+                background: isWarm ? "#faf7f2" : "rgba(15, 23, 42, 0.6)",
+                border: isWarm ? "1px solid rgba(140, 110, 80, 0.18)" : "1px solid rgba(148, 163, 184, 0.25)",
                 borderRadius: "8px",
                 padding: "8px 12px",
                 marginBottom: "12px",
@@ -600,13 +603,13 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
                 gap: "6px"
               }}>
                 <div>
-                  <span style={{ color: "#94a3b8" }}>資料品質可信度：</span>
-                  <b style={{ color: selectedStockForDetail.dataQuality.overallScore >= 80 ? "#4ade80" : selectedStockForDetail.dataQuality.overallScore >= 50 ? "#facc15" : "#f87171" }}>
+                  <span style={{ color: isWarm ? "#57534e" : "#94a3b8" }}>資料品質可信度：</span>
+                  <b style={{ color: selectedStockForDetail.dataQuality.overallScore >= 80 ? (isWarm ? "#15803d" : "#4ade80") : selectedStockForDetail.dataQuality.overallScore >= 50 ? (isWarm ? "#b45309" : "#facc15") : "#f87171" }}>
                     {selectedStockForDetail.dataQuality.overallScore} / 100
                   </b>
-                  <span style={{ color: "#94a3b8", marginLeft: "6px" }}>({selectedStockForDetail.dataQuality.availableCount}/{selectedStockForDetail.dataQuality.totalRequired} 指標完備)</span>
+                  <span style={{ color: isWarm ? "#57534e" : "#94a3b8", marginLeft: "6px" }}>({selectedStockForDetail.dataQuality.availableCount}/{selectedStockForDetail.dataQuality.totalRequired} 指標完備)</span>
                 </div>
-                <div style={{ color: "#38bdf8" }}>
+                <div style={{ color: isWarm ? "#0284c7" : "#38bdf8" }}>
                   📈 台股回測驗證：歷史勝率 <b>68.4%</b> ｜ 歷史 Alpha <b>+4.7%</b> ｜ 最大回撤 <b>-12.3%</b>
                 </div>
               </div>
@@ -616,9 +619,13 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
               {selectedStockForDetail.allFactors.map((f) => {
                 const isPos = f.status === "positive";
                 const isNeg = f.status === "negative";
-                const statusBg = isPos ? "rgba(34, 197, 94, 0.15)" : isNeg ? "rgba(239, 68, 68, 0.18)" : "rgba(148, 163, 184, 0.1)";
-                const statusBorder = isPos ? "rgba(34, 197, 94, 0.4)" : isNeg ? "rgba(239, 68, 68, 0.4)" : "rgba(148, 163, 184, 0.25)";
-                const statusColor = isPos ? "#4ade80" : isNeg ? "#f87171" : "#94a3b8";
+                const statusBg = isWarm
+                  ? (isPos ? "rgba(21, 128, 61, 0.08)" : isNeg ? "rgba(239, 68, 68, 0.08)" : "rgba(140, 110, 80, 0.06)")
+                  : (isPos ? "rgba(34, 197, 94, 0.15)" : isNeg ? "rgba(239, 68, 68, 0.18)" : "rgba(148, 163, 184, 0.1)");
+                const statusBorder = isWarm
+                  ? (isPos ? "rgba(21, 128, 61, 0.25)" : isNeg ? "rgba(239, 68, 68, 0.25)" : "rgba(140, 110, 80, 0.15)")
+                  : (isPos ? "rgba(34, 197, 94, 0.4)" : isNeg ? "rgba(239, 68, 68, 0.4)" : "rgba(148, 163, 184, 0.25)");
+                const statusColor = isPos ? (isWarm ? "#15803d" : "#4ade80") : isNeg ? "#f87171" : (isWarm ? "#57534e" : "#94a3b8");
                 const icon = isPos ? "✅" : isNeg ? "❌" : "⚪";
 
                 return (
@@ -636,15 +643,15 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
                     }}
                   >
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                      <span style={{ fontWeight: 700, color: "#f8fafc" }}>
-                        {icon} {f.name} <span style={{ fontSize: "0.72rem", color: "#a5b4fc", fontWeight: 400 }}>({f.category})</span>
-                        {f.source && <span style={{ fontSize: "0.68rem", color: "#94a3b8", marginLeft: "6px" }}>[{f.source}]</span>}
+                      <span style={{ fontWeight: 700, color: isWarm ? "#18181b" : "#f8fafc" }}>
+                        {icon} {f.name} <span style={{ fontSize: "0.72rem", color: isWarm ? "#0369a1" : "#a5b4fc", fontWeight: 400 }}>({f.category})</span>
+                        {f.source && <span style={{ fontSize: "0.68rem", color: isWarm ? "#57534e" : "#94a3b8", marginLeft: "6px" }}>[{f.source}]</span>}
                       </span>
                       <span style={{ fontWeight: 800, color: statusColor, fontSize: "0.9rem" }}>
                         {f.valueDisplay}
                       </span>
                     </div>
-                    <div style={{ fontSize: "0.75rem", color: "#cbd5e1", display: "flex", justifyContent: "space-between" }}>
+                    <div style={{ fontSize: "0.75rem", color: isWarm ? "#57534e" : "#cbd5e1", display: "flex", justifyContent: "space-between" }}>
                       <span>{f.explanation}</span>
                       <span style={{ color: statusColor, fontWeight: 700, marginLeft: "8px", whiteSpace: "nowrap" }}>{f.impact}</span>
                     </div>

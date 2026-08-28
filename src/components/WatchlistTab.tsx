@@ -6,6 +6,7 @@ import { stockService } from "../services";
 import twseFundamentals from "../utils/twse_mops_fundamentals.json";
 import { evaluateAIAlpha, fmtFixed } from "../utils/aiAlphaModel";
 import { mkMops, mkYahoo } from "../utils/platform";
+import { useAppTheme } from "../utils/theme";
 
 /** 原始交易紀錄 */
 export interface TradeRecord {
@@ -99,6 +100,9 @@ export interface WatchlistTabProps {
 }
 
 export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAnalyze, isActive }) => {
+  const [theme] = useAppTheme();
+  const isWarm = theme === "warm";
+
   // 分類名單 -> 交易紀錄陣列
   const [lists, setLists] = useState<Record<string, TradeRecord[]>>({ "我的自選股": [] });
   const [activeList, setActiveList] = useState("我的自選股");
@@ -755,10 +759,10 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
 
   if (!user && !hasAnyRecords) {
     return (
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: "16px", color: "var(--text-muted)" }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: "16px", color: isWarm ? "#57534e" : "var(--text-muted)", background: isWarm ? "#f6f1e8" : "#0b0e17" }}>
         <div style={{ fontSize: "3.5rem" }}>🔒</div>
-        <div style={{ fontSize: "1.2rem", fontWeight: 700, color: "#ffffff" }}>請先登入帳號</div>
-        <div style={{ fontSize: "0.92rem", color: "#94a3b8" }}>登入後即可享有個人化自選股收藏、多筆買賣交易記帳與跨裝置即時同步功能</div>
+        <div style={{ fontSize: "1.2rem", fontWeight: 700, color: isWarm ? "#18181b" : "#ffffff" }}>請先登入帳號</div>
+        <div style={{ fontSize: "0.92rem", color: isWarm ? "#57534e" : "#94a3b8" }}>登入後即可享有個人化自選股收藏、多筆買賣交易記帳與跨裝置即時同步功能</div>
       </div>
     );
   }
@@ -1018,14 +1022,14 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
   };
 
   return (
-    <div className="watchlist-container" style={{ display: "flex", height: "100%", width: "100%", overflow: "hidden", background: "#0b0e17" }}>
+    <div className="watchlist-container" style={{ display: "flex", height: "100%", width: "100%", overflow: "hidden", background: isWarm ? "#f6f1e8" : "#0b0e17" }}>
       {/* ─── 左側：分類名單選單 ────────────────────────────────────── */}
       <div className="watchlist-sidebar" style={{
-        width: "210px", minWidth: "190px", background: "rgba(15, 20, 32, 0.95)",
-        borderRight: "1px solid rgba(255,255,255,0.08)", display: "flex", flexDirection: "column",
+        width: "210px", minWidth: "190px", background: isWarm ? "#fbf8f2" : "rgba(15, 20, 32, 0.95)",
+        borderRight: isWarm ? "1px solid rgba(140, 110, 80, 0.18)" : "1px solid rgba(255,255,255,0.08)", display: "flex", flexDirection: "column",
         padding: "14px 10px", gap: "6px"
       }}>
-        <div style={{ fontSize: "0.80rem", color: "#94a3b8", marginBottom: "6px", padding: "0 4px", fontWeight: 700 }}>
+        <div style={{ fontSize: "0.80rem", color: isWarm ? "#57534e" : "#94a3b8", marginBottom: "6px", padding: "0 4px", fontWeight: 700 }}>
           📂 投資組合分類清單
         </div>
         {Object.keys(lists).map((name) => (
@@ -1034,8 +1038,8 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
             style={{
               display: "flex", alignItems: "center", justifyContent: "space-between",
               borderRadius: "8px", padding: "8px 10px",
-              background: activeList === name ? "rgba(37, 99, 235, 0.25)" : "transparent",
-              border: activeList === name ? "1px solid rgba(96, 165, 250, 0.45)" : "1px solid transparent",
+              background: activeList === name ? (isWarm ? "rgba(217, 119, 6, 0.12)" : "rgba(37, 99, 235, 0.25)") : "transparent",
+              border: activeList === name ? (isWarm ? "1px solid rgba(217, 119, 6, 0.4)" : "1px solid rgba(96, 165, 250, 0.45)") : "1px solid transparent",
               cursor: "pointer", transition: "all 0.15s ease"
             }}
             onClick={() => setActiveList(name)}
@@ -1044,7 +1048,7 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
               <span>⭐</span>
               <span style={{
                 fontSize: "0.90rem", fontWeight: activeList === name ? 700 : 500,
-                color: activeList === name ? "#ffffff" : "#cbd5e1",
+                color: activeList === name ? (isWarm ? "#9a3412" : "#ffffff") : (isWarm ? "#18181b" : "#cbd5e1"),
                 whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
               }}>
                 {name}
@@ -1053,7 +1057,7 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
             {Object.keys(lists).length > 1 && (
               <button
                 style={{
-                  background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer",
+                  background: "transparent", border: "none", color: isWarm ? "#57534e" : "#94a3b8", cursor: "pointer",
                   fontSize: "0.8rem", padding: "2px 4px", borderRadius: "4px"
                 }}
                 title="刪除此分類"
@@ -1075,15 +1079,15 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
               onKeyDown={(e) => e.key === "Enter" && createList()}
               autoFocus
               style={{
-                background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.2)",
-                borderRadius: "6px", padding: "6px 8px", color: "#fff", fontSize: "0.82rem", outline: "none"
+                background: isWarm ? "#ffffff" : "rgba(255,255,255,0.06)", border: isWarm ? "1px solid rgba(140, 110, 80, 0.25)" : "1px solid rgba(255,255,255,0.2)",
+                borderRadius: "6px", padding: "6px 8px", color: isWarm ? "#18181b" : "#fff", fontSize: "0.82rem", outline: "none"
               }}
             />
             <div style={{ display: "flex", gap: "6px" }}>
               <button
                 onClick={createList}
                 style={{
-                  flex: 1, padding: "4px", background: "var(--accent-blue)", border: "none",
+                  flex: 1, padding: "4px", background: isWarm ? "#0284c7" : "var(--accent-blue)", border: "none",
                   borderRadius: "4px", color: "#fff", fontSize: "0.78rem", cursor: "pointer", fontWeight: 700
                 }}
               >
@@ -1092,8 +1096,8 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
               <button
                 onClick={() => { setShowNewList(false); setNewListName(""); }}
                 style={{
-                  flex: 1, padding: "4px", background: "rgba(255,255,255,0.1)", border: "none",
-                  borderRadius: "4px", color: "#aaa", fontSize: "0.78rem", cursor: "pointer"
+                  flex: 1, padding: "4px", background: isWarm ? "rgba(140, 110, 80, 0.15)" : "rgba(255,255,255,0.1)", border: "none",
+                  borderRadius: "4px", color: isWarm ? "#57534e" : "#aaa", fontSize: "0.78rem", cursor: "pointer"
                 }}
               >
                 取消
@@ -1104,9 +1108,9 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
           <button
             onClick={() => setShowNewList(true)}
             style={{
-              marginTop: "8px", padding: "7px 10px", background: "rgba(255,255,255,0.04)",
-              border: "1px dashed rgba(255,255,255,0.15)", borderRadius: "6px",
-              color: "#93c5fd", fontSize: "0.82rem", cursor: "pointer", display: "flex",
+              marginTop: "8px", padding: "7px 10px", background: isWarm ? "#ffffff" : "rgba(255,255,255,0.04)",
+              border: isWarm ? "1px dashed rgba(140, 110, 80, 0.35)" : "1px dashed rgba(255,255,255,0.15)", borderRadius: "6px",
+              color: isWarm ? "#0284c7" : "#93c5fd", fontSize: "0.82rem", cursor: "pointer", display: "flex",
               alignItems: "center", justifyContent: "center", gap: "4px", fontWeight: 600
             }}
           >
@@ -1115,9 +1119,9 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
         )}
 
         {/* 券商手續費折讓設定 */}
-        <div style={{ marginTop: "auto", borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: "12px", display: "flex", flexDirection: "column", gap: "8px" }}>
-          <div style={{ fontSize: "0.76rem", color: "#94a3b8", fontWeight: 600 }}>⚙️ 交易費率試算</div>
-          <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.78rem", color: "#e2e8f0", cursor: "pointer" }}>
+        <div style={{ marginTop: "auto", borderTop: isWarm ? "1px solid rgba(140, 110, 80, 0.18)" : "1px solid rgba(255,255,255,0.08)", paddingTop: "12px", display: "flex", flexDirection: "column", gap: "8px" }}>
+          <div style={{ fontSize: "0.76rem", color: isWarm ? "#57534e" : "#94a3b8", fontWeight: 600 }}>⚙️ 交易費率試算</div>
+          <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.78rem", color: isWarm ? "#18181b" : "#e2e8f0", cursor: "pointer" }}>
             <input
               type="checkbox"
               checked={deductFees}
@@ -1127,14 +1131,14 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
             扣除手續費與證交稅
           </label>
           {deductFees && (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "0.76rem", color: "#cbd5e1" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "0.76rem", color: isWarm ? "#57534e" : "#cbd5e1" }}>
               <span>券商折讓:</span>
               <select
                 value={feeDiscount}
                 onChange={(e) => setFeeDiscount(Number(e.target.value))}
                 style={{
-                  background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)",
-                  color: "#ffffff", borderRadius: "4px", padding: "2px 6px", fontSize: "0.76rem", outline: "none"
+                  background: isWarm ? "#ffffff" : "rgba(255,255,255,0.08)", border: isWarm ? "1px solid rgba(140, 110, 80, 0.25)" : "1px solid rgba(255,255,255,0.15)",
+                  color: isWarm ? "#18181b" : "#ffffff", borderRadius: "4px", padding: "2px 6px", fontSize: "0.76rem", outline: "none"
                 }}
               >
                 <option value={1}>無折讓 (1.0折)</option>
@@ -1150,20 +1154,20 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
       </div>
 
       {/* ─── 右側：主持股與交易明細區 ──────────────────────────────── */}
-      <div className="watchlist-main-content" style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <div className="watchlist-main-content" style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", background: isWarm ? "#f6f1e8" : "transparent" }}>
         
         {/* 頂部總覽看板 */}
         <div className="watchlist-dashboard" style={{
-          padding: "14px 20px", background: "linear-gradient(180deg, rgba(20, 26, 42, 0.95), rgba(13, 17, 27, 0.95))",
-          borderBottom: "1px solid rgba(255,255,255,0.08)", display: "flex", flexDirection: "column", gap: "10px", flexShrink: 0
+          padding: "14px 20px", background: isWarm ? "#ffffff" : "linear-gradient(180deg, rgba(20, 26, 42, 0.95), rgba(13, 17, 27, 0.95))",
+          borderBottom: isWarm ? "1px solid rgba(140, 110, 80, 0.18)" : "1px solid rgba(255,255,255,0.08)", display: "flex", flexDirection: "column", gap: "10px", flexShrink: 0
         }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "10px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-              <h2 style={{ fontSize: "1.25rem", fontWeight: 800, color: "#ffffff", margin: 0, display: "flex", alignItems: "center", gap: "6px" }}>
+              <h2 style={{ fontSize: "1.25rem", fontWeight: 800, color: isWarm ? "#18181b" : "#ffffff", margin: 0, display: "flex", alignItems: "center", gap: "6px" }}>
                 ⭐ {activeList}
               </h2>
               {syncMsg && (
-                <span style={{ fontSize: "0.78rem", color: syncMsg.type === "success" ? "#4caf50" : "#ff5252", fontWeight: 700 }}>
+                <span style={{ fontSize: "0.78rem", color: syncMsg.type === "success" ? (isWarm ? "#15803d" : "#4caf50") : (isWarm ? "#dc2626" : "#ff5252"), fontWeight: 700 }}>
                   {syncMsg.text}
                 </span>
               )}
@@ -1175,8 +1179,8 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                 onClick={() => fetchQuotes(lists)}
                 disabled={refreshingPrices}
                 style={{
-                  padding: "6px 12px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.15)",
-                  borderRadius: "6px", color: "#ffffff", fontSize: "0.82rem", cursor: "pointer", display: "flex",
+                  padding: "6px 12px", background: isWarm ? "#fcfaf6" : "rgba(255,255,255,0.06)", border: isWarm ? "1px solid rgba(140, 110, 80, 0.25)" : "1px solid rgba(255,255,255,0.15)",
+                  borderRadius: "6px", color: isWarm ? "#18181b" : "#ffffff", fontSize: "0.82rem", cursor: "pointer", display: "flex",
                   alignItems: "center", gap: "4px", fontWeight: 600
                 }}
               >
@@ -1185,10 +1189,10 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
               <button
                 onClick={() => openTradeModal("BUY")}
                 style={{
-                  padding: "6px 14px", background: "#2563eb", border: "1px solid #60a5fa",
+                  padding: "6px 14px", background: isWarm ? "#0284c7" : "#2563eb", border: isWarm ? "1px solid #0369a1" : "1px solid #60a5fa",
                   borderRadius: "6px", color: "#ffffff", fontSize: "0.85rem", cursor: "pointer",
                   display: "flex", alignItems: "center", gap: "4px", fontWeight: 700,
-                  boxShadow: "0 2px 8px rgba(37,99,235,0.4)"
+                  boxShadow: isWarm ? "0 2px 8px rgba(2, 132, 199, 0.25)" : "0 2px 8px rgba(37,99,235,0.4)"
                 }}
               >
                 ➕ 新增買進/賣出交易
@@ -1199,22 +1203,22 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
           {/* 四大資產與損益卡片 */}
           {totals.totalGrossDividends > 0 && (
             <div style={{
-              background: "linear-gradient(90deg, rgba(234, 179, 8, 0.18), rgba(202, 138, 4, 0.08))",
-              border: "1px solid rgba(234, 179, 8, 0.4)", borderRadius: "8px", padding: "10px 14px",
-              display: "flex", flexDirection: "column", gap: "6px", fontSize: "0.84rem", color: "#fef08a"
+              background: isWarm ? "rgba(245, 158, 11, 0.08)" : "linear-gradient(90deg, rgba(234, 179, 8, 0.18), rgba(202, 138, 4, 0.08))",
+              border: isWarm ? "1px solid rgba(217, 119, 6, 0.3)" : "1px solid rgba(234, 179, 8, 0.4)", borderRadius: "8px", padding: "10px 14px",
+              display: "flex", flexDirection: "column", gap: "6px", fontSize: "0.84rem", color: isWarm ? "#18181b" : "#fef08a"
             }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                   <span style={{ fontSize: "1.1rem" }}>🎁</span>
-                  <span style={{ fontWeight: 800, fontSize: "0.95rem", color: "#ffffff" }}>目前持股除權息與股利稅務試算：</span>
+                  <span style={{ fontWeight: 800, fontSize: "0.95rem", color: isWarm ? "#9a3412" : "#ffffff" }}>目前持股除權息與股利稅務試算：</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
-                  <span>股利毛額: <b style={{ color: "#facc15" }}>NT$ {totals.totalGrossDividends.toLocaleString()}</b></span>
-                  <span>健保補充保費(2.11%): <b style={{ color: totals.totalNhiPremium > 0 ? "#f87171" : "#4ade80" }}>-{totals.totalNhiPremium.toLocaleString()} 元</b></span>
-                  <span>8.5%抵減稅額(可退稅): <b style={{ color: "#38bdf8" }}>+{totals.totalTaxCredit85.toLocaleString()} 元</b></span>
+                  <span>股利毛額: <b style={{ color: isWarm ? "#b45309" : "#facc15" }}>NT$ {totals.totalGrossDividends.toLocaleString()}</b></span>
+                  <span>健保補充保費(2.11%): <b style={{ color: totals.totalNhiPremium > 0 ? (isWarm ? "#dc2626" : "#f87171") : (isWarm ? "#15803d" : "#4ade80") }}>-{totals.totalNhiPremium.toLocaleString()} 元</b></span>
+                  <span>8.5%抵減稅額(可退稅): <b style={{ color: isWarm ? "#0284c7" : "#38bdf8" }}>+{totals.totalTaxCredit85.toLocaleString()} 元</b></span>
                   <span style={{
-                    background: "rgba(250, 204, 21, 0.2)", border: "1px solid rgba(250, 204, 21, 0.5)",
-                    borderRadius: "6px", padding: "2px 8px", color: "#facc15", fontWeight: 800
+                    background: isWarm ? "rgba(217, 119, 6, 0.15)" : "rgba(250, 204, 21, 0.2)", border: isWarm ? "1px solid rgba(217, 119, 6, 0.4)" : "1px solid rgba(250, 204, 21, 0.5)",
+                    borderRadius: "6px", padding: "2px 8px", color: isWarm ? "#9a3412" : "#facc15", fontWeight: 800
                   }}>
                     預估實收淨額: NT$ {totals.totalNetDividends.toLocaleString()}
                   </span>
@@ -1224,73 +1228,73 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
           )}
           <div className="watchlist-cards-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "10px" }}>
             {/* 1. 現有持股市值 */}
-            <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "8px", padding: "10px 14px" }}>
-              <div style={{ fontSize: "0.76rem", color: "#94a3b8", fontWeight: 600, marginBottom: "2px" }}>💼 目前持股市值</div>
-              <div style={{ fontSize: "1.2rem", fontWeight: 800, color: "#ffffff" }}>
+            <div style={{ background: isWarm ? "#faf7f2" : "rgba(255,255,255,0.03)", border: isWarm ? "1px solid rgba(140, 110, 80, 0.2)" : "1px solid rgba(255,255,255,0.08)", borderRadius: "8px", padding: "10px 14px" }}>
+              <div style={{ fontSize: "0.76rem", color: isWarm ? "#57534e" : "#94a3b8", fontWeight: 600, marginBottom: "2px" }}>💼 目前持股市值</div>
+              <div style={{ fontSize: "1.2rem", fontWeight: 800, color: isWarm ? "#18181b" : "#ffffff" }}>
                 NT$ {totals.totalMarketValue.toLocaleString()}
               </div>
-              <div style={{ fontSize: "0.72rem", color: "#cbd5e1", marginTop: "2px" }}>
+              <div style={{ fontSize: "0.72rem", color: isWarm ? "#57534e" : "#cbd5e1", marginTop: "2px" }}>
                 投入成本: NT$ {totals.totalUnrealizedCost.toLocaleString()}
               </div>
             </div>
 
             {/* 2. 未實現損益 */}
             <div style={{
-              background: totals.totalUnrealizedPnl >= 0 ? "rgba(239, 68, 68, 0.08)" : "rgba(34, 197, 94, 0.08)",
-              border: totals.totalUnrealizedPnl >= 0 ? "1px solid rgba(239, 68, 68, 0.3)" : "1px solid rgba(34, 197, 94, 0.3)",
+              background: totals.totalUnrealizedPnl >= 0 ? (isWarm ? "rgba(220, 38, 38, 0.06)" : "rgba(239, 68, 68, 0.08)") : (isWarm ? "rgba(22, 163, 74, 0.06)" : "rgba(34, 197, 94, 0.08)"),
+              border: totals.totalUnrealizedPnl >= 0 ? (isWarm ? "1px solid rgba(220, 38, 38, 0.3)" : "1px solid rgba(239, 68, 68, 0.3)") : (isWarm ? "1px solid rgba(22, 163, 74, 0.3)" : "1px solid rgba(34, 197, 94, 0.3)"),
               borderRadius: "8px", padding: "10px 14px"
             }}>
-              <div style={{ fontSize: "0.76rem", color: "#94a3b8", fontWeight: 600, marginBottom: "2px" }}>📦 未實現損益 (現有庫存)</div>
-              <div style={{ fontSize: "1.2rem", fontWeight: 800, color: totals.totalUnrealizedPnl >= 0 ? "#ff5252" : "#4caf50" }}>
+              <div style={{ fontSize: "0.76rem", color: isWarm ? "#57534e" : "#94a3b8", fontWeight: 600, marginBottom: "2px" }}>📦 未實現損益 (現有庫存)</div>
+              <div style={{ fontSize: "1.2rem", fontWeight: 800, color: totals.totalUnrealizedPnl >= 0 ? (isWarm ? "#dc2626" : "#ff5252") : (isWarm ? "#15803d" : "#4caf50") }}>
                 {totals.totalUnrealizedPnl >= 0 ? "+" : ""}NT$ {totals.totalUnrealizedPnl.toLocaleString()}
               </div>
-              <div style={{ fontSize: "0.74rem", fontWeight: 700, color: totals.totalUnrealizedPnl >= 0 ? "#ff5252" : "#4caf50", marginTop: "2px" }}>
+              <div style={{ fontSize: "0.74rem", fontWeight: 700, color: totals.totalUnrealizedPnl >= 0 ? (isWarm ? "#dc2626" : "#ff5252") : (isWarm ? "#15803d" : "#4caf50"), marginTop: "2px" }}>
                 報酬率: {totals.totalUnrealizedPnl >= 0 ? "+" : ""}{totals.totalUnrealizedRoi.toFixed(2)}%
               </div>
             </div>
 
             {/* 3. 已實現損益 */}
             <div style={{
-              background: totals.totalRealizedPnl >= 0 ? "rgba(239, 68, 68, 0.08)" : "rgba(34, 197, 94, 0.08)",
-              border: totals.totalRealizedPnl >= 0 ? "1px solid rgba(239, 68, 68, 0.3)" : "1px solid rgba(34, 197, 94, 0.3)",
+              background: totals.totalRealizedPnl >= 0 ? (isWarm ? "rgba(220, 38, 38, 0.06)" : "rgba(239, 68, 68, 0.08)") : (isWarm ? "rgba(22, 163, 74, 0.06)" : "rgba(34, 197, 94, 0.08)"),
+              border: totals.totalRealizedPnl >= 0 ? (isWarm ? "1px solid rgba(220, 38, 38, 0.3)" : "1px solid rgba(239, 68, 68, 0.3)") : (isWarm ? "1px solid rgba(22, 163, 74, 0.3)" : "1px solid rgba(34, 197, 94, 0.3)"),
               borderRadius: "8px", padding: "10px 14px"
             }}>
-              <div style={{ fontSize: "0.76rem", color: "#94a3b8", fontWeight: 600, marginBottom: "2px" }}>🎯 已實現損益 (已平倉)</div>
-              <div style={{ fontSize: "1.2rem", fontWeight: 800, color: totals.totalRealizedPnl >= 0 ? "#ff5252" : "#4caf50" }}>
+              <div style={{ fontSize: "0.76rem", color: isWarm ? "#57534e" : "#94a3b8", fontWeight: 600, marginBottom: "2px" }}>🎯 已實現損益 (已平倉)</div>
+              <div style={{ fontSize: "1.2rem", fontWeight: 800, color: totals.totalRealizedPnl >= 0 ? (isWarm ? "#dc2626" : "#ff5252") : (isWarm ? "#15803d" : "#4caf50") }}>
                 {totals.totalRealizedPnl >= 0 ? "+" : ""}NT$ {totals.totalRealizedPnl.toLocaleString()}
               </div>
-              <div style={{ fontSize: "0.74rem", fontWeight: 700, color: totals.totalRealizedPnl >= 0 ? "#ff5252" : "#4caf50", marginTop: "2px" }}>
+              <div style={{ fontSize: "0.74rem", fontWeight: 700, color: totals.totalRealizedPnl >= 0 ? (isWarm ? "#dc2626" : "#ff5252") : (isWarm ? "#15803d" : "#4caf50"), marginTop: "2px" }}>
                 已結算報酬率: {totals.totalRealizedPnl >= 0 ? "+" : ""}{totals.totalRealizedRoi.toFixed(2)}% (勝率 {totals.winRate.toFixed(0)}%)
               </div>
             </div>
 
             {/* 4. 總累積獲利 */}
             <div style={{
-              background: totals.grandTotalPnl >= 0 ? "rgba(255, 82, 82, 0.14)" : "rgba(76, 175, 80, 0.14)",
-              border: totals.grandTotalPnl >= 0 ? "1px solid rgba(255, 82, 82, 0.5)" : "1px solid rgba(76, 175, 80, 0.5)",
+              background: totals.grandTotalPnl >= 0 ? (isWarm ? "rgba(220, 38, 38, 0.08)" : "rgba(255, 82, 82, 0.14)") : (isWarm ? "rgba(22, 163, 74, 0.08)" : "rgba(76, 175, 80, 0.14)"),
+              border: totals.grandTotalPnl >= 0 ? (isWarm ? "1px solid rgba(220, 38, 38, 0.35)" : "1px solid rgba(255, 82, 82, 0.5)") : (isWarm ? "1px solid rgba(22, 163, 74, 0.35)" : "1px solid rgba(76, 175, 80, 0.5)"),
               borderRadius: "8px", padding: "10px 14px"
             }}>
-              <div style={{ fontSize: "0.76rem", color: "#ffffff", fontWeight: 700, marginBottom: "2px" }}>
+              <div style={{ fontSize: "0.76rem", color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, marginBottom: "2px" }}>
                 📈 總累積獲利 (未實現 + 已實現 + 股利)
               </div>
-              <div style={{ fontSize: "1.25rem", fontWeight: 800, color: totals.grandTotalPnl >= 0 ? "#ff5252" : "#4caf50" }}>
+              <div style={{ fontSize: "1.25rem", fontWeight: 800, color: totals.grandTotalPnl >= 0 ? (isWarm ? "#dc2626" : "#ff5252") : (isWarm ? "#15803d" : "#4caf50") }}>
                 {totals.grandTotalPnl >= 0 ? "+" : ""}NT$ {totals.grandTotalPnl.toLocaleString()}
               </div>
               <div style={{
                 fontSize: "0.82rem", fontWeight: 800,
-                color: totals.grandTotalPnl >= 0 ? "#ff5252" : "#4caf50",
+                color: totals.grandTotalPnl >= 0 ? (isWarm ? "#dc2626" : "#ff5252") : (isWarm ? "#15803d" : "#4caf50"),
                 marginTop: "3px", display: "flex", alignItems: "center", gap: "6px"
               }}>
                 <span>總報酬率:</span>
                 <span style={{
                   padding: "1px 6px", borderRadius: "4px",
-                  background: totals.grandTotalPnl >= 0 ? "rgba(255,82,82,0.2)" : "rgba(76,175,80,0.2)",
-                  border: totals.grandTotalPnl >= 0 ? "1px solid rgba(255,82,82,0.4)" : "1px solid rgba(76,175,80,0.4)"
+                  background: totals.grandTotalPnl >= 0 ? (isWarm ? "rgba(220, 38, 38, 0.15)" : "rgba(255,82,82,0.2)") : (isWarm ? "rgba(22, 163, 74, 0.15)" : "rgba(76,175,80,0.2)"),
+                  border: totals.grandTotalPnl >= 0 ? (isWarm ? "1px solid rgba(220, 38, 38, 0.35)" : "1px solid rgba(255,82,82,0.4)") : (isWarm ? "1px solid rgba(22, 163, 74, 0.35)" : "1px solid rgba(76,175,80,0.4)")
                 }}>
                   {totals.grandTotalPnl >= 0 ? "+" : ""}{totals.grandTotalRoi.toFixed(2)}%
                 </span>
               </div>
-              <div style={{ fontSize: "0.70rem", color: "#cbd5e1", marginTop: "4px" }}>
+              <div style={{ fontSize: "0.70rem", color: isWarm ? "#57534e" : "#cbd5e1", marginTop: "4px" }}>
                 未實現 {totals.totalUnrealizedPnl >= 0 ? "+" : ""}{totals.totalUnrealizedPnl.toLocaleString()} ｜ 已實現 {totals.totalRealizedPnl >= 0 ? "+" : ""}{totals.totalRealizedPnl.toLocaleString()} ｜ 股息 +NT$ {totals.totalNetDividends.toLocaleString()}
               </div>
             </div>
@@ -1300,16 +1304,16 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
         {/* ─── 次級分頁切換按鈕 ───────────────────────────────────── */}
         <div className="watchlist-tabs-bar" style={{
           display: "flex", alignItems: "center", gap: "8px", padding: "8px 20px",
-          background: "rgba(15, 20, 32, 0.7)", borderBottom: "1px solid rgba(255,255,255,0.08)", flexShrink: 0,
+          background: isWarm ? "#fbf8f2" : "rgba(15, 20, 32, 0.7)", borderBottom: isWarm ? "1px solid rgba(140, 110, 80, 0.18)" : "1px solid rgba(255,255,255,0.08)", flexShrink: 0,
           overflowX: "auto"
         }}>
           <button
             onClick={() => setViewTab("unrealized")}
             style={{
-              padding: "7px 16px", borderRadius: "6px", border: "none", cursor: "pointer",
+              padding: "7px 16px", borderRadius: "6px", border: viewTab === "unrealized" ? (isWarm ? "1px solid rgba(217, 119, 6, 0.4)" : "none") : "none", cursor: "pointer",
               fontSize: "0.88rem", fontWeight: 700,
-              background: viewTab === "unrealized" ? "#2563eb" : "transparent",
-              color: viewTab === "unrealized" ? "#ffffff" : "#94a3b8",
+              background: viewTab === "unrealized" ? (isWarm ? "rgba(217, 119, 6, 0.15)" : "#2563eb") : "transparent",
+              color: viewTab === "unrealized" ? (isWarm ? "#9a3412" : "#ffffff") : (isWarm ? "#57534e" : "#94a3b8"),
             }}
           >
             📈 未實現損益・持倉中 ({unrealizedHoldings.length})
@@ -1317,10 +1321,10 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
           <button
             onClick={() => setViewTab("observing")}
             style={{
-              padding: "7px 16px", borderRadius: "6px", border: "none", cursor: "pointer",
+              padding: "7px 16px", borderRadius: "6px", border: viewTab === "observing" ? (isWarm ? "1px solid rgba(217, 119, 6, 0.4)" : "none") : "none", cursor: "pointer",
               fontSize: "0.88rem", fontWeight: 700,
-              background: viewTab === "observing" ? "#2563eb" : "transparent",
-              color: viewTab === "observing" ? "#ffffff" : "#94a3b8",
+              background: viewTab === "observing" ? (isWarm ? "rgba(217, 119, 6, 0.15)" : "#2563eb") : "transparent",
+              color: viewTab === "observing" ? (isWarm ? "#9a3412" : "#ffffff") : (isWarm ? "#57534e" : "#94a3b8"),
             }}
           >
             ⭐ 收藏觀察名單 ({observingStocks.length})
@@ -1328,10 +1332,10 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
           <button
             onClick={() => setViewTab("realized")}
             style={{
-              padding: "7px 16px", borderRadius: "6px", border: "none", cursor: "pointer",
+              padding: "7px 16px", borderRadius: "6px", border: viewTab === "realized" ? (isWarm ? "1px solid rgba(217, 119, 6, 0.4)" : "none") : "none", cursor: "pointer",
               fontSize: "0.88rem", fontWeight: 700,
-              background: viewTab === "realized" ? "#2563eb" : "transparent",
-              color: viewTab === "realized" ? "#ffffff" : "#94a3b8",
+              background: viewTab === "realized" ? (isWarm ? "rgba(217, 119, 6, 0.15)" : "#2563eb") : "transparent",
+              color: viewTab === "realized" ? (isWarm ? "#9a3412" : "#ffffff") : (isWarm ? "#57534e" : "#94a3b8"),
             }}
           >
             🎯 已實現損益・已結算 ({realizedTrades.length})
@@ -1339,10 +1343,10 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
           <button
             onClick={() => setViewTab("trades")}
             style={{
-              padding: "7px 16px", borderRadius: "6px", border: "none", cursor: "pointer",
+              padding: "7px 16px", borderRadius: "6px", border: viewTab === "trades" ? (isWarm ? "1px solid rgba(217, 119, 6, 0.4)" : "none") : "none", cursor: "pointer",
               fontSize: "0.88rem", fontWeight: 700,
-              background: viewTab === "trades" ? "#2563eb" : "transparent",
-              color: viewTab === "trades" ? "#ffffff" : "#94a3b8",
+              background: viewTab === "trades" ? (isWarm ? "rgba(217, 119, 6, 0.15)" : "#2563eb") : "transparent",
+              color: viewTab === "trades" ? (isWarm ? "#9a3412" : "#ffffff") : (isWarm ? "#57534e" : "#94a3b8"),
             }}
           >
             📜 全部買賣流水帳 ({currentTrades.filter(t => t.price > 0).length})
@@ -1356,15 +1360,15 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
           {viewTab === "unrealized" && (
             <div>
               {unrealizedHoldings.length === 0 ? (
-                <div style={{ textAlign: "center", padding: "60px 0", color: "#94a3b8" }}>
+                <div style={{ textAlign: "center", padding: "60px 0", color: isWarm ? "#57534e" : "#94a3b8" }}>
                   <div style={{ fontSize: "2.5rem", marginBottom: "10px" }}>📦</div>
-                  <div style={{ fontSize: "1.05rem", color: "#ffffff", fontWeight: 700 }}>目前尚無未實現持倉</div>
+                  <div style={{ fontSize: "1.05rem", color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700 }}>目前尚無未實現持倉</div>
                   <div style={{ fontSize: "0.85rem", marginTop: "4px" }}>點擊上方「➕ 新增買進/賣出交易」開始記錄您的股票交易</div>
                 </div>
               ) : (
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.90rem" }}>
                   <thead>
-                    <tr style={{ background: "rgba(30, 41, 59, 0.8)", borderBottom: "2px solid rgba(255,255,255,0.15)", color: "#ffffff" }}>
+                    <tr style={{ background: isWarm ? "#ede6d8" : "rgba(30, 41, 59, 0.8)", borderBottom: isWarm ? "2px solid rgba(140, 110, 80, 0.3)" : "2px solid rgba(255,255,255,0.15)", color: isWarm ? "#18181b" : "#ffffff" }}>
                       <th style={{ padding: "10px 12px", textAlign: "left" }}>股票代號 / 名稱</th>
                       <th style={{ padding: "10px 12px", textAlign: "right" }}>剩餘持股</th>
                       <th style={{ padding: "10px 12px", textAlign: "right" }}>買進均價</th>
@@ -1384,21 +1388,21 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                       return (
                         <React.Fragment key={h.symbol}>
                           <tr style={{
-                            borderBottom: "1px solid rgba(255,255,255,0.06)",
-                            background: "rgba(255,255,255,0.01)"
+                            borderBottom: isWarm ? "1px solid rgba(140, 110, 80, 0.12)" : "1px solid rgba(255,255,255,0.06)",
+                            background: isWarm ? "#ffffff" : "rgba(255,255,255,0.01)"
                           }}>
                             {/* 代號與名稱 */}
-                            <td style={{ padding: "12px", fontWeight: 700, color: "#ffffff" }}>
+                            <td style={{ padding: "12px", fontWeight: 700, color: isWarm ? "#18181b" : "#ffffff" }}>
                               <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                                <span style={{ color: "#38bdf8", cursor: "pointer" }} onClick={() => onAnalyze && onAnalyze(h.symbol)}>
+                                <span style={{ color: isWarm ? "#0284c7" : "#38bdf8", cursor: "pointer" }} onClick={() => onAnalyze && onAnalyze(h.symbol)}>
                                   {h.name} ({h.symbol})
                                 </span>
                                 {h.buyLots.length > 1 && (
                                   <button
                                     onClick={() => setExpandedSymbols((p) => ({ ...p, [h.symbol]: !p[h.symbol] }))}
                                     style={{
-                                      background: "rgba(56, 189, 248, 0.15)", border: "1px solid rgba(56, 189, 248, 0.4)",
-                                      borderRadius: "4px", color: "#38bdf8", fontSize: "0.72rem", padding: "1px 6px",
+                                      background: isWarm ? "rgba(2, 132, 199, 0.12)" : "rgba(56, 189, 248, 0.15)", border: isWarm ? "1px solid rgba(2, 132, 199, 0.35)" : "1px solid rgba(56, 189, 248, 0.4)",
+                                      borderRadius: "4px", color: isWarm ? "#0369a1" : "#38bdf8", fontSize: "0.72rem", padding: "1px 6px",
                                       cursor: "pointer", fontWeight: 700
                                     }}
                                   >
@@ -1409,31 +1413,31 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                             </td>
 
                             {/* 股數 */}
-                            <td style={{ padding: "12px", textAlign: "right", color: "#ffffff", fontWeight: 700 }}>
+                            <td style={{ padding: "12px", textAlign: "right", color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700 }}>
                               {h.remainingShares.toLocaleString()} 股
                             </td>
 
                             {/* 均價 */}
-                            <td style={{ padding: "12px", textAlign: "right", color: "#cbd5e1", fontWeight: 600 }}>
+                            <td style={{ padding: "12px", textAlign: "right", color: isWarm ? "#57534e" : "#cbd5e1", fontWeight: 600 }}>
                               ${h.avgBuyPrice.toFixed(2)}
                             </td>
 
                             {/* 即時市價 */}
-                            <td style={{ padding: "12px", textAlign: "right", color: "#ffffff", fontWeight: 800 }}>
+                            <td style={{ padding: "12px", textAlign: "right", color: isWarm ? "#18181b" : "#ffffff", fontWeight: 800 }}>
                               ${h.curPrice.toFixed(2)}
                             </td>
 
                             {/* 市值 */}
-                            <td style={{ padding: "12px", textAlign: "right", color: "#ffffff", fontWeight: 700 }}>
+                            <td style={{ padding: "12px", textAlign: "right", color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700 }}>
                               NT$ {h.marketValue.toLocaleString()}
                             </td>
 
                             {/* 每股現金股利與除權息性質 */}
                             <td style={{ padding: "12px", textAlign: "right" }}>
-                              <div style={{ fontWeight: 700, color: "#facc15" }}>
+                              <div style={{ fontWeight: 700, color: isWarm ? "#b45309" : "#facc15" }}>
                                 {h.cashDividend > 0 ? `${h.cashDividend.toFixed(2)} 元` : "無"}
                               </div>
-                              <div style={{ fontSize: "0.72rem", color: h.stockDividend > 0 ? "#a855f7" : "#94a3b8", marginTop: "1px" }}>
+                              <div style={{ fontSize: "0.72rem", color: h.stockDividend > 0 ? (isWarm ? "#7e22ce" : "#a855f7") : (isWarm ? "#57534e" : "#94a3b8"), marginTop: "1px" }}>
                                 {h.exType}{h.stockDividend > 0 ? ` (配股${h.stockDividend}元)` : ""}
                               </div>
                             </td>
@@ -1442,42 +1446,42 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                             <td style={{ padding: "12px", textAlign: "right" }}>
                               {h.estGrossDividend > 0 ? (
                                 <div>
-                                  <div style={{ fontWeight: 800, color: "#facc15", fontSize: "0.92rem" }}>
+                                  <div style={{ fontWeight: 800, color: isWarm ? "#b45309" : "#facc15", fontSize: "0.92rem" }}>
                                     NT$ {h.estNetDividend.toLocaleString()}
                                   </div>
-                                  <div style={{ fontSize: "0.72rem", color: "#94a3b8", marginTop: "1px" }}>
+                                  <div style={{ fontSize: "0.72rem", color: isWarm ? "#57534e" : "#94a3b8", marginTop: "1px" }}>
                                     毛額 ${h.estGrossDividend.toLocaleString()}
                                     {h.nhiPremium > 0 ? (
-                                      <span style={{ color: "#f87171", marginLeft: "4px" }}>(扣健保 ${h.nhiPremium})</span>
+                                      <span style={{ color: isWarm ? "#dc2626" : "#f87171", marginLeft: "4px" }}>(扣健保 ${h.nhiPremium})</span>
                                     ) : (
-                                      <span style={{ color: "#4ade80", marginLeft: "4px" }}>(免扣健保)</span>
+                                      <span style={{ color: isWarm ? "#15803d" : "#4ade80", marginLeft: "4px" }}>(免扣健保)</span>
                                     )}
                                   </div>
-                                  <div style={{ fontSize: "0.68rem", color: "#38bdf8", marginTop: "1px" }}>
+                                  <div style={{ fontSize: "0.68rem", color: isWarm ? "#0284c7" : "#38bdf8", marginTop: "1px" }}>
                                     ✓ 符除息日 {h.exDate}
                                   </div>
                                 </div>
                               ) : h.cashDividend > 0 ? (
                                 <div>
-                                  <span style={{ color: "#94a3b8", fontSize: "0.80rem" }}>0 元</span>
-                                  <div style={{ fontSize: "0.68rem", color: "#f87171", marginTop: "1px" }}>
+                                  <span style={{ color: isWarm ? "#57534e" : "#94a3b8", fontSize: "0.80rem" }}>0 元</span>
+                                  <div style={{ fontSize: "0.68rem", color: isWarm ? "#dc2626" : "#f87171", marginTop: "1px" }}>
                                     除息後買進 (除息日 {h.exDate})
                                   </div>
                                 </div>
                               ) : (
-                                <span style={{ color: "#94a3b8" }}>無配息</span>
+                                <span style={{ color: isWarm ? "#57534e" : "#94a3b8" }}>無配息</span>
                               )}
                             </td>
 
                             {/* 成本 */}
-                            <td style={{ padding: "12px", textAlign: "right", color: "#cbd5e1" }}>
+                            <td style={{ padding: "12px", textAlign: "right", color: isWarm ? "#57534e" : "#cbd5e1" }}>
                               NT$ {h.cost.toLocaleString()}
                             </td>
 
                             {/* 損益 */}
                             <td style={{
                               padding: "12px", textAlign: "right", fontWeight: 800,
-                              color: h.pnl >= 0 ? "#ff5252" : "#4caf50"
+                              color: h.pnl >= 0 ? (isWarm ? "#dc2626" : "#ff5252") : (isWarm ? "#15803d" : "#4caf50")
                             }}>
                               {h.pnl >= 0 ? "+" : ""}NT$ {h.pnl.toLocaleString()}
                             </td>
@@ -1485,7 +1489,7 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                             {/* 報酬率 */}
                             <td style={{
                               padding: "12px", textAlign: "right", fontWeight: 800,
-                              color: h.pnl >= 0 ? "#ff5252" : "#4caf50"
+                              color: h.pnl >= 0 ? (isWarm ? "#dc2626" : "#ff5252") : (isWarm ? "#15803d" : "#4caf50")
                             }}>
                               {h.pnl >= 0 ? "+" : ""}{h.roi.toFixed(2)}%
                             </td>
@@ -1497,8 +1501,8 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                                   onClick={() => openTradeModal("BUY", h.symbol, h.curPrice)}
                                   title="加碼買進"
                                   style={{
-                                    background: "rgba(37,99,235,0.2)", border: "1px solid rgba(96,165,250,0.4)",
-                                    borderRadius: "4px", color: "#93c5fd", fontSize: "0.76rem", padding: "3px 8px",
+                                    background: isWarm ? "rgba(2, 132, 199, 0.12)" : "rgba(37,99,235,0.2)", border: isWarm ? "1px solid rgba(2, 132, 199, 0.35)" : "1px solid rgba(96,165,250,0.4)",
+                                    borderRadius: "4px", color: isWarm ? "#0369a1" : "#93c5fd", fontSize: "0.76rem", padding: "3px 8px",
                                     cursor: "pointer", fontWeight: 700
                                   }}
                                 >
@@ -1508,8 +1512,8 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                                   onClick={() => openTradeModal("SELL", h.symbol, h.curPrice, h.remainingShares)}
                                   title="賣出平倉"
                                   style={{
-                                    background: "rgba(220,38,38,0.2)", border: "1px solid rgba(248,113,113,0.4)",
-                                    borderRadius: "4px", color: "#fca5a5", fontSize: "0.76rem", padding: "3px 8px",
+                                    background: isWarm ? "rgba(220, 38, 38, 0.12)" : "rgba(220,38,38,0.2)", border: isWarm ? "1px solid rgba(220, 38, 38, 0.35)" : "1px solid rgba(248,113,113,0.4)",
+                                    borderRadius: "4px", color: isWarm ? "#dc2626" : "#fca5a5", fontSize: "0.76rem", padding: "3px 8px",
                                     cursor: "pointer", fontWeight: 700
                                   }}
                                 >
@@ -1520,8 +1524,8 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                                     onClick={() => onAnalyze(h.symbol)}
                                     title="前往個股分析"
                                     style={{
-                                      background: "rgba(168, 85, 247, 0.2)", border: "1px solid rgba(192, 132, 252, 0.4)",
-                                      borderRadius: "4px", color: "#d8b4fe", fontSize: "0.76rem", padding: "3px 8px",
+                                      background: isWarm ? "rgba(126, 34, 206, 0.12)" : "rgba(168, 85, 247, 0.2)", border: isWarm ? "1px solid rgba(126, 34, 206, 0.35)" : "1px solid rgba(192, 132, 252, 0.4)",
+                                      borderRadius: "4px", color: isWarm ? "#7e22ce" : "#d8b4fe", fontSize: "0.76rem", padding: "3px 8px",
                                       cursor: "pointer", fontWeight: 700
                                     }}
                                   >
@@ -1534,24 +1538,24 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
 
                           {/* 展開的多批次買進明細 */}
                           {isExpanded && (
-                            <tr style={{ background: "rgba(15, 23, 42, 0.6)" }}>
+                            <tr style={{ background: isWarm ? "#faf7f2" : "rgba(15, 23, 42, 0.6)" }}>
                               <td colSpan={9} style={{ padding: "8px 24px" }}>
-                                <div style={{ fontSize: "0.78rem", color: "#94a3b8", marginBottom: "4px", fontWeight: 700 }}>
+                                <div style={{ fontSize: "0.78rem", color: isWarm ? "#57534e" : "#94a3b8", marginBottom: "4px", fontWeight: 700 }}>
                                   📦 買進明細批次 (FIFO 先進先出):
                                 </div>
                                 <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
                                   {h.buyLots.map((lot, lIdx) => (
-                                    <div key={lot.id} style={{ display: "flex", gap: "16px", fontSize: "0.78rem", color: "#cbd5e1" }}>
+                                    <div key={lot.id} style={{ display: "flex", gap: "16px", fontSize: "0.78rem", color: isWarm ? "#57534e" : "#cbd5e1" }}>
                                       <span>第 {lIdx + 1} 批: <b>{lot.date}</b></span>
-                                      <span>買價: <b style={{ color: "#ffffff" }}>${lot.price}</b></span>
-                                      <span>庫存剩餘: <b style={{ color: "#38bdf8" }}>{lot.shares.toLocaleString()} 股</b></span>
+                                      <span>買價: <b style={{ color: isWarm ? "#18181b" : "#ffffff" }}>${lot.price}</b></span>
+                                      <span>庫存剩餘: <b style={{ color: isWarm ? "#0284c7" : "#38bdf8" }}>{lot.shares.toLocaleString()} 股</b></span>
                                       <span>手續費: ${lot.buyFee}</span>
                                       {lot.isQualified ? (
-                                        <span style={{ color: "#4ade80", fontWeight: 700 }}>✓ 跨越除息日 (可領 ${lot.lotGrossDividend} 元)</span>
+                                        <span style={{ color: isWarm ? "#15803d" : "#4ade80", fontWeight: 700 }}>✓ 跨越除息日 (可領 ${lot.lotGrossDividend} 元)</span>
                                       ) : (
-                                        <span style={{ color: "#94a3b8" }}>✗ 除息後建倉 (無配息)</span>
+                                        <span style={{ color: isWarm ? "#57534e" : "#94a3b8" }}>✗ 除息後建倉 (無配息)</span>
                                       )}
-                                      {lot.note && <span style={{ color: "#94a3b8" }}>({lot.note})</span>}
+                                      {lot.note && <span style={{ color: isWarm ? "#57534e" : "#94a3b8" }}>({lot.note})</span>}
                                     </div>
                                   ))}
                                 </div>
@@ -1571,7 +1575,7 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
           {viewTab === "observing" && (
             <div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", flexWrap: "wrap", gap: "8px" }}>
-                <div style={{ fontSize: "0.88rem", color: "#94a3b8", fontWeight: 600 }}>
+                <div style={{ fontSize: "0.88rem", color: isWarm ? "#57534e" : "#94a3b8", fontWeight: 600 }}>
                   ⭐ 共 {observingStocks.length} 檔自選觀察股
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -1580,8 +1584,8 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                       onClick={exportObservingPdf}
                       title="匯出純觀察報告（不含任何個人買賣與持倉損益）"
                       style={{
-                        padding: "5px 12px", background: "rgba(168, 85, 247, 0.2)", border: "1px solid rgba(192, 132, 252, 0.4)",
-                        borderRadius: "6px", color: "#d8b4fe", fontSize: "0.80rem", cursor: "pointer", fontWeight: 700,
+                        padding: "5px 12px", background: isWarm ? "rgba(126, 34, 206, 0.12)" : "rgba(168, 85, 247, 0.2)", border: isWarm ? "1px solid rgba(126, 34, 206, 0.35)" : "1px solid rgba(192, 132, 252, 0.4)",
+                        borderRadius: "6px", color: isWarm ? "#7e22ce" : "#d8b4fe", fontSize: "0.80rem", cursor: "pointer", fontWeight: 700,
                         display: "flex", alignItems: "center", gap: "5px"
                       }}
                     >
@@ -1591,7 +1595,7 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                   <button
                     onClick={() => openTradeModal("BUY")}
                     style={{
-                      padding: "5px 12px", background: "#2563eb", border: "none",
+                      padding: "5px 12px", background: isWarm ? "#0284c7" : "#2563eb", border: "none",
                       borderRadius: "6px", color: "#ffffff", fontSize: "0.80rem", cursor: "pointer", fontWeight: 700
                     }}
                   >
@@ -1601,15 +1605,15 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
               </div>
 
               {observingStocks.length === 0 ? (
-                <div style={{ textAlign: "center", padding: "60px 0", color: "#94a3b8" }}>
+                <div style={{ textAlign: "center", padding: "60px 0", color: isWarm ? "#57534e" : "#94a3b8" }}>
                   <div style={{ fontSize: "2.5rem", marginBottom: "10px" }}>⭐</div>
-                  <div style={{ fontSize: "1.05rem", color: "#ffffff", fontWeight: 700 }}>目前尚無自選觀察股</div>
+                  <div style={{ fontSize: "1.05rem", color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700 }}>目前尚無自選觀察股</div>
                   <div style={{ fontSize: "0.85rem", marginTop: "4px" }}>在選股雷達或個股分析頁點擊「⭐ 收藏」，即可將潛力股票加入此觀察清單！</div>
                 </div>
               ) : (
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.90rem" }}>
                   <thead>
-                    <tr style={{ background: "rgba(30, 41, 59, 0.8)", borderBottom: "2px solid rgba(255,255,255,0.15)", color: "#ffffff" }}>
+                    <tr style={{ background: isWarm ? "#ede6d8" : "rgba(30, 41, 59, 0.8)", borderBottom: isWarm ? "2px solid rgba(140, 110, 80, 0.3)" : "2px solid rgba(255,255,255,0.15)", color: isWarm ? "#18181b" : "#ffffff" }}>
                       <th style={{ padding: "10px 12px", textAlign: "left" }}>股票代號 / 名稱</th>
                       <th style={{ padding: "10px 12px", textAlign: "center" }}>持股狀態</th>
                       <th style={{ padding: "10px 12px", textAlign: "right" }}>即時市價</th>
@@ -1621,9 +1625,9 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                   </thead>
                   <tbody>
                     {observingStocks.map((s) => (
-                      <tr key={s.symbol} style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.01)" }}>
-                        <td style={{ padding: "12px", fontWeight: 700, color: "#ffffff" }}>
-                          <span style={{ color: "#38bdf8", cursor: "pointer" }} onClick={() => onAnalyze && onAnalyze(s.symbol)}>
+                      <tr key={s.symbol} style={{ borderBottom: isWarm ? "1px solid rgba(140, 110, 80, 0.12)" : "1px solid rgba(255,255,255,0.06)", background: isWarm ? "#ffffff" : "rgba(255,255,255,0.01)" }}>
+                        <td style={{ padding: "12px", fontWeight: 700, color: isWarm ? "#18181b" : "#ffffff" }}>
+                          <span style={{ color: isWarm ? "#0284c7" : "#38bdf8", cursor: "pointer" }} onClick={() => onAnalyze && onAnalyze(s.symbol)}>
                             {s.name} ({s.symbol})
                           </span>
                         </td>
@@ -1631,38 +1635,38 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                           {s.remainingShares > 0 ? (
                             <span style={{
                               padding: "2px 8px", borderRadius: "4px",
-                              background: "rgba(56, 189, 248, 0.15)", border: "1px solid rgba(56, 189, 248, 0.4)",
-                              color: "#38bdf8", fontSize: "0.76rem", fontWeight: 700
+                              background: isWarm ? "rgba(2, 132, 199, 0.12)" : "rgba(56, 189, 248, 0.15)", border: isWarm ? "1px solid rgba(2, 132, 199, 0.35)" : "1px solid rgba(56, 189, 248, 0.4)",
+                              color: isWarm ? "#0369a1" : "#38bdf8", fontSize: "0.76rem", fontWeight: 700
                             }}>
                               持倉 {s.remainingShares.toLocaleString()} 股
                             </span>
                           ) : (
                             <span style={{
                               padding: "2px 8px", borderRadius: "4px",
-                              background: "rgba(255, 255, 255, 0.06)",
-                              color: "#94a3b8", fontSize: "0.76rem"
+                              background: isWarm ? "rgba(140, 110, 80, 0.1)" : "rgba(255, 255, 255, 0.06)",
+                              color: isWarm ? "#57534e" : "#94a3b8", fontSize: "0.76rem"
                             }}>
                               觀察中
                             </span>
                           )}
                         </td>
-                        <td style={{ padding: "12px", textAlign: "right", color: "#ffffff", fontWeight: 800 }}>
+                        <td style={{ padding: "12px", textAlign: "right", color: isWarm ? "#18181b" : "#ffffff", fontWeight: 800 }}>
                           ${s.curPrice > 0 ? s.curPrice.toFixed(2) : "-"}
                         </td>
-                        <td style={{ padding: "12px", textAlign: "right", color: "#facc15", fontWeight: 700 }}>
+                        <td style={{ padding: "12px", textAlign: "right", color: isWarm ? "#b45309" : "#facc15", fontWeight: 700 }}>
                           {s.cashDividend > 0 ? `${s.cashDividend.toFixed(2)} 元` : "無"}
                         </td>
                         <td style={{ padding: "12px", textAlign: "right" }}>
-                          <div style={{ fontSize: "0.82rem", color: s.stockDividend > 0 ? "#a855f7" : "#cbd5e1" }}>
+                          <div style={{ fontSize: "0.82rem", color: s.stockDividend > 0 ? (isWarm ? "#7e22ce" : "#a855f7") : (isWarm ? "#57534e" : "#cbd5e1") }}>
                             {s.exType}{s.stockDividend > 0 ? ` (配股${s.stockDividend}元)` : ""}
                           </div>
                           {s.exDate && (
-                            <div style={{ fontSize: "0.72rem", color: "#38bdf8", marginTop: "2px" }}>
+                            <div style={{ fontSize: "0.72rem", color: isWarm ? "#0284c7" : "#38bdf8", marginTop: "2px" }}>
                               除息日 {s.exDate}
                             </div>
                           )}
                         </td>
-                        <td style={{ padding: "12px", color: "#94a3b8", fontSize: "0.82rem" }}>
+                        <td style={{ padding: "12px", color: isWarm ? "#57534e" : "#94a3b8", fontSize: "0.82rem" }}>
                           {s.note || "-"}
                         </td>
                         <td style={{ padding: "12px", textAlign: "center" }}>
@@ -1671,8 +1675,8 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                               onClick={() => openTradeModal("BUY", s.symbol, s.curPrice)}
                               title={s.remainingShares > 0 ? "加碼買進" : "買進建倉"}
                               style={{
-                                background: "rgba(37,99,235,0.2)", border: "1px solid rgba(96,165,250,0.4)",
-                                borderRadius: "4px", color: "#93c5fd", fontSize: "0.76rem", padding: "3px 8px",
+                                background: isWarm ? "rgba(2, 132, 199, 0.12)" : "rgba(37,99,235,0.2)", border: isWarm ? "1px solid rgba(2, 132, 199, 0.35)" : "1px solid rgba(96,165,250,0.4)",
+                                borderRadius: "4px", color: isWarm ? "#0369a1" : "#93c5fd", fontSize: "0.76rem", padding: "3px 8px",
                                 cursor: "pointer", fontWeight: 700
                               }}
                             >
@@ -1683,8 +1687,8 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                                 onClick={() => onAnalyze(s.symbol)}
                                 title="前往個股分析"
                                 style={{
-                                  background: "rgba(168, 85, 247, 0.2)", border: "1px solid rgba(192, 132, 252, 0.4)",
-                                  borderRadius: "4px", color: "#d8b4fe", fontSize: "0.76rem", padding: "3px 8px",
+                                  background: isWarm ? "rgba(126, 34, 206, 0.12)" : "rgba(168, 85, 247, 0.2)", border: isWarm ? "1px solid rgba(126, 34, 206, 0.35)" : "1px solid rgba(192, 132, 252, 0.4)",
+                                  borderRadius: "4px", color: isWarm ? "#7e22ce" : "#d8b4fe", fontSize: "0.76rem", padding: "3px 8px",
                                   cursor: "pointer", fontWeight: 700
                                 }}
                               >
@@ -1695,8 +1699,8 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                               onClick={() => removeSymbolFromWatchlist(s.symbol)}
                               title="從自選清單移除"
                               style={{
-                                background: "rgba(220,38,38,0.15)", border: "1px solid rgba(248,113,113,0.3)",
-                                borderRadius: "4px", color: "#f87171", fontSize: "0.76rem", padding: "3px 8px",
+                                background: isWarm ? "rgba(220, 38, 38, 0.12)" : "rgba(220,38,38,0.15)", border: isWarm ? "1px solid rgba(220, 38, 38, 0.35)" : "1px solid rgba(248,113,113,0.3)",
+                                borderRadius: "4px", color: isWarm ? "#dc2626" : "#f87171", fontSize: "0.76rem", padding: "3px 8px",
                                 cursor: "pointer", fontWeight: 700
                               }}
                             >
@@ -1712,19 +1716,19 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
             </div>
           )}
 
-          {/* 2. 已實現損益表格 (已賣出結算) */}
+          {/* 3. 已實現損益表格 (已賣出結算) */}
           {viewTab === "realized" && (
             <div>
               {realizedTrades.length === 0 ? (
-                <div style={{ textAlign: "center", padding: "60px 0", color: "#94a3b8" }}>
+                <div style={{ textAlign: "center", padding: "60px 0", color: isWarm ? "#57534e" : "#94a3b8" }}>
                   <div style={{ fontSize: "2.5rem", marginBottom: "10px" }}>🎯</div>
-                  <div style={{ fontSize: "1.05rem", color: "#ffffff", fontWeight: 700 }}>尚無已實現賣出平倉紀錄</div>
+                  <div style={{ fontSize: "1.05rem", color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700 }}>尚無已實現賣出平倉紀錄</div>
                   <div style={{ fontSize: "0.85rem", marginTop: "4px" }}>當您賣出股票時，系統會自動根據 FIFO 計算已實現獲利與投資報酬率</div>
                 </div>
               ) : (
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.90rem" }}>
                   <thead>
-                    <tr style={{ background: "rgba(30, 41, 59, 0.8)", borderBottom: "2px solid rgba(255,255,255,0.15)", color: "#ffffff" }}>
+                    <tr style={{ background: isWarm ? "#ede6d8" : "rgba(30, 41, 59, 0.8)", borderBottom: isWarm ? "2px solid rgba(140, 110, 80, 0.3)" : "2px solid rgba(255,255,255,0.15)", color: isWarm ? "#18181b" : "#ffffff" }}>
                       <th style={{ padding: "10px 12px", textAlign: "left" }}>賣出日期</th>
                       <th style={{ padding: "10px 12px", textAlign: "left" }}>股票代號 / 名稱</th>
                       <th style={{ padding: "10px 12px", textAlign: "right" }}>賣出股數</th>
@@ -1739,38 +1743,38 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                   </thead>
                   <tbody>
                     {realizedTrades.map((r) => (
-                      <tr key={r.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                        <td style={{ padding: "12px", color: "#cbd5e1", fontWeight: 600 }}>{r.sellDate}</td>
-                        <td style={{ padding: "12px", fontWeight: 700, color: "#ffffff" }}>
-                          <span style={{ color: "#38bdf8", cursor: "pointer" }} onClick={() => onAnalyze && onAnalyze(r.symbol)}>
+                      <tr key={r.id} style={{ borderBottom: isWarm ? "1px solid rgba(140, 110, 80, 0.12)" : "1px solid rgba(255,255,255,0.06)", background: isWarm ? "#ffffff" : "transparent" }}>
+                        <td style={{ padding: "12px", color: isWarm ? "#57534e" : "#cbd5e1", fontWeight: 600 }}>{r.sellDate}</td>
+                        <td style={{ padding: "12px", fontWeight: 700, color: isWarm ? "#18181b" : "#ffffff" }}>
+                          <span style={{ color: isWarm ? "#0284c7" : "#38bdf8", cursor: "pointer" }} onClick={() => onAnalyze && onAnalyze(r.symbol)}>
                             {r.name} ({r.symbol})
                           </span>
                         </td>
-                        <td style={{ padding: "12px", textAlign: "right", color: "#ffffff", fontWeight: 700 }}>
+                        <td style={{ padding: "12px", textAlign: "right", color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700 }}>
                           {r.shares.toLocaleString()} 股
                         </td>
-                        <td style={{ padding: "12px", textAlign: "right", color: "#cbd5e1" }}>
+                        <td style={{ padding: "12px", textAlign: "right", color: isWarm ? "#57534e" : "#cbd5e1" }}>
                           ${r.buyPrice.toFixed(2)}
-                          <div style={{ fontSize: "0.72rem", color: "#94a3b8" }}>({r.buyDate})</div>
+                          <div style={{ fontSize: "0.72rem", color: isWarm ? "#57534e" : "#94a3b8" }}>({r.buyDate})</div>
                         </td>
-                        <td style={{ padding: "12px", textAlign: "right", color: "#ffffff", fontWeight: 800 }}>
+                        <td style={{ padding: "12px", textAlign: "right", color: isWarm ? "#18181b" : "#ffffff", fontWeight: 800 }}>
                           ${r.sellPrice.toFixed(2)}
                         </td>
-                        <td style={{ padding: "12px", textAlign: "right", color: "#ffffff" }}>
+                        <td style={{ padding: "12px", textAlign: "right", color: isWarm ? "#18181b" : "#ffffff" }}>
                           NT$ {r.revenue.toLocaleString()}
                         </td>
-                        <td style={{ padding: "12px", textAlign: "right", color: "#94a3b8", fontSize: "0.82rem" }}>
+                        <td style={{ padding: "12px", textAlign: "right", color: isWarm ? "#57534e" : "#94a3b8", fontSize: "0.82rem" }}>
                           ${r.fee + r.tax} (稅:${r.tax})
                         </td>
                         <td style={{
                           padding: "12px", textAlign: "right", fontWeight: 800,
-                          color: r.pnl >= 0 ? "#ff5252" : "#4caf50"
+                          color: r.pnl >= 0 ? (isWarm ? "#dc2626" : "#ff5252") : (isWarm ? "#15803d" : "#4caf50")
                         }}>
                           {r.pnl >= 0 ? "+" : ""}NT$ {r.pnl.toLocaleString()}
                         </td>
                         <td style={{
                           padding: "12px", textAlign: "right", fontWeight: 800,
-                          color: r.pnl >= 0 ? "#ff5252" : "#4caf50"
+                          color: r.pnl >= 0 ? (isWarm ? "#dc2626" : "#ff5252") : (isWarm ? "#15803d" : "#4caf50")
                         }}>
                           {r.pnl >= 0 ? "+" : ""}{r.roi.toFixed(2)}%
                         </td>
@@ -1780,8 +1784,8 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                               onClick={() => onAnalyze(r.symbol)}
                               title="前往個股分析"
                               style={{
-                                background: "rgba(168, 85, 247, 0.2)", border: "1px solid rgba(192, 132, 252, 0.4)",
-                                borderRadius: "4px", color: "#d8b4fe", fontSize: "0.76rem", padding: "3px 8px",
+                                background: isWarm ? "rgba(126, 34, 206, 0.12)" : "rgba(168, 85, 247, 0.2)", border: isWarm ? "1px solid rgba(126, 34, 206, 0.35)" : "1px solid rgba(192, 132, 252, 0.4)",
+                                borderRadius: "4px", color: isWarm ? "#7e22ce" : "#d8b4fe", fontSize: "0.76rem", padding: "3px 8px",
                                 cursor: "pointer", fontWeight: 700
                               }}
                             >
@@ -1797,17 +1801,17 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
             </div>
           )}
 
-          {/* 3. 全部交易明細清單 (流水帳) */}
+          {/* 4. 全部交易明細清單 (流水帳) */}
           {viewTab === "trades" && (
             <div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-                <div style={{ fontSize: "0.88rem", color: "#94a3b8", fontWeight: 600 }}>
+                <div style={{ fontSize: "0.88rem", color: isWarm ? "#57534e" : "#94a3b8", fontWeight: 600 }}>
                   📝 共 {currentTrades.length} 筆原始買賣紀錄
                 </div>
                 <button
                   onClick={() => openTradeModal("BUY")}
                   style={{
-                    padding: "5px 12px", background: "#2563eb", border: "none",
+                    padding: "5px 12px", background: isWarm ? "#0284c7" : "#2563eb", border: "none",
                     borderRadius: "6px", color: "#ffffff", fontSize: "0.80rem", cursor: "pointer", fontWeight: 700
                   }}
                 >
@@ -1816,13 +1820,13 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
               </div>
 
               {currentTrades.length === 0 ? (
-                <div style={{ textAlign: "center", padding: "60px 0", color: "#94a3b8" }}>
+                <div style={{ textAlign: "center", padding: "60px 0", color: isWarm ? "#57534e" : "#94a3b8" }}>
                   尚無交易紀錄
                 </div>
               ) : (
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.90rem" }}>
                   <thead>
-                    <tr style={{ background: "rgba(30, 41, 59, 0.8)", borderBottom: "2px solid rgba(255,255,255,0.15)", color: "#ffffff" }}>
+                    <tr style={{ background: isWarm ? "#ede6d8" : "rgba(30, 41, 59, 0.8)", borderBottom: isWarm ? "2px solid rgba(140, 110, 80, 0.3)" : "2px solid rgba(255,255,255,0.15)", color: isWarm ? "#18181b" : "#ffffff" }}>
                       <th style={{ padding: "10px 12px", textAlign: "left" }}>交易日期</th>
                       <th style={{ padding: "10px 12px", textAlign: "center" }}>類型</th>
                       <th style={{ padding: "10px 12px", textAlign: "left" }}>股票代號 / 名稱</th>
@@ -1835,31 +1839,31 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                   </thead>
                   <tbody>
                     {currentTrades.map((t) => (
-                      <tr key={t.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                        <td style={{ padding: "10px 12px", color: "#cbd5e1" }}>{t.date}</td>
+                      <tr key={t.id} style={{ borderBottom: isWarm ? "1px solid rgba(140, 110, 80, 0.12)" : "1px solid rgba(255,255,255,0.06)", background: isWarm ? "#ffffff" : "transparent" }}>
+                        <td style={{ padding: "10px 12px", color: isWarm ? "#57534e" : "#cbd5e1" }}>{t.date}</td>
                         <td style={{ padding: "10px 12px", textAlign: "center" }}>
                           <span style={{
                             padding: "3px 8px", borderRadius: "4px", fontSize: "0.76rem", fontWeight: 700,
-                            background: t.type === "BUY" ? "rgba(37,99,235,0.2)" : "rgba(220,38,38,0.2)",
-                            color: t.type === "BUY" ? "#60a5fa" : "#f87171",
-                            border: t.type === "BUY" ? "1px solid rgba(96,165,250,0.4)" : "1px solid rgba(248,113,113,0.4)"
+                            background: t.type === "BUY" ? (isWarm ? "rgba(2, 132, 199, 0.12)" : "rgba(37,99,235,0.2)") : (isWarm ? "rgba(220, 38, 38, 0.12)" : "rgba(220,38,38,0.2)"),
+                            color: t.type === "BUY" ? (isWarm ? "#0369a1" : "#60a5fa") : (isWarm ? "#dc2626" : "#f87171"),
+                            border: t.type === "BUY" ? (isWarm ? "1px solid rgba(2, 132, 199, 0.35)" : "1px solid rgba(96,165,250,0.4)") : (isWarm ? "1px solid rgba(220, 38, 38, 0.35)" : "1px solid rgba(248,113,113,0.4)")
                           }}>
                             {t.type === "BUY" ? "買進" : "賣出"}
                           </span>
                         </td>
-                        <td style={{ padding: "10px 12px", fontWeight: 700, color: "#ffffff" }}>
+                        <td style={{ padding: "10px 12px", fontWeight: 700, color: isWarm ? "#18181b" : "#ffffff" }}>
                           {t.name || t.symbol} ({t.symbol})
                         </td>
-                        <td style={{ padding: "10px 12px", textAlign: "right", color: "#ffffff", fontWeight: 700 }}>
+                        <td style={{ padding: "10px 12px", textAlign: "right", color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700 }}>
                           ${t.price.toFixed(2)}
                         </td>
-                        <td style={{ padding: "10px 12px", textAlign: "right", color: "#ffffff", fontWeight: 700 }}>
+                        <td style={{ padding: "10px 12px", textAlign: "right", color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700 }}>
                           {t.shares.toLocaleString()} 股
                         </td>
-                        <td style={{ padding: "10px 12px", textAlign: "right", color: "#ffffff", fontWeight: 800 }}>
+                        <td style={{ padding: "10px 12px", textAlign: "right", color: isWarm ? "#18181b" : "#ffffff", fontWeight: 800 }}>
                           NT$ {(t.price * t.shares).toLocaleString()}
                         </td>
-                        <td style={{ padding: "10px 12px", color: "#94a3b8", fontSize: "0.82rem" }}>
+                        <td style={{ padding: "10px 12px", color: isWarm ? "#57534e" : "#94a3b8", fontSize: "0.82rem" }}>
                           {t.note || "-"}
                         </td>
                         <td style={{ padding: "10px 12px", textAlign: "center" }}>
@@ -1869,8 +1873,8 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                                 onClick={() => onAnalyze(t.symbol)}
                                 title="前往個股分析"
                                 style={{
-                                  background: "rgba(168, 85, 247, 0.2)", border: "1px solid rgba(192, 132, 252, 0.4)",
-                                  borderRadius: "4px", color: "#d8b4fe", fontSize: "0.74rem", padding: "2px 6px",
+                                  background: isWarm ? "rgba(126, 34, 206, 0.12)" : "rgba(168, 85, 247, 0.2)", border: isWarm ? "1px solid rgba(126, 34, 206, 0.35)" : "1px solid rgba(192, 132, 252, 0.4)",
+                                  borderRadius: "4px", color: isWarm ? "#7e22ce" : "#d8b4fe", fontSize: "0.74rem", padding: "2px 6px",
                                   cursor: "pointer", fontWeight: 700
                                 }}
                               >
@@ -1880,8 +1884,8 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                             <button
                               onClick={() => openTradeModal(t.type, t.symbol, t.price, t.shares, t)}
                               style={{
-                                background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.15)",
-                                borderRadius: "4px", color: "#ffffff", fontSize: "0.74rem", padding: "2px 6px", cursor: "pointer"
+                                background: isWarm ? "rgba(140, 110, 80, 0.1)" : "rgba(255,255,255,0.06)", border: isWarm ? "1px solid rgba(140, 110, 80, 0.2)" : "1px solid rgba(255,255,255,0.15)",
+                                borderRadius: "4px", color: isWarm ? "#18181b" : "#ffffff", fontSize: "0.74rem", padding: "2px 6px", cursor: "pointer"
                               }}
                             >
                               編輯
@@ -1889,8 +1893,8 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                             <button
                               onClick={() => deleteTradeRecord(t.id)}
                               style={{
-                                background: "rgba(220,38,38,0.15)", border: "1px solid rgba(248,113,113,0.3)",
-                                borderRadius: "4px", color: "#f87171", fontSize: "0.74rem", padding: "2px 6px", cursor: "pointer"
+                                background: isWarm ? "rgba(220, 38, 38, 0.12)" : "rgba(220,38,38,0.15)", border: isWarm ? "1px solid rgba(220, 38, 38, 0.3)" : "1px solid rgba(248,113,113,0.3)",
+                                borderRadius: "4px", color: isWarm ? "#dc2626" : "#f87171", fontSize: "0.74rem", padding: "2px 6px", cursor: "pointer"
                               }}
                             >
                               刪除
@@ -1912,21 +1916,21 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
       {tradeModal && tradeModal.show && (
         <div style={{
           position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-          background: "rgba(0,0,0,0.75)", display: "flex", alignItems: "center", justifyContent: "center",
+          background: isWarm ? "rgba(40, 30, 20, 0.4)" : "rgba(0,0,0,0.75)", display: "flex", alignItems: "center", justifyContent: "center",
           zIndex: 1000, backdropFilter: "blur(6px)"
         }}>
           <div style={{
-            background: "#161c2d", border: "1px solid rgba(96, 165, 250, 0.4)",
+            background: isWarm ? "#ffffff" : "#161c2d", border: isWarm ? "1px solid rgba(140, 110, 80, 0.3)" : "1px solid rgba(96, 165, 250, 0.4)",
             borderRadius: "12px", padding: "24px", width: "420px", maxWidth: "90%",
-            boxShadow: "0 10px 30px rgba(0,0,0,0.8)", display: "flex", flexDirection: "column", gap: "16px"
+            boxShadow: isWarm ? "0 10px 30px rgba(90, 60, 30, 0.2)" : "0 10px 30px rgba(0,0,0,0.8)", display: "flex", flexDirection: "column", gap: "16px"
           }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: "10px" }}>
-              <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800, color: "#ffffff" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: isWarm ? "1px solid rgba(140, 110, 80, 0.18)" : "1px solid rgba(255,255,255,0.1)", paddingBottom: "10px" }}>
+              <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800, color: isWarm ? "#18181b" : "#ffffff" }}>
                 {tradeModal.mode === "edit" ? "✏️ 編輯交易紀錄" : tradeModal.record.type === "BUY" ? "➕ 記錄買進股票" : "💰 記錄賣出股票"}
               </h3>
               <button
                 onClick={() => setTradeModal(null)}
-                style={{ background: "transparent", border: "none", color: "#94a3b8", fontSize: "1.2rem", cursor: "pointer" }}
+                style={{ background: "transparent", border: "none", color: isWarm ? "#57534e" : "#94a3b8", fontSize: "1.2rem", cursor: "pointer" }}
               >
                 ✕
               </button>
@@ -1940,8 +1944,8 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                 style={{
                   flex: 1, padding: "8px", borderRadius: "6px", border: "none", cursor: "pointer",
                   fontWeight: 700, fontSize: "0.90rem",
-                  background: tradeModal.record.type === "BUY" ? "#2563eb" : "rgba(255,255,255,0.06)",
-                  color: tradeModal.record.type === "BUY" ? "#ffffff" : "#94a3b8",
+                  background: tradeModal.record.type === "BUY" ? (isWarm ? "#0284c7" : "#2563eb") : (isWarm ? "rgba(140, 110, 80, 0.1)" : "rgba(255,255,255,0.06)"),
+                  color: tradeModal.record.type === "BUY" ? "#ffffff" : (isWarm ? "#57534e" : "#94a3b8"),
                 }}
               >
                 🟢 買進 (Buy)
@@ -1952,8 +1956,8 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                 style={{
                   flex: 1, padding: "8px", borderRadius: "6px", border: "none", cursor: "pointer",
                   fontWeight: 700, fontSize: "0.90rem",
-                  background: tradeModal.record.type === "SELL" ? "#dc2626" : "rgba(255,255,255,0.06)",
-                  color: tradeModal.record.type === "SELL" ? "#ffffff" : "#94a3b8",
+                  background: tradeModal.record.type === "SELL" ? "#dc2626" : (isWarm ? "rgba(140, 110, 80, 0.1)" : "rgba(255,255,255,0.06)"),
+                  color: tradeModal.record.type === "SELL" ? "#ffffff" : (isWarm ? "#57534e" : "#94a3b8"),
                 }}
               >
                 🔴 賣出 (Sell)
@@ -1962,8 +1966,8 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
 
             {/* 股票代號與候選浮動視窗 */}
             <div style={{ position: "relative", display: "flex", flexDirection: "column", gap: "4px" }}>
-              <label style={{ fontSize: "0.80rem", color: "#ffffff", fontWeight: 700 }}>
-                股票代號或名稱 {tradeModal.record.name ? <span style={{ color: "#38bdf8", marginLeft: "4px" }}>({tradeModal.record.name})</span> : ""}
+              <label style={{ fontSize: "0.80rem", color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700 }}>
+                股票代號或名稱 {tradeModal.record.name ? <span style={{ color: isWarm ? "#0284c7" : "#38bdf8", marginLeft: "4px" }}>({tradeModal.record.name})</span> : ""}
               </label>
               <input
                 type="text"
@@ -1972,8 +1976,8 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                 onChange={(e) => onModalStockInput(e.target.value)}
                 autoComplete="off"
                 style={{
-                  background: "rgba(255,255,255,0.06)", border: "1px solid rgba(96, 165, 250, 0.4)",
-                  borderRadius: "6px", padding: "8px 12px", color: "#ffffff", fontSize: "0.95rem", outline: "none", fontWeight: 800
+                  background: isWarm ? "#fcfaf6" : "rgba(255,255,255,0.06)", border: isWarm ? "1px solid rgba(2, 132, 199, 0.4)" : "1px solid rgba(96, 165, 250, 0.4)",
+                  borderRadius: "6px", padding: "8px 12px", color: isWarm ? "#18181b" : "#ffffff", fontSize: "0.95rem", outline: "none", fontWeight: 800
                 }}
               />
               {/* 候選股票浮動選單 (Floating Autocomplete Dropdown) */}
@@ -1981,9 +1985,9 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                 <div
                   style={{
                     position: "absolute", top: "100%", left: 0, right: 0, zIndex: 2000,
-                    marginTop: "4px", background: "#1e293b", border: "1px solid rgba(96, 165, 250, 0.5)",
+                    marginTop: "4px", background: isWarm ? "#ffffff" : "#1e293b", border: isWarm ? "1px solid rgba(2, 132, 199, 0.4)" : "1px solid rgba(96, 165, 250, 0.5)",
                     borderRadius: "8px", maxHeight: "220px", overflowY: "auto",
-                    boxShadow: "0 10px 25px rgba(0,0,0,0.85)"
+                    boxShadow: isWarm ? "0 10px 25px rgba(90, 60, 30, 0.15)" : "0 10px 25px rgba(0,0,0,0.85)"
                   }}
                 >
                   {modalAutocomplete.map((s) => {
@@ -1995,17 +1999,17 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                         style={{
                           padding: "9px 12px", cursor: "pointer", fontSize: "0.88rem",
                           display: "flex", justifyContent: "space-between", alignItems: "center",
-                          borderBottom: "1px solid rgba(255,255,255,0.06)", transition: "background 0.15s ease"
+                          borderBottom: isWarm ? "1px solid rgba(140, 110, 80, 0.12)" : "1px solid rgba(255,255,255,0.06)", transition: "background 0.15s ease"
                         }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(37,99,235,0.35)")}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = isWarm ? "rgba(2, 132, 199, 0.08)" : "rgba(37,99,235,0.35)")}
                         onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                       >
                         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                          <b style={{ color: "#38bdf8", fontSize: "0.92rem" }}>{s.symbol.split(".")[0]}</b>
-                          <span style={{ color: "#ffffff", fontWeight: 600 }}>{s.name}</span>
+                          <b style={{ color: isWarm ? "#0284c7" : "#38bdf8", fontSize: "0.92rem" }}>{s.symbol.split(".")[0]}</b>
+                          <span style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 600 }}>{s.name}</span>
                         </div>
                         {curP != null && curP > 0 && (
-                          <span style={{ color: "#facc15", fontWeight: 700, fontSize: "0.85rem" }}>
+                          <span style={{ color: isWarm ? "#b45309" : "#facc15", fontWeight: 700, fontSize: "0.85rem" }}>
                             ${curP.toFixed(2)}
                           </span>
                         )}
@@ -2018,14 +2022,14 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
 
             {/* 交易日期 */}
             <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-              <label style={{ fontSize: "0.80rem", color: "#ffffff", fontWeight: 700 }}>交易日期</label>
+              <label style={{ fontSize: "0.80rem", color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700 }}>交易日期</label>
               <input
                 type="date"
                 value={tradeModal.record.date}
                 onChange={(e) => setTradeModal({ ...tradeModal, record: { ...tradeModal.record, date: e.target.value } })}
                 style={{
-                  background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.15)",
-                  borderRadius: "6px", padding: "8px 12px", color: "#ffffff", fontSize: "0.92rem", outline: "none", fontWeight: 700
+                  background: isWarm ? "#fcfaf6" : "rgba(255,255,255,0.06)", border: isWarm ? "1px solid rgba(140, 110, 80, 0.25)" : "1px solid rgba(255,255,255,0.15)",
+                  borderRadius: "6px", padding: "8px 12px", color: isWarm ? "#18181b" : "#ffffff", fontSize: "0.92rem", outline: "none", fontWeight: 700
                 }}
               />
             </div>
@@ -2033,29 +2037,29 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
             {/* 成交單價與股數 */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
               <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                <label style={{ fontSize: "0.80rem", color: "#ffffff", fontWeight: 700 }}>成交單價 (NT$)</label>
+                <label style={{ fontSize: "0.80rem", color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700 }}>成交單價 (NT$)</label>
                 <input
                   type="number"
                   step="any"
                   value={tradeModal.record.price || ""}
                   onChange={(e) => setTradeModal({ ...tradeModal, record: { ...tradeModal.record, price: parseFloat(e.target.value) || 0 } })}
                   style={{
-                    background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.15)",
-                    borderRadius: "6px", padding: "8px 12px", color: "#ffffff", fontSize: "0.92rem", outline: "none", fontWeight: 800
+                    background: isWarm ? "#fcfaf6" : "rgba(255,255,255,0.06)", border: isWarm ? "1px solid rgba(140, 110, 80, 0.25)" : "1px solid rgba(255,255,255,0.15)",
+                    borderRadius: "6px", padding: "8px 12px", color: isWarm ? "#18181b" : "#ffffff", fontSize: "0.92rem", outline: "none", fontWeight: 800
                   }}
                 />
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                <label style={{ fontSize: "0.80rem", color: "#ffffff", fontWeight: 700 }}>交易股數</label>
+                <label style={{ fontSize: "0.80rem", color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700 }}>交易股數</label>
                 <input
                   type="number"
                   step="1"
                   value={tradeModal.record.shares || ""}
                   onChange={(e) => setTradeModal({ ...tradeModal, record: { ...tradeModal.record, shares: parseInt(e.target.value, 10) || 0 } })}
                   style={{
-                    background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.15)",
-                    borderRadius: "6px", padding: "8px 12px", color: "#ffffff", fontSize: "0.92rem", outline: "none", fontWeight: 800
+                    background: isWarm ? "#fcfaf6" : "rgba(255,255,255,0.06)", border: isWarm ? "1px solid rgba(140, 110, 80, 0.25)" : "1px solid rgba(255,255,255,0.15)",
+                    borderRadius: "6px", padding: "8px 12px", color: isWarm ? "#18181b" : "#ffffff", fontSize: "0.92rem", outline: "none", fontWeight: 800
                   }}
                 />
               </div>
@@ -2063,27 +2067,27 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
 
             {/* 交易總額與手續費即時試算 */}
             <div style={{
-              background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)",
-              borderRadius: "6px", padding: "8px 12px", fontSize: "0.80rem", color: "#cbd5e1",
+              background: isWarm ? "#faf7f2" : "rgba(255,255,255,0.03)", border: isWarm ? "1px solid rgba(140, 110, 80, 0.18)" : "1px solid rgba(255,255,255,0.08)",
+              borderRadius: "6px", padding: "8px 12px", fontSize: "0.80rem", color: isWarm ? "#57534e" : "#cbd5e1",
               display: "flex", justifyContent: "space-between"
             }}>
               <span>預估總金額:</span>
-              <b style={{ color: "#ffffff", fontSize: "0.92rem" }}>
+              <b style={{ color: isWarm ? "#18181b" : "#ffffff", fontSize: "0.92rem" }}>
                 NT$ {Math.round(tradeModal.record.price * tradeModal.record.shares).toLocaleString()}
               </b>
             </div>
 
             {/* 備註 (選填) */}
             <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-              <label style={{ fontSize: "0.78rem", color: "#94a3b8" }}>備註 (選填)</label>
+              <label style={{ fontSize: "0.78rem", color: isWarm ? "#57534e" : "#94a3b8" }}>備註 (選填)</label>
               <input
                 type="text"
                 placeholder="例如：第一批分批建倉、停損、波段操作..."
                 value={tradeModal.record.note || ""}
                 onChange={(e) => setTradeModal({ ...tradeModal, record: { ...tradeModal.record, note: e.target.value } })}
                 style={{
-                  background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)",
-                  borderRadius: "6px", padding: "6px 10px", color: "#cbd5e1", fontSize: "0.84rem", outline: "none"
+                  background: isWarm ? "#fcfaf6" : "rgba(255,255,255,0.04)", border: isWarm ? "1px solid rgba(140, 110, 80, 0.18)" : "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: "6px", padding: "6px 10px", color: isWarm ? "#18181b" : "#cbd5e1", fontSize: "0.84rem", outline: "none"
                 }}
               />
             </div>
@@ -2094,8 +2098,8 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                 type="button"
                 onClick={() => setTradeModal(null)}
                 style={{
-                  flex: 1, padding: "10px", background: "rgba(255,255,255,0.08)", border: "none",
-                  borderRadius: "6px", color: "#cbd5e1", fontSize: "0.88rem", cursor: "pointer", fontWeight: 600
+                  flex: 1, padding: "10px", background: isWarm ? "rgba(140, 110, 80, 0.1)" : "rgba(255,255,255,0.08)", border: "none",
+                  borderRadius: "6px", color: isWarm ? "#57534e" : "#cbd5e1", fontSize: "0.88rem", cursor: "pointer", fontWeight: 600
                 }}
               >
                 取消
@@ -2111,7 +2115,7 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                 disabled={!tradeModal.record.symbol || tradeModal.record.price <= 0 || tradeModal.record.shares <= 0}
                 style={{
                   flex: 1, padding: "10px",
-                  background: tradeModal.record.type === "BUY" ? "#2563eb" : "#dc2626",
+                  background: tradeModal.record.type === "BUY" ? (isWarm ? "#0284c7" : "#2563eb") : "#dc2626",
                   border: "none", borderRadius: "6px", color: "#ffffff", fontSize: "0.88rem",
                   cursor: "pointer", fontWeight: 800, boxShadow: "0 4px 12px rgba(0,0,0,0.4)"
                 }}

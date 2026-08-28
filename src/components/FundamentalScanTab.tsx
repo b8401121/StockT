@@ -3,6 +3,7 @@ import React, { useRef, useState } from "react";
 import { stockService } from "../services";
 import { getFsGrade, StockInfoFull } from "../utils/analysis";
 import { exportToHtmlFile } from "../utils/exportHtml";
+import { useAppTheme } from "../utils/theme";
 
 interface FsResult {
   symbol: string;
@@ -75,6 +76,8 @@ function getSymbolsByMarket(market: string): string[] {
 }
 
 export const FundamentalScanTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ onAnalyze }) => {
+  const [theme] = useAppTheme();
+  const isWarm = theme === "warm";
   const [market, setMarket] = useState("3A");
   const [minRoe, setMinRoe] = useState(10);
   const [minGm, setMinGm] = useState(20);
@@ -322,10 +325,10 @@ export const FundamentalScanTab: React.FC<{ onAnalyze?: (sym: string) => void }>
                 <tr key={`${r.symbol}-${i}`}>
                   <td style={{ color: "var(--accent-blue)", fontWeight: 600 }}>{r.symbol.split(".")[0]}</td>
                   <td>{r.name}</td>
-                  <td style={{ color: r.score >= 7 ? "#4ade80" : r.score >= 4 ? "#38bdf8" : r.score <= 0 ? "#ef4444" : "#facc15", fontWeight: 700 }}>{r.score > 0 ? "+" : ""}{r.score}</td>
+                  <td style={{ color: r.score >= 7 ? (isWarm ? "#15803d" : "#4ade80") : r.score >= 4 ? (isWarm ? "#0284c7" : "#38bdf8") : r.score <= 0 ? "#ef4444" : (isWarm ? "#b45309" : "#facc15"), fontWeight: 700 }}>{r.score > 0 ? "+" : ""}{r.score}</td>
                   <td><span className={`badge ${r.score >= 7 ? "badge-green" : r.score >= 4 ? "badge-blue" : "badge-red"}`}>{r.grade}</span></td>
                   <td style={{ fontSize: "0.75rem" }}>
-                    <span style={{ color: "#4ade80" }}>{r.reasons.slice(0, 5).join(" | ")}</span>
+                    <span style={{ color: isWarm ? "#15803d" : "#4ade80" }}>{r.reasons.slice(0, 5).join(" | ")}</span>
                     {r.warnings.length > 0 && <span style={{ color: "#f87171", fontWeight: 600 }}> ⚠ {r.warnings.slice(0, 2).join(", ")}</span>}
                   </td>
                   <td>

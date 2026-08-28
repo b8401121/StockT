@@ -6,6 +6,7 @@ import { calcTechScanScore, computeFundamentalScore, getFsGrade } from "../utils
 import { exportToHtmlFile } from "../utils/exportHtml";
 import { evaluateAIAlpha } from "../utils/aiAlphaModel";
 import { HardwareBadge } from "./HardwareBadge";
+import { useAppTheme } from "../utils/theme";
 
 interface ScanResult {
   symbol: string;
@@ -84,6 +85,8 @@ function getSymbolsByMarket(market: string): string[] {
 }
 
 export const ScannerTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ onAnalyze }) => {
+  const [theme] = useAppTheme();
+  const isWarm = theme === "warm";
   const [market, setMarket] = useState("3A");
   const [results, setResults] = useState<ScanResult[]>([]);
   const [progress, setProgress] = useState(0);
@@ -350,7 +353,7 @@ export const ScannerTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ on
                     <td>
                       {r.aiWinRate !== undefined ? (
                         <div>
-                          <span style={{ fontWeight: 700, color: r.aiWinRate >= 75 ? "#38bdf8" : r.aiWinRate >= 50 ? "#c084fc" : r.aiWinRate <= 40 ? "#ef4444" : "#facc15" }}>
+                          <span style={{ fontWeight: 700, color: r.aiWinRate >= 75 ? (isWarm ? "#0284c7" : "#38bdf8") : r.aiWinRate >= 50 ? "#c084fc" : r.aiWinRate <= 40 ? "#ef4444" : (isWarm ? "#b45309" : "#facc15") }}>
                             {r.aiWinRate.toFixed(1)}%
                           </span>
                           <div style={{ fontSize: "0.70rem", color: "var(--text-muted)" }}>{r.aiConviction}</div>
