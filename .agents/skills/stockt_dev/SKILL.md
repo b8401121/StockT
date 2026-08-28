@@ -47,32 +47,38 @@ The app uses `src/utils/platform.ts` with `isTauri()` to dynamically switch betw
 | **Window Controls** | Tauri Native Window API (`@tauri-apps/api`) | Browser standard Fullscreen API |
 
 ### End-to-End Metric<T> Data Provenance & Point-in-Time (PIT) Pipeline
-All quantitative financial metrics flow through a typed provenance container distinguishing **three crucial time dimensions** to prevent Look-Ahead Bias:
+All quantitative financial metrics flow through a typed provenance container distinguishing **four crucial time dimensions** to prevent Look-Ahead Bias and intraday timing bias:
 
 | Time Field | Meaning | Example |
 | :--- | :--- | :--- |
 | `period` | 數據所屬財務/交易期間 | `2024Q2`, `2024-07`, `2026-08-28` |
-| `publishedAt` | 市場主管機關/公告正式生效日 (Point-in-Time) | `2024-08-14` (半年報截止日) |
-| `fetchedAt` | StockT 實際發送 HTTP 請求抓取時間 | `2026-08-28T14:45:00Z` |
+| `publishedAt` | 公司或交易所實際公告時間 (Actual Announcement) | `2024-08-07T16:30:00+08:00` |
+| `availableAt` | Backtest/模型允許使用該特徵的最早時間點 (Point-in-Time) | `2024-08-14` (最晚法定截止日) 或 `2026-08-28T13:30:00+08:00` (收盤) |
+| `fetchedAt` | StockT 實際發送 HTTP 請求抓取時間 (ISO 8601 UTC) | `2026-08-28T14:45:00Z` |
 
 ```
 Rust Backend (fetch.rs / yahoo.rs / twse.rs / tpex.rs)
-  ↓ MetricF64 { value, source, period, published_at, fetched_at }
+  ↓ MetricF64 { value, source, period, published_at, available_at, fetched_at }
 Tauri IPC / Deserialization
-  ↓ Metric<number> { value, source, period, publishedAt, fetchedAt }
+  ↓ Metric<number> { value, source, period, publishedAt, availableAt, fetchedAt }
 StockInfo / StockInfoFull (TypeScript)
-  ↓ metricVal, metricSource, metricPeriod, metricPublishedAt, formatAsOf
+  ↓ metricVal, metricSource, metricPeriod, metricPublishedAt, metricAvailableAt, formatAsOf
 AI Alpha Multi-Factor Engine (aiAlphaModel.ts)
-  ↓ FactorResult { value, source, asOf: "2024Q2 (公告: 2024-08-14)", status, available }
+  ↓ FactorResult { value, source, asOf: "2024Q2 (生效: 2024-08-14)", status, available }
 UI (AnalysisTab / Scanners) -> Transparently displays real data provenance & PIT dates
 ```
+
+#### Point-in-Time & Execution Timing Rules:
+- **Financial Statements (財報)**: 現階段 `availableAt` 設為最晚法定公告截止日（Q1: 05-15, Q2: 08-14, Q3: 11-14, Q4: 次年 03-31），回測僅在該日期後方可消費該季度特徵；未來接 MOPS 實際公告日後，`availableAt` 即為公告後第一個可交易時點。
+- **Daily Market Valuations (當日收盤估值)**: 收盤 PE/PB/DY 與收盤價之 `availableAt` 嚴格標記為當日收盤時間 `T 13:30:00+08:00`，禁止在盤中 (如 10:00) 假設已知收盤指標；回測策略預設於 `T` 收盤產生訊號，`T+1` 開盤執行交易。
 
 #### Helper Functions:
 - `metricVal(m)`: Null-safe extraction of `m?.value ?? null`.
 - `metricSource(m, fallback)`: Returns provenance source (`"TWSE"`, `"Yahoo Finance"`, `"MOPS"`, etc.).
 - `metricPeriod(m, fallback)`: Returns data period (e.g. `"2024Q2"`).
-- `metricPublishedAt(m)`: Returns formal publication date (e.g. `"2024-08-14"`).
-- `formatAsOf(m)`: Formats Point-in-Time display string, e.g. `"2024Q2 (公告: 2024-08-14)"`.
+- `metricPublishedAt(m)`: Returns formal publication date (e.g. `"2024-08-07"`).
+- `metricAvailableAt(m)`: Returns earliest backtest accessible timestamp (e.g. `"2024-08-14"`).
+- `formatAsOf(m)`: Formats Point-in-Time display string, e.g. `"2024Q2 (生效: 2024-08-14)"`.
 - `metricTs(m)`: Returns ISO-8601 UTC fetch timestamp string (`m?.fetchedAt`).
 
 ---

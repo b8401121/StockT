@@ -117,17 +117,27 @@ export function metricPublishedAt(m: Metric<number> | null | undefined): string 
   return m?.publishedAt;
 }
 
+/** Extract availableAt (Point-in-Time backtest permission timestamp) from a Metric<number> field */
+export function metricAvailableAt(m: Metric<number> | null | undefined): string | undefined {
+  return m?.availableAt;
+}
+
 /**
- * Format asOf display combining period and publishedAt for Point-in-Time transparency.
- * E.g. "2024Q2 (公告: 2024-08-14)" or "2026-08-28"
+ * Format asOf display combining period, publishedAt and availableAt for Point-in-Time transparency.
+ * E.g. "2024Q2 (生效: 2024-08-14)" or "2026-08-28"
  */
 export function formatAsOf(m: Metric<number> | null | undefined, defaultPeriod = "最新"): string {
   if (!m) return defaultPeriod;
+  if (m.period && m.availableAt) {
+    if (m.period === m.availableAt || m.availableAt.startsWith(m.period)) return m.period;
+    return `${m.period} (生效: ${m.availableAt})`;
+  }
   if (m.period && m.publishedAt) {
-    if (m.period === m.publishedAt) return m.period; // e.g. Daily market valuation "2026-08-28"
+    if (m.period === m.publishedAt) return m.period;
     return `${m.period} (公告: ${m.publishedAt})`;
   }
   if (m.period) return m.period;
+  if (m.availableAt) return `生效: ${m.availableAt}`;
   if (m.publishedAt) return `公告: ${m.publishedAt}`;
   return defaultPeriod;
 }

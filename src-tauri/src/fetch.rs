@@ -38,8 +38,8 @@ fn epoch_to_ymd(secs: u64) -> (u64, u64, u64) {
     (y, month, rem + 1)
 }
 
-/// 根據季報截止日 timestamp 計算財報期間 (例如 "2024Q2") 與法定公告截止日 (例如 "2024-08-14")
-fn quarter_info_from_ts(ts_opt: Option<i64>) -> (Option<String>, Option<String>) {
+/// 根據季報截止日 timestamp 計算財報期間 (例如 "2024Q2")、實際公告日 (None，待MOPS串接) 與最晚法定可用時間 available_at (例如 "2024-08-14")
+fn quarter_info_from_ts(ts_opt: Option<i64>) -> (Option<String>, Option<String>, Option<String>) {
     if let Some(ts) = ts_opt {
         if ts > 0 {
             let (year, mon, _) = epoch_to_ymd(ts as u64);
@@ -50,11 +50,11 @@ fn quarter_info_from_ts(ts_opt: Option<i64>) -> (Option<String>, Option<String>)
                 _ => (4, "03-31", 1),
             };
             let period = format!("{}Q{}", year, q_num);
-            let published_at = format!("{:04}-{}", year + pub_year_offset, pub_mm_dd);
-            return (Some(period), Some(published_at));
+            let available_at = format!("{:04}-{}", year + pub_year_offset, pub_mm_dd);
+            return (Some(period), None, Some(available_at));
         }
     }
-    (None, None)
+    (None, None, None)
 }
 
 fn today_date_str() -> String {
@@ -62,6 +62,10 @@ fn today_date_str() -> String {
     let secs = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
     let (y, m, d) = epoch_to_ymd(secs);
     format!("{:04}-{:02}-{:02}", y, m, d)
+}
+
+fn today_market_close_str() -> String {
+    format!("{}T13:30:00+08:00", today_date_str())
 }
 
 /// 取得目前 UTC 時間的 ISO-8601 字串 (用於 MetricF64.fetched_at)
@@ -245,38 +249,39 @@ pub async fn fetch_stock_data(symbol: String, range: String) -> Result<StockData
             let sd = &qs["summaryDetail"];
             let ts = now_utc();
             let today_dt = today_date_str();
+            let today_close = today_market_close_str();
 
-            // 解析最新財報季別時間戳 (Point-in-Time 財報期間與法定公告日)
+            // 解析最新財報季別時間戳 (Point-in-Time 財報期間、實際公告日、最晚法定可用日 available_at)
             let mrq_ts = ks.get("mostRecentQuarter")
                 .and_then(|v| v.get("raw"))
                 .and_then(|r| r.as_i64());
-            let (fund_period, fund_published_at) = quarter_info_from_ts(mrq_ts);
+            let (fund_period, fund_published_at, fund_available_at) = quarter_info_from_ts(mrq_ts);
 
             info.sector = opt_str(&ap["sector"]);
             info.industry = opt_str(&ap["industry"]);
             info.long_business_summary = opt_str(&ap["longBusinessSummary"]);
 
-            info.pe             = opt_f64(&sd["trailingPE"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, Some(today_dt.clone()), Some(today_dt.clone()), &ts));
-            info.forward_pe     = opt_f64(&ks["forwardPE"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, Some("預估下一年度".to_string()), None, &ts));
-            info.pb             = opt_f64(&ks["priceToBook"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, Some(today_dt.clone()), Some(today_dt.clone()), &ts));
-            info.dividend_yield = opt_f64(&sd["dividendYield"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, Some(today_dt.clone()), Some(today_dt.clone()), &ts));
-            info.eps            = opt_f64(&ks["trailingEps"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, fund_period.clone(), fund_published_at.clone(), &ts));
-            info.market_cap     = opt_f64(&sd["marketCap"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, Some(today_dt.clone()), Some(today_dt.clone()), &ts));
+            info.pe             = opt_f64(&sd["trailingPE"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, Some(today_dt.clone()), Some(today_close.clone()), Some(today_close.clone()), &ts));
+            info.forward_pe     = opt_f64(&ks["forwardPE"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, Some("預估下一年度".to_string()), None, None, &ts));
+            info.pb             = opt_f64(&ks["priceToBook"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, Some(today_dt.clone()), Some(today_close.clone()), Some(today_close.clone()), &ts));
+            info.dividend_yield = opt_f64(&sd["dividendYield"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, Some(today_dt.clone()), Some(today_close.clone()), Some(today_close.clone()), &ts));
+            info.eps            = opt_f64(&ks["trailingEps"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, fund_period.clone(), fund_published_at.clone(), fund_available_at.clone(), &ts));
+            info.market_cap     = opt_f64(&sd["marketCap"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, Some(today_dt.clone()), Some(today_close.clone()), Some(today_close.clone()), &ts));
 
-            info.roe               = opt_f64(&fd["returnOnEquity"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, fund_period.clone(), fund_published_at.clone(), &ts));
-            info.gross_margins     = opt_f64(&fd["grossMargins"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, fund_period.clone(), fund_published_at.clone(), &ts));
-            info.operating_margins = opt_f64(&fd["operatingMargins"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, fund_period.clone(), fund_published_at.clone(), &ts));
-            info.profit_margins    = opt_f64(&fd["profitMargins"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, fund_period.clone(), fund_published_at.clone(), &ts));
-            info.revenue_growth    = opt_f64(&fd["revenueGrowth"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, fund_period.clone(), fund_published_at.clone(), &ts));
-            info.earnings_growth   = opt_f64(&fd["earningsGrowth"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, fund_period.clone(), fund_published_at.clone(), &ts));
-            info.current_ratio     = opt_f64(&fd["currentRatio"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, fund_period.clone(), fund_published_at.clone(), &ts));
-            info.quick_ratio       = opt_f64(&fd["quickRatio"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, fund_period.clone(), fund_published_at.clone(), &ts));
-            info.debt_to_equity    = opt_f64(&fd["debtToEquity"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, fund_period.clone(), fund_published_at.clone(), &ts));
-            info.free_cashflow     = opt_f64(&fd["freeCashflow"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, fund_period.clone(), fund_published_at.clone(), &ts));
-            info.operating_cashflow= opt_f64(&fd["operatingCashflow"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, fund_period.clone(), fund_published_at.clone(), &ts));
+            info.roe               = opt_f64(&fd["returnOnEquity"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, fund_period.clone(), fund_published_at.clone(), fund_available_at.clone(), &ts));
+            info.gross_margins     = opt_f64(&fd["grossMargins"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, fund_period.clone(), fund_published_at.clone(), fund_available_at.clone(), &ts));
+            info.operating_margins = opt_f64(&fd["operatingMargins"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, fund_period.clone(), fund_published_at.clone(), fund_available_at.clone(), &ts));
+            info.profit_margins    = opt_f64(&fd["profitMargins"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, fund_period.clone(), fund_published_at.clone(), fund_available_at.clone(), &ts));
+            info.revenue_growth    = opt_f64(&fd["revenueGrowth"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, fund_period.clone(), fund_published_at.clone(), fund_available_at.clone(), &ts));
+            info.earnings_growth   = opt_f64(&fd["earningsGrowth"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, fund_period.clone(), fund_published_at.clone(), fund_available_at.clone(), &ts));
+            info.current_ratio     = opt_f64(&fd["currentRatio"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, fund_period.clone(), fund_published_at.clone(), fund_available_at.clone(), &ts));
+            info.quick_ratio       = opt_f64(&fd["quickRatio"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, fund_period.clone(), fund_published_at.clone(), fund_available_at.clone(), &ts));
+            info.debt_to_equity    = opt_f64(&fd["debtToEquity"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, fund_period.clone(), fund_published_at.clone(), fund_available_at.clone(), &ts));
+            info.free_cashflow     = opt_f64(&fd["freeCashflow"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, fund_period.clone(), fund_published_at.clone(), fund_available_at.clone(), &ts));
+            info.operating_cashflow= opt_f64(&fd["operatingCashflow"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, fund_period.clone(), fund_published_at.clone(), fund_available_at.clone(), &ts));
 
             if info.current_price.is_none() {
-                info.current_price = opt_f64(&fd["currentPrice"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, Some(today_dt.clone()), Some(today_dt.clone()), &ts));
+                info.current_price = opt_f64(&fd["currentPrice"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, Some(today_dt.clone()), Some(today_close.clone()), Some(today_close.clone()), &ts));
             }
         }
     }
@@ -292,13 +297,15 @@ pub async fn fetch_stock_data(symbol: String, range: String) -> Result<StockData
             if let Some(fund) = tw_data.get(co_id) {
                 let ts = now_utc();
                 let today_dt = today_date_str();
+                let today_close = today_market_close_str();
                 // 判斷上市/上櫃決定 source
                 let tw_src = if symbol_upper.ends_with(".TWO") { "TPEx" } else { "TWSE" };
                 let make_tw_metric = |v: f64| MetricF64 {
                     value: v,
                     source: tw_src.to_string(),
                     period: Some(today_dt.clone()),
-                    published_at: Some(today_dt.clone()),
+                    published_at: Some(today_close.clone()),
+                    available_at: Some(today_close.clone()),
                     fetched_at: ts.clone(),
                 };
                 if info.pe.is_none() {
@@ -348,37 +355,38 @@ pub async fn fetch_stock_info(symbol: String) -> Result<StockInfo, String> {
 
     let ts = now_utc();
     let today_dt = today_date_str();
+    let today_close = today_market_close_str();
 
     let mrq_ts = ks.get("mostRecentQuarter")
         .and_then(|v| v.get("raw"))
         .and_then(|r| r.as_i64());
-    let (fund_period, fund_published_at) = quarter_info_from_ts(mrq_ts);
+    let (fund_period, fund_published_at, fund_available_at) = quarter_info_from_ts(mrq_ts);
 
     let mut info = StockInfo {
         symbol: symbol.clone(),
         name,
         sector: opt_str(&ap["sector"]),
         industry: opt_str(&ap["industry"]),
-        current_price:      opt_f64(&fd["currentPrice"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, Some(today_dt.clone()), Some(today_dt.clone()), &ts)),
-        previous_close:     opt_f64(&sd["previousClose"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, Some(today_dt.clone()), Some(today_dt.clone()), &ts)),
-        pe:                 opt_f64(&sd["trailingPE"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, Some(today_dt.clone()), Some(today_dt.clone()), &ts)),
-        forward_pe:         opt_f64(&ks["forwardPE"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, Some("預估下一年度".to_string()), None, &ts)),
-        pb:                 opt_f64(&ks["priceToBook"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, Some(today_dt.clone()), Some(today_dt.clone()), &ts)),
-        dividend_yield:     opt_f64(&sd["dividendYield"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, Some(today_dt.clone()), Some(today_dt.clone()), &ts)),
-        eps:                opt_f64(&ks["trailingEps"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, fund_period.clone(), fund_published_at.clone(), &ts)),
-        roe:                opt_f64(&fd["returnOnEquity"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, fund_period.clone(), fund_published_at.clone(), &ts)),
-        gross_margins:      opt_f64(&fd["grossMargins"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, fund_period.clone(), fund_published_at.clone(), &ts)),
-        operating_margins:  opt_f64(&fd["operatingMargins"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, fund_period.clone(), fund_published_at.clone(), &ts)),
-        profit_margins:     opt_f64(&fd["profitMargins"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, fund_period.clone(), fund_published_at.clone(), &ts)),
-        revenue_growth:     opt_f64(&fd["revenueGrowth"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, fund_period.clone(), fund_published_at.clone(), &ts)),
-        earnings_growth:    opt_f64(&fd["earningsGrowth"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, fund_period.clone(), fund_published_at.clone(), &ts)),
-        current_ratio:      opt_f64(&fd["currentRatio"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, fund_period.clone(), fund_published_at.clone(), &ts)),
-        quick_ratio:        opt_f64(&fd["quickRatio"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, fund_period.clone(), fund_published_at.clone(), &ts)),
-        debt_to_equity:     opt_f64(&fd["debtToEquity"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, fund_period.clone(), fund_published_at.clone(), &ts)),
-        free_cashflow:      opt_f64(&fd["freeCashflow"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, fund_period.clone(), fund_published_at.clone(), &ts)),
-        operating_cashflow: opt_f64(&fd["operatingCashflow"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, fund_period.clone(), fund_published_at.clone(), &ts)),
+        current_price:      opt_f64(&fd["currentPrice"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, Some(today_dt.clone()), Some(today_close.clone()), Some(today_close.clone()), &ts)),
+        previous_close:     opt_f64(&sd["previousClose"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, Some(today_dt.clone()), Some(today_close.clone()), Some(today_close.clone()), &ts)),
+        pe:                 opt_f64(&sd["trailingPE"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, Some(today_dt.clone()), Some(today_close.clone()), Some(today_close.clone()), &ts)),
+        forward_pe:         opt_f64(&ks["forwardPE"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, Some("預估下一年度".to_string()), None, None, &ts)),
+        pb:                 opt_f64(&ks["priceToBook"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, Some(today_dt.clone()), Some(today_close.clone()), Some(today_close.clone()), &ts)),
+        dividend_yield:     opt_f64(&sd["dividendYield"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, Some(today_dt.clone()), Some(today_close.clone()), Some(today_close.clone()), &ts)),
+        eps:                opt_f64(&ks["trailingEps"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, fund_period.clone(), fund_published_at.clone(), fund_available_at.clone(), &ts)),
+        roe:                opt_f64(&fd["returnOnEquity"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, fund_period.clone(), fund_published_at.clone(), fund_available_at.clone(), &ts)),
+        gross_margins:      opt_f64(&fd["grossMargins"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, fund_period.clone(), fund_published_at.clone(), fund_available_at.clone(), &ts)),
+        operating_margins:  opt_f64(&fd["operatingMargins"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, fund_period.clone(), fund_published_at.clone(), fund_available_at.clone(), &ts)),
+        profit_margins:     opt_f64(&fd["profitMargins"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, fund_period.clone(), fund_published_at.clone(), fund_available_at.clone(), &ts)),
+        revenue_growth:     opt_f64(&fd["revenueGrowth"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, fund_period.clone(), fund_published_at.clone(), fund_available_at.clone(), &ts)),
+        earnings_growth:    opt_f64(&fd["earningsGrowth"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, fund_period.clone(), fund_published_at.clone(), fund_available_at.clone(), &ts)),
+        current_ratio:      opt_f64(&fd["currentRatio"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, fund_period.clone(), fund_published_at.clone(), fund_available_at.clone(), &ts)),
+        quick_ratio:        opt_f64(&fd["quickRatio"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, fund_period.clone(), fund_published_at.clone(), fund_available_at.clone(), &ts)),
+        debt_to_equity:     opt_f64(&fd["debtToEquity"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, fund_period.clone(), fund_published_at.clone(), fund_available_at.clone(), &ts)),
+        free_cashflow:      opt_f64(&fd["freeCashflow"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, fund_period.clone(), fund_published_at.clone(), fund_available_at.clone(), &ts)),
+        operating_cashflow: opt_f64(&fd["operatingCashflow"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, fund_period.clone(), fund_published_at.clone(), fund_available_at.clone(), &ts)),
         net_income:         None,
-        market_cap:         opt_f64(&sd["marketCap"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, Some(today_dt.clone()), Some(today_dt.clone()), &ts)),
+        market_cap:         opt_f64(&sd["marketCap"]["raw"]).map(|v| MetricF64::yahoo_fundamental(v, Some(today_dt.clone()), Some(today_close.clone()), Some(today_close.clone()), &ts)),
         long_business_summary: opt_str(&ap["longBusinessSummary"]),
     };
 
@@ -387,12 +395,14 @@ pub async fn fetch_stock_info(symbol: String) -> Result<StockInfo, String> {
         if let Some(fund) = tw_map.get(co_id) {
             let ts2 = now_utc();
             let today_dt2 = today_date_str();
+            let today_close2 = today_market_close_str();
             let tw_src = if symbol.to_uppercase().ends_with(".TWO") { "TPEx" } else { "TWSE" };
             let make_tw = |v: f64| MetricF64 {
                 value: v,
                 source: tw_src.to_string(),
                 period: Some(today_dt2.clone()),
-                published_at: Some(today_dt2.clone()),
+                published_at: Some(today_close2.clone()),
+                available_at: Some(today_close2.clone()),
                 fetched_at: ts2.clone(),
             };
             if fund.pe.is_some()         { info.pe             = fund.pe.map(&make_tw); }

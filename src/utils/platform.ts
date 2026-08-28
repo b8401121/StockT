@@ -29,23 +29,25 @@ export interface Metric<T = number> {
   source: DataSource;
   /** 財務資料對應期間，例如 "2024Q2", "2026-08-28", "2026-07" */
   period?: string;
-  /** 該數據正式發布時間 (ISO 8601 或 YYYY-MM-DD)，用於 Point-in-Time 避免 Look-ahead bias */
+  /** 公司或交易所實際公告時間 (例如 "2024-08-07T16:30:00+08:00") */
   publishedAt?: string;
+  /** Backtest 模型允許使用該資料的最早時間點 (例如法定最晚截止日 "2024-08-14" 或盤後 "2026-08-28T13:30:00+08:00") */
+  availableAt?: string;
   /** StockT 抓取時間 (ISO 8601 UTC) */
   fetchedAt: string;
 }
 
 /** Create a Yahoo Finance Metric wrapper */
-export function mkYahoo(value: number, period?: string, publishedAt?: string): Metric<number> {
-  return { value, source: "Yahoo Finance", period, publishedAt, fetchedAt: new Date().toISOString() };
+export function mkYahoo(value: number, period?: string, publishedAt?: string, availableAt?: string): Metric<number> {
+  return { value, source: "Yahoo Finance", period, publishedAt, availableAt, fetchedAt: new Date().toISOString() };
 }
 /** Create a MOPS static Metric wrapper */
-export function mkMops(value: number, period = "2024Q2", publishedAt = "2024-08-14"): Metric<number> {
-  return { value, source: "MOPS", period, publishedAt, fetchedAt: new Date().toISOString() };
+export function mkMops(value: number, period = "2024Q2", publishedAt?: string, availableAt = "2024-08-14"): Metric<number> {
+  return { value, source: "MOPS", period, publishedAt, availableAt, fetchedAt: new Date().toISOString() };
 }
 /** Create a TWSE Metric wrapper */
-export function mkTWSE(value: number, period?: string, publishedAt?: string): Metric<number> {
-  return { value, source: "TWSE", period, publishedAt, fetchedAt: new Date().toISOString() };
+export function mkTWSE(value: number, period?: string, publishedAt?: string, availableAt?: string): Metric<number> {
+  return { value, source: "TWSE", period, publishedAt, availableAt, fetchedAt: new Date().toISOString() };
 }
 
 export interface StockInfo {
