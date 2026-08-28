@@ -783,45 +783,16 @@ async function refreshLiveMarketQuotes(): Promise<void> {
           const changeVal = official.change != null ? Number(official.change) : 0;
           const prevClose = openPrice ? openPrice : (changeVal ? curPrice - changeVal : curPrice);
           const seedFund = getDeterministicFundamentals(coId, normSym, curPrice, stockName);
-
-          // 產生符合技術指標運算所需之真實開高低收序列
           const nowTs = Math.floor(Date.now() / 1000);
-          const barsCount = 30;
-          const timestamps: number[] = [];
-          const opens: number[] = [];
-          const highs: number[] = [];
-          const lows: number[] = [];
-          const closes: number[] = [];
-          const volumes: number[] = [];
-
-          let p = prevClose;
-          for (let b = barsCount; b >= 0; b--) {
-            timestamps.push(nowTs - b * 86400);
-            if (b === 0) {
-              opens.push(openPrice);
-              highs.push(highPrice);
-              lows.push(lowPrice);
-              closes.push(curPrice);
-              volumes.push(official.volume ? Number(official.volume) : 1000000);
-            } else {
-              const delta = (Math.sin(b * 0.2) * 0.005 + (b % 3 === 0 ? 0.002 : -0.002)) * curPrice;
-              p = Math.max(0.1, p - delta);
-              opens.push(Number(p.toFixed(2)));
-              highs.push(Number((p * 1.01).toFixed(2)));
-              lows.push(Number((p * 0.99).toFixed(2)));
-              closes.push(Number(p.toFixed(2)));
-              volumes.push(official.volume ? Math.round(Number(official.volume) * 0.8) : 500000);
-            }
-          }
 
           results.push({
             ohlcv: {
-              timestamp: timestamps,
-              open: opens,
-              high: highs,
-              low: lows,
-              close: closes,
-              volume: volumes,
+              timestamp: [nowTs],
+              open: [openPrice],
+              high: [highPrice],
+              low: [lowPrice],
+              close: [curPrice],
+              volume: [official.volume ? Number(official.volume) : 1000000],
             },
             info: {
               symbol: normSym,

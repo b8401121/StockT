@@ -2,7 +2,7 @@ import { AddToWatchlistBtn } from "./AddToWatchlistBtn";
 import React, { useCallback, useRef, useState } from "react";
 import { invoke } from "../utils/platform";
 import { calculateAllIndicators, OhlcvData } from "../utils/indicators";
-import { calcTechScanScore, checkLandmineRisks, computeFundamentalScore, getFsGrade } from "../utils/analysis";
+import { calcTechScanScore, computeFundamentalScore, getFsGrade } from "../utils/analysis";
 import { exportToHtmlFile } from "../utils/exportHtml";
 
 interface ScanResult {
@@ -115,27 +115,53 @@ export const ScannerTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ on
         for (const data of dataList) {
           if (cancelRef.current) break;
           const ohlcv: OhlcvData = data.ohlcv;
-          if (ohlcv.close.length < 20) continue;
-          const ind = calculateAllIndicators(ohlcv);
-          const n = ohlcv.close.length - 1;
-          const { score, reasons, risks: techRisks } = calcTechScanScore(ind, n);
           const name = data.info.name || data.info.symbol;
+          const curP = data.info.current_price || 0;
+          const prevP = data.info.previous_close || curP;
+          const changePct = prevP > 0 ? ((curP - prevP) / prevP) * 100 : 0;
 
-          if (mode === "buy" && score >= 1.5 && reasons.length >= 1) {
-            scanResults.push({ symbol: data.info.symbol, name, score: `+${score.toFixed(1)}分`, numericScore: score, desc: reasons.join("、"), mode });
+          if (mode === "buy") {
+            let score = 0;
+            const reasons: string[] = [];
+            if (ohlcv && ohlcv.close.length >= 20) {
+              const ind = calculateAllIndicators(ohlcv);
+              const n = ohlcv.close.length - 1;
+              const techRes = calcTechScanScore(ind, n);
+              score = techRes.score;
+              reasons.push(...techRes.reasons);
+            } else {
+              if (changePct >= 3.0) { score += 2.0; reasons.push(`強勢起漲 +${changePct.toFixed(2)}%`); }
+              else if (changePct >= 1.0) { score += 1.0; reasons.push(`盤面走揚 +${changePct.toFixed(2)}%`); }
+              else if (changePct > 0) { score += 0.5; reasons.push(`收紅上漲`); }
+              const fs = computeFundamentalScore(data.info);
+              if (fs.score >= 3) { score += 1.0; reasons.push("基本面優良"); }
+            }
+
+            if (score >= 1.5 && reasons.length >= 1) {
+              scanResults.push({ symbol: data.info.symbol, name, score: `+${score.toFixed(1)}分`, numericScore: score, desc: reasons.join("、"), mode });
+            }
           } else if (mode === "value") {
             const fsResult = computeFundamentalScore(data.info);
             const fsScore = fsResult.score;
-            // 基本面良好以上 (fsScore >= 4) 且技術面走弱 (score <= -0.5)
-            if (fsScore >= 4 && score <= -0.5) {
+            let techScore = 0;
+            if (ohlcv && ohlcv.close.length >= 20) {
+              const ind = calculateAllIndicators(ohlcv);
+              const n = ohlcv.close.length - 1;
+              const techRes = calcTechScanScore(ind, n);
+              techScore = techRes.score;
+            } else {
+              techScore = changePct < 0 ? -1.0 : 0.5;
+            }
+
+            if (fsScore >= 3) {
               const passedItems = fsResult.passed.map(([label]) => label);
-              const desc = `【價值尋寶】基本面良好為 ${getFsGrade(fsScore)}(分數:${fsScore})；但技術面線型偏弱(技術分:${score.toFixed(1)}分)${passedItems.length ? `。優秀指標: ${passedItems.join(", ")}` : ""}`;
-              const composite = fsScore - score; // 分數差值越大，代表基本面越好且股價跌得越深（性價比越高）
+              const desc = `【價值尋寶】基本面評級為 ${getFsGrade(fsScore)}(分數:${fsScore})；優秀指標: ${passedItems.slice(0, 3).join(", ")}`;
+              const composite = fsScore - techScore;
               scanResults.push({
                 symbol: data.info.symbol,
                 name,
-                score: `基本: ${fsScore} | 技術: ${score.toFixed(1)}`,
-                numericScore: score,
+                score: `基本: ${fsScore} | 技術: ${techScore.toFixed(1)}`,
+                numericScore: techScore,
                 compositeScore: composite,
                 desc,
                 fundScore: fsScore,
@@ -143,59 +169,43 @@ export const ScannerTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ on
               });
             }
           } else if (mode === "landmine") {
-            const allRisks = checkLandmineRisks(ind, data.info, n);
-            // 分開技術地雷與財務地雷
-            const lmTechRisks = allRisks.filter(r =>
-              r.startsWith("📉") || r.startsWith("😱") || r.startsWith("🧨") || r.startsWith("🌪️")
-            );
-            const lmFundRisks = allRisks.filter(r =>
-              r.startsWith("💸") || r.startsWith("📛") || r.startsWith("🔴") ||
-              r.startsWith("🩸") || r.startsWith("💧") || r.startsWith("💦") ||
-              r.startsWith("🏗️") || r.startsWith("📊")
-            );
-
             const fsResult = computeFundamentalScore(data.info);
             const fsScore = fsResult.score;
-            if (fsScore <= -2) {
-              const failedItems = fsResult.failed.map(([label]) => label);
-              const fsDesc = `⚠️ 基本面評級：${getFsGrade(fsScore)}(分數:${fsScore})${failedItems.length ? `，異常：${failedItems.join("、")}` : ""}`;
-              if (!lmFundRisks.includes(fsDesc)) lmFundRisks.push(fsDesc);
+            const lmFundRisks: string[] = [];
+            if (fsScore <= -1) {
+              const failedItems = fsResult.failed.map(([, reason]) => reason);
+              lmFundRisks.push(`財務警示：${getFsGrade(fsScore)}(分數:${fsScore}) ${failedItems.slice(0, 2).join("、")}`);
             }
+            if (data.info.roe != null && data.info.roe < 0) lmFundRisks.push(`ROE為負(${(data.info.roe * 100).toFixed(1)}%)`);
+            if (data.info.profit_margins != null && data.info.profit_margins < 0) lmFundRisks.push(`淨利虧損(${(data.info.profit_margins * 100).toFixed(1)}%)`);
+            if (data.info.debt_to_equity != null && data.info.debt_to_equity > 250) lmFundRisks.push(`高負債比(${data.info.debt_to_equity.toFixed(0)}%)`);
 
-            // techRisks 合併：calcTechScanScore 的結果 + checkLandmineRisks 的技術類
-            const mergedTechRisks = [...techRisks, ...lmTechRisks];
-            const totalRisks = mergedTechRisks.length + lmFundRisks.length;
-            const composite = score + (fsScore < 0 ? fsScore * 2.0 : fsScore);
-            if ((lmFundRisks.length >= 1 && totalRisks >= 2) || fsScore <= -2 || (score <= -2.0 && fsScore <= 0)) {
-              const scoreStr = `綜合: ${composite.toFixed(1)}分`;
-              const desc = [...mergedTechRisks, ...lmFundRisks].join("、");
+            if (lmFundRisks.length >= 1) {
               scanResults.push({
                 symbol: data.info.symbol,
                 name,
-                score: scoreStr,
-                numericScore: score,
-                compositeScore: composite,
-                desc,
-                techRisks: mergedTechRisks,
+                score: `地雷風險: ${lmFundRisks.length}項`,
+                numericScore: -lmFundRisks.length,
+                compositeScore: -lmFundRisks.length,
+                desc: lmFundRisks.join("、"),
+                techRisks: [],
                 fundRisks: lmFundRisks,
                 fundScore: fsScore,
                 mode
               });
             }
-
           } else if (mode === "short") {
             const fsResult = computeFundamentalScore(data.info);
             const fsScore = fsResult.score;
-            // 技術趨勢強 (score >= 0.5) 且基本面極差 (fsScore <= -2)
-            if (score >= 0.5 && fsScore <= -2) {
+            if (changePct > 0 && fsScore <= -1) {
               const failedItems = fsResult.failed.map(([label]) => label);
-              const fsDesc = `【放空警示】基本面極差為 ${getFsGrade(fsScore)}(分數:${fsScore})；但股價線型強勢技術分為 +${score.toFixed(1)}分${failedItems.length ? `。異常指標: ${failedItems.join(", ")}` : ""}`;
-              const composite = score - fsScore; // 差值越大，技術面越強而基本面越爛，越適合放空
+              const fsDesc = `【放空警示】基本面評級為 ${getFsGrade(fsScore)}(分數:${fsScore})；股價逆勢上漲 +${changePct.toFixed(1)}%${failedItems.length ? `。異常指標: ${failedItems.join(", ")}` : ""}`;
+              const composite = 1.0 - fsScore;
               scanResults.push({
                 symbol: data.info.symbol,
                 name,
-                score: `技術: +${score.toFixed(1)} | 基本: ${fsScore}`,
-                numericScore: score,
+                score: `技術: +1.0 | 基本: ${fsScore}`,
+                numericScore: 1.0,
                 compositeScore: composite,
                 desc: fsDesc,
                 fundScore: fsScore,

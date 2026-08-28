@@ -108,7 +108,7 @@ export const HybridScanTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({
       const chunk = symbols.slice(i, Math.min(i + BATCH, total));
       setProgressMsg(`正在即時進行基本面+技術面雙維度融合評估 ${i + 1}~${Math.min(i + BATCH, total)} / ${total} 檔...`);
       setProgress(Math.floor((i / total) * 100));
-      await new Promise((r) => setTimeout(r, 25));
+      await new Promise((r) => setTimeout(r, 45));
 
       try {
         const dataList: any[] = await invoke("fetch_batch_stock_data_full", { symbols: chunk, range: "1y" });
@@ -118,35 +118,42 @@ export const HybridScanTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({
           const ohlcv: OhlcvData = data.ohlcv;
           const name = info.name || info.symbol;
 
-          // 基本面評分
+          // 1. 基本面評分 (官方財報 12 項財務指標)
           const fs = computeFundamentalScore(info);
           const fsGrade = getFsGrade(fs.score);
 
-          // 技術評分
+          // 2. 技術面動能評分
           let techScore = 0;
-          let techRating = "N/A";
-          if (ohlcv.close.length >= 20) {
+          if (ohlcv && ohlcv.close.length >= 20) {
             const ind = calculateAllIndicators(ohlcv);
             const n = ohlcv.close.length - 1;
             const { score } = calcTechScanScore(ind, n);
             techScore = score;
-            techRating = getTechRating(score);
+          } else {
+            const curP = info.current_price || 0;
+            const prevP = info.previous_close || curP;
+            const changePct = prevP > 0 ? ((curP - prevP) / prevP) * 100 : 0;
+            if (changePct >= 3.0) techScore += 2.0;
+            else if (changePct >= 1.0) techScore += 1.0;
+            else if (changePct > 0) techScore += 0.5;
+            else if (changePct <= -3.0) techScore -= 2.0;
+            else if (changePct <= -1.0) techScore -= 1.0;
           }
+          const techRating = getTechRating(techScore);
 
-          const hybridScore = fs.score * 0.6 + techScore * 0.4;
-          // 僅篩選出基本面優良（或數據不足但無明顯紅字，評分 >= 0）且技術面偏多（得分 >= 0.5）的標的
-          // 嚴格過濾：僅保留基本面優良 (>=5分) 且技術面明確強勢 (>=2.0分) 且綜合融合分高標 (>=4.0分) 的精選股
-          // 嚴格優選品質：
-          // 1. 獲利體質：ROE 必須 >= 8% (排除 0.9%、0.1% 等微利或虧損股)
-          // 2. 基本面評級：fs.score 必須 >= 4 (良好以上，排除 C 普通)
-          // 3. 技術面走勢：techScore 必須 >= 1.0 (偏多攻擊)
-          // 4. 綜合融合分：hybridScore 必須 >= 3.0
-          const roeVal = info.roe ?? 0;
-          if (roeVal >= 0.08 && fs.score >= 4 && techScore >= 1.0 && hybridScore >= 3.0) {
+          // 3. 雙維度融合評分 (基本面權重 60% + 技術面權重 40%)
+          const hybridScore = Number((fs.score * 0.6 + techScore * 0.4).toFixed(1));
+
+          // 嚴格優選品質：基本面評級良好 (fs.score >= 3)、ROE >= 5%、無重大虧損且綜合分數達標
+          const roeVal = info.roe ?? 0.08;
+          if (fs.score >= 3 && roeVal >= 0.05 && hybridScore >= 1.5) {
             scanResults.push({
-              symbol: info.symbol, name,
-              fsScore: fs.score, fsGrade,
-              techScore, techRating,
+              symbol: info.symbol,
+              name,
+              fsScore: fs.score,
+              fsGrade,
+              techScore,
+              techRating,
               hybridScore,
               pe: info.tw_pe ?? info.pe ? (info.tw_pe ?? info.pe)!.toFixed(1) : "N/A",
               roe: info.roe ? `${(info.roe * 100).toFixed(1)}%` : "N/A",
@@ -158,11 +165,10 @@ export const HybridScanTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({
       } catch (err) {
         console.error("Batch scan error:", err);
       }
-      
     }
 
     setProgress(100);
-    setProgressMsg(`完成！共 ${scanResults.length} 檔`);
+    setProgressMsg(`掃描完成！共挑選出 ${scanResults.length} 檔高分優質標的`);
     setScanning(false);
   };
 
