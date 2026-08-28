@@ -71,10 +71,11 @@ export type BacktestCalibration = HeuristicCalibration;
 export interface AIAlphaResult {
   symbol: string;
   name: string;
-  modelName: "Data-backed Multi-Factor Model v1";
+  modelName: "17-Factor Data-backed AI Alpha Model v1" | "Data-backed Multi-Factor Model v1";
   winRatePct: number;           // 校準後勝率
   rawProbabilityPct: number;
   expectedAlphaPct: number;     // 預估超額 Alpha %
+  dataCompletenessDisplay: string; // e.g. "17/17 (100%)"
   convictionTier:
     | "⭐⭐⭐⭐⭐ 強烈看多"
     | "⭐⭐⭐⭐ 穩健多頭"
@@ -905,10 +906,11 @@ export function evaluateAIAlpha(
   return {
     symbol,
     name,
-    modelName: "Data-backed Multi-Factor Model v1",
+    modelName: "17-Factor Data-backed AI Alpha Model v1",
     winRatePct: calibratedWinRate,
     rawProbabilityPct: Number(rawProb.toFixed(1)),
     expectedAlphaPct: expectedAlpha,
+    dataCompletenessDisplay: `${dataQuality.availableCount}/${dataQuality.totalRequired} (${Math.round((dataQuality.availableCount / dataQuality.totalRequired) * 100)}%)`,
     convictionTier,
     dataQuality,
     calibration,

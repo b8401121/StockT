@@ -265,12 +265,12 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
   </style>
 </head>
 <body>
-  <h1>🧠 StockT CPU 內建 AI 多因子選股清單</h1>
+  <h1>🧠 StockT 17-Factor Data-backed AI Alpha Model</h1>
   <div class="meta">策略：${stratObj?.label} ｜ 產生時間：${new Date().toLocaleString()} ｜ 精選數量：${results.length} 檔</div>
   <table>
     <thead>
       <tr>
-        <th>排名</th><th>代碼</th><th>名稱</th><th>20日超額勝率</th><th>預估超額 Alpha</th><th>AI 置信評級</th><th>PE / ROE</th><th>核心加分因子</th>
+        <th>排名</th><th>代碼</th><th>名稱</th><th>資料完整度</th><th>20日超額勝率</th><th>預估超額 Alpha</th><th>AI 置信評級</th><th>PE / ROE</th><th>核心加分因子</th>
       </tr>
     </thead>
     <tbody>
@@ -279,6 +279,7 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
           <td><b>#${r.rank}</b></td>
           <td><b>${r.symbol.split(".")[0]}</b></td>
           <td>${r.name}</td>
+          <td><b>${r.dataCompletenessDisplay || `${r.dataQuality.availableCount}/17`}</b></td>
           <td><span class="badge-win">${fmtFixed(r.winRatePct, 1)}%</span></td>
           <td style="color:#38bdf8; font-weight:bold;">${r.expectedAlphaPct >= 0 ? '+' : ''}${fmtFixed(r.expectedAlphaPct, 1)}%</td>
           <td><span class="badge-tier">${r.convictionTier}</span></td>
@@ -365,6 +366,7 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
                 <th style={{ width: "50px" }}>排名</th>
                 <th>代碼</th>
                 <th>名稱</th>
+                <th style={{ width: "95px" }}>資料完整度</th>
                 <th style={{ width: "140px" }}>🧠 20日超額勝率</th>
                 <th>預估超額 Alpha</th>
                 <th>AI 置信評級</th>
@@ -378,8 +380,8 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
               {results.map((r) => {
                 const cleanSym = r.symbol.replace(/\.(TW|TWO)$/, "");
                 const isRisk = r.convictionTier.includes("偏空") || r.winRatePct <= 40;
-                const isTopWin = r.winRatePct >= 78;
-                const winColor = isTopWin ? "#38bdf8" : r.winRatePct >= 60 ? "#a855f7" : r.winRatePct <= 40 ? "#ef4444" : "#facc15";
+                const isTopWin = r.winRatePct >= 68;
+                const winColor = isTopWin ? "#38bdf8" : r.winRatePct >= 58 ? "#a855f7" : r.winRatePct <= 48 ? "#ef4444" : "#facc15";
 
                 return (
                   <tr key={r.symbol}>
@@ -390,6 +392,17 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
                     </td>
                     <td style={{ color: "var(--accent-blue)", fontWeight: 700 }}>{cleanSym}</td>
                     <td style={{ fontWeight: 600 }}>{r.name}</td>
+                    <td>
+                      <span className="badge" style={{
+                        fontSize: "0.72rem",
+                        backgroundColor: r.dataQuality.availableCount >= 16 ? "rgba(34, 197, 94, 0.2)" : r.dataQuality.availableCount >= 12 ? "rgba(59, 130, 246, 0.2)" : "rgba(245, 158, 11, 0.2)",
+                        color: r.dataQuality.availableCount >= 16 ? "#4ade80" : r.dataQuality.availableCount >= 12 ? "#60a5fa" : "#fbbf24",
+                        border: `1px solid ${r.dataQuality.availableCount >= 16 ? "rgba(34, 197, 94, 0.4)" : "rgba(59, 130, 246, 0.4)"}`,
+                        fontWeight: 700
+                      }}>
+                        {r.dataQuality.availableCount}/17
+                      </span>
+                    </td>
                     <td>
                       <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                         <div style={{ flex: 1, height: "6px", background: "rgba(255,255,255,0.1)", borderRadius: "3px", overflow: "hidden" }}>
