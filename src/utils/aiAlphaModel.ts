@@ -76,7 +76,13 @@ export interface AIAlphaResult {
   winRatePct: number;           // 校準後勝率
   rawProbabilityPct: number;
   expectedAlphaPct: number;     // 預估超額 Alpha %
-  dataCompletenessDisplay: string; // e.g. "17/17 (100%)"
+  rawScore: number;             // 原始加權總分
+  normalizedScore: number;      // 固定 17 因子總分母標準化得分 (無分母縮小偏誤)
+  availableFactorCount: number; // 可用因子數 (e.g. 17)
+  missingFactorCount: number;   // 缺失因子數 (e.g. 0)
+  coverageRatio: number;        // 因子覆蓋率 (0.0 ~ 1.0)
+  coverageDisplay: string;      // e.g. "17/17 (100%)"
+  dataCompletenessDisplay: string; // 舊版相容
   convictionTier:
     | "⭐⭐⭐⭐⭐ 強烈看多"
     | "⭐⭐⭐⭐ 穩健多頭"
@@ -876,17 +882,23 @@ export function evaluateAIAlpha(
   // ═══════════════════════════════════════════════════════════════════════════
   // 4. Honest Composite Score & Backtest Probability Calibration
   // ═══════════════════════════════════════════════════════════════════════════
-  let totalWeight = 0;
-  let weightedScore = 0;
+  // 🛡️ 嚴格防止 Denominator Bias：分母固定使用全 17 因子之總權重 (Full Schema Total Weight)
+  // 缺失因子得分貢獻為 0 (中性)，決不縮小分母造成殘餘強勢因子虛假膨脹！
+  const fullSchemaTotalWeight = factors.reduce((sum, f) => sum + f.weight, 0) || 1.0;
+  let availableWeight = 0;
+  let rawWeightedScore = 0;
 
   for (const f of factors) {
     if (f.available) {
-      weightedScore += f.score * f.weight;
-      totalWeight += f.weight;
+      rawWeightedScore += f.score * f.weight;
+      availableWeight += f.weight;
     }
   }
 
-  const normalizedScore = totalWeight > 0 ? (weightedScore / totalWeight) : 0;
+  const coverageRatio = Number((availableCount / totalRequired).toFixed(2));
+  const rawScore = Number(rawWeightedScore.toFixed(3));
+  // 固定總分母標準化得分 (避免缺失資料時分母變小導致分數虛高)
+  const normalizedScore = fullSchemaTotalWeight > 0 ? (rawWeightedScore / fullSchemaTotalWeight) : 0;
   const heuristicRawProb = sigmoid(normalizedScore * 0.85) * 100;
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -981,6 +993,8 @@ export function evaluateAIAlpha(
     methodologyNote: "依據 backtest/results.json 實證回測校準曲線 (2018-2024 PIT 資料集，扣除證交稅 30 bps + 手續費 14.25 bps + 滑價 5 bps 之真實淨勝率)",
   };
 
+  const coverageDisplay = `${availableCount}/${totalRequired} (${Math.round(coverageRatio * 100)}%)`;
+
   return {
     symbol,
     name,
@@ -988,7 +1002,13 @@ export function evaluateAIAlpha(
     winRatePct: calibratedWinRate,
     rawProbabilityPct: Number(rawProb.toFixed(1)),
     expectedAlphaPct: expectedAlpha,
-    dataCompletenessDisplay: `${dataQuality.availableCount}/${dataQuality.totalRequired} (${Math.round((dataQuality.availableCount / dataQuality.totalRequired) * 100)}%)`,
+    rawScore,
+    normalizedScore: Number(normalizedScore.toFixed(3)),
+    availableFactorCount: availableCount,
+    missingFactorCount: missingFeatures.length,
+    coverageRatio,
+    coverageDisplay,
+    dataCompletenessDisplay: coverageDisplay,
     convictionTier,
     dataQuality,
     calibration,

@@ -21,12 +21,15 @@ interface RankedAlphaStock extends AIAlphaResult {
 }
 
 export interface ScanAuditMetrics {
-  universe: number;
-  evaluated: number;
-  ohlcvFailed: number;
-  qualityRejected: number;
-  strategyRejected: number;
-  selected: number;
+  universe: number;           // 總掃描母體 (Universe)
+  evaluated: number;          // 實際完成推論數 (Evaluated)
+  skipped: number;            // 略過/中斷未評估數 (Skipped, Universe = Evaluated + Skipped)
+  selected: number;           // 最終入選 (Selected)
+  strategyRejected: number;   // 策略條件淘汰 (Strategy Rejected)
+  qualityRejected: number;    // 資料品質淘汰 (Quality Rejected, availableCount < 5)
+  dataFetchError: number;     // 數據抓取失敗 (Data Error)
+  ohlcvDegradedCount: number; // 輔助標記：K線缺失降級數
+  isConserved: boolean;       // 守恆驗證通過 (Evaluated === Selected + StrategyRejected + QualityRejected + DataFetchError)
 }
 
 const MARKETS = [
@@ -159,10 +162,13 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
       let runningAudit: ScanAuditMetrics = {
         universe: total,
         evaluated: 0,
-        ohlcvFailed: 0,
-        qualityRejected: 0,
-        strategyRejected: 0,
+        skipped: 0,
         selected: 0,
+        strategyRejected: 0,
+        qualityRejected: 0,
+        dataFetchError: 0,
+        ohlcvDegradedCount: 0,
+        isConserved: true,
       };
       setAuditMetrics({ ...runningAudit });
 
@@ -233,31 +239,39 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
         );
 
         for (const res of chunkResults) {
-          if (res.status === "fulfilled") {
-            const { aiResult, info, ohlcvMissing } = res.value;
-            runningAudit.evaluated++;
+          runningAudit.evaluated++;
 
-            if (ohlcvMissing) {
-              runningAudit.ohlcvFailed++;
-            }
+          if (res.status === "rejected") {
+            runningAudit.dataFetchError++;
+            continue;
+          }
 
-            if (aiResult.dataQuality.availableCount < 5) {
-              runningAudit.qualityRejected++;
-              continue;
-            }
+          const { aiResult, info, ohlcvMissing } = res.value;
 
-            if (selectedStrat.filterFn(aiResult, info)) {
-              runningAudit.selected++;
-              matchedStocks.push({
-                ...aiResult,
-                rank: 0,
-                info,
-              });
-            } else {
-              runningAudit.strategyRejected++;
-            }
+          if (ohlcvMissing) {
+            runningAudit.ohlcvDegradedCount++;
+          }
+
+          if (aiResult.availableFactorCount < 5) {
+            runningAudit.qualityRejected++;
+          } else if (selectedStrat.filterFn(aiResult, info)) {
+            runningAudit.selected++;
+            matchedStocks.push({
+              ...aiResult,
+              rank: 0,
+              info,
+            });
+          } else {
+            runningAudit.strategyRejected++;
           }
         }
+
+        runningAudit.skipped = runningAudit.universe - runningAudit.evaluated;
+        runningAudit.isConserved = (
+          runningAudit.evaluated === (runningAudit.selected + runningAudit.strategyRejected + runningAudit.qualityRejected + runningAudit.dataFetchError)
+        ) && (
+          runningAudit.universe === (runningAudit.evaluated + runningAudit.skipped)
+        );
 
         const currentRanked = [...matchedStocks].sort((a, b) => 
           strategy === "landmine_risk" ? a.winRatePct - b.winRatePct : b.winRatePct - a.winRatePct
@@ -269,15 +283,12 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
         await new Promise((r) => setTimeout(r, 0));
       }
 
-      if (strategy === "landmine_risk") {
-        matchedStocks.sort((a, b) => a.winRatePct - b.winRatePct);
-      } else {
-        matchedStocks.sort((a, b) => b.winRatePct - a.winRatePct);
-      }
-
-      matchedStocks.forEach((item, idx) => {
-        item.rank = idx + 1;
-      });
+      runningAudit.skipped = runningAudit.universe - runningAudit.evaluated;
+      runningAudit.isConserved = (
+        runningAudit.evaluated === (runningAudit.selected + runningAudit.strategyRejected + runningAudit.qualityRejected + runningAudit.dataFetchError)
+      ) && (
+        runningAudit.universe === (runningAudit.evaluated + runningAudit.skipped)
+      );
 
       setResults(matchedStocks);
       setProgress(100);
@@ -356,29 +367,42 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
             background: isWarm ? "rgba(140, 110, 80, 0.08)" : "rgba(15, 23, 42, 0.6)",
             border: isWarm ? "1px solid rgba(140, 110, 80, 0.22)" : "1px solid rgba(124, 58, 237, 0.25)",
             borderRadius: "8px",
-            padding: "8px 12px",
+            padding: "10px 14px",
             fontSize: "0.76rem",
             display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            flexWrap: "wrap",
-            gap: "8px"
+            flexDirection: "column",
+            gap: "6px"
           }}>
-            <div style={{ fontWeight: 700, color: isWarm ? "#9a3412" : "#c084fc", display: "flex", alignItems: "center", gap: "4px" }}>
-              <span>🔍 量化審計漏斗 (Scan Audit)：</span>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "6px" }}>
+              <div style={{ fontWeight: 700, color: isWarm ? "#9a3412" : "#c084fc", display: "flex", alignItems: "center", gap: "6px" }}>
+                <span>🔍 量化審計漏斗 (Scan Audit Pipeline)：</span>
+                <span style={{ fontSize: "0.70rem", color: auditMetrics.isConserved ? (isWarm ? "#15803d" : "#4ade80") : "#f87171", background: auditMetrics.isConserved ? (isWarm ? "rgba(21,128,61,0.1)" : "rgba(34,197,94,0.15)") : "rgba(239,68,68,0.15)", padding: "1px 6px", borderRadius: "4px", border: `1px solid ${auditMetrics.isConserved ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.3)"}` }}>
+                  {auditMetrics.isConserved ? "🛡️ 100% 計數守恆 Invariant Verified" : "⚠️ 守恆不一致"}
+                </span>
+              </div>
+              <div style={{ fontSize: "0.72rem", color: isWarm ? "#57534e" : "#94a3b8" }}>
+                母體 ({auditMetrics.universe}) ＝ 推論 ({auditMetrics.evaluated}) ＋ 略過 ({auditMetrics.skipped})
+              </div>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-              <span>母體 (Universe)：<b>{auditMetrics.universe}</b></span>
-              <span style={{ color: "var(--text-muted)" }}>➔</span>
-              <span>推論 (Evaluated)：<b>{auditMetrics.evaluated}</b></span>
-              <span style={{ color: "var(--text-muted)" }}>➔</span>
-              <span style={{ color: isWarm ? "#b45309" : "#fbbf24" }}>K線缺失 (OHLCV Missing)：<b>{auditMetrics.ohlcvFailed}</b></span>
-              <span style={{ color: "var(--text-muted)" }}>➔</span>
-              <span style={{ color: "#f87171" }}>品質淘汰 (Quality Rejected)：<b>{auditMetrics.qualityRejected}</b></span>
-              <span style={{ color: "var(--text-muted)" }}>➔</span>
-              <span style={{ color: isWarm ? "#57534e" : "#94a3b8" }}>策略淘汰 (Strategy Rejected)：<b>{auditMetrics.strategyRejected}</b></span>
-              <span style={{ color: "var(--text-muted)" }}>➔</span>
-              <span style={{ color: isWarm ? "#15803d" : "#4ade80", fontWeight: 800 }}>最終入選 (Selected)：{auditMetrics.selected} 檔</span>
+
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", color: isWarm ? "#292524" : "#e2e8f0" }}>
+              <span>推論池：<b>{auditMetrics.evaluated}</b></span>
+              <span style={{ color: "var(--text-muted)" }}>＝</span>
+              <span style={{ color: isWarm ? "#15803d" : "#4ade80", fontWeight: 800 }}>入選：<b>{auditMetrics.selected}</b> 檔</span>
+              <span style={{ color: "var(--text-muted)" }}>＋</span>
+              <span style={{ color: isWarm ? "#57534e" : "#94a3b8" }}>策略淘汰：<b>{auditMetrics.strategyRejected}</b></span>
+              <span style={{ color: "var(--text-muted)" }}>＋</span>
+              <span style={{ color: "#f87171" }}>品質不足淘汰：<b>{auditMetrics.qualityRejected}</b></span>
+              {auditMetrics.dataFetchError > 0 && (
+                <>
+                  <span style={{ color: "var(--text-muted)" }}>＋</span>
+                  <span style={{ color: "#ef4444" }}>數據異常：<b>{auditMetrics.dataFetchError}</b></span>
+                </>
+              )}
+              <span style={{ color: "var(--text-muted)", marginLeft: "4px" }}>｜</span>
+              <span style={{ color: isWarm ? "#b45309" : "#fbbf24", fontSize: "0.72rem" }}>
+                K線缺失降級標記：{auditMetrics.ohlcvDegradedCount} 檔
+              </span>
             </div>
           </div>
         )}
@@ -401,7 +425,7 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
                 <th style={{ width: "50px" }}>排名</th>
                 <th>代碼</th>
                 <th>名稱</th>
-                <th style={{ width: "95px" }}>資料完整度</th>
+                <th style={{ width: "115px" }}>資料完整度 (Coverage)</th>
                 <th style={{ width: "140px" }}>🧠 20日超額勝率</th>
                 <th>預估超額 Alpha</th>
                 <th>AI 置信評級</th>
@@ -428,15 +452,20 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
                     <td style={{ color: "var(--accent-blue)", fontWeight: 700 }}>{cleanSym}</td>
                     <td style={{ fontWeight: 600 }}>{r.name}</td>
                     <td>
-                      <span className="badge" style={{
-                        fontSize: "0.72rem",
-                        backgroundColor: r.dataQuality.availableCount >= 16 ? "rgba(34, 197, 94, 0.2)" : r.dataQuality.availableCount >= 12 ? "rgba(59, 130, 246, 0.2)" : "rgba(245, 158, 11, 0.2)",
-                        color: r.dataQuality.availableCount >= 16 ? (isWarm ? "#15803d" : "#4ade80") : r.dataQuality.availableCount >= 12 ? (isWarm ? "#0284c7" : "#60a5fa") : (isWarm ? "#b45309" : "#fbbf24"),
-                        border: `1px solid ${r.dataQuality.availableCount >= 16 ? "rgba(34, 197, 94, 0.4)" : "rgba(59, 130, 246, 0.4)"}`,
-                        fontWeight: 700
-                      }}>
-                        {r.dataQuality.availableCount}/17
-                      </span>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                        <span className="badge" style={{
+                          fontSize: "0.70rem",
+                          backgroundColor: r.dataQuality.availableCount >= 16 ? "rgba(34, 197, 94, 0.2)" : r.dataQuality.availableCount >= 12 ? "rgba(59, 130, 246, 0.2)" : "rgba(245, 158, 11, 0.2)",
+                          color: r.dataQuality.availableCount >= 16 ? (isWarm ? "#15803d" : "#4ade80") : r.dataQuality.availableCount >= 12 ? (isWarm ? "#0284c7" : "#60a5fa") : (isWarm ? "#b45309" : "#fbbf24"),
+                          border: `1px solid ${r.dataQuality.availableCount >= 16 ? "rgba(34, 197, 94, 0.4)" : "rgba(59, 130, 246, 0.4)"}`,
+                          fontWeight: 700
+                        }}>
+                          {r.coverageDisplay || `${r.dataQuality.availableCount}/17`}
+                        </span>
+                        <span style={{ fontSize: "0.68rem", color: "var(--text-muted)" }}>
+                          標準分: <b style={{ color: r.normalizedScore >= 0 ? (isWarm ? "#15803d" : "#4ade80") : "#f87171" }}>{r.normalizedScore >= 0 ? "+" : ""}{r.normalizedScore.toFixed(2)}</b>
+                        </span>
+                      </div>
                     </td>
                     <td>
                       <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
@@ -558,19 +587,32 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
                 marginBottom: "12px",
                 fontSize: "0.75rem",
                 display: "flex",
-                justifyContent: "space-between",
-                flexWrap: "wrap",
-                gap: "6px"
+                flexDirection: "column",
+                gap: "4px"
               }}>
-                <div>
-                  <span style={{ color: isWarm ? "#57534e" : "#94a3b8" }}>資料品質可信度：</span>
-                  <b style={{ color: selectedStockForDetail.dataQuality.overallScore >= 80 ? (isWarm ? "#15803d" : "#4ade80") : selectedStockForDetail.dataQuality.overallScore >= 50 ? (isWarm ? "#b45309" : "#facc15") : "#f87171" }}>
-                    {selectedStockForDetail.dataQuality.overallScore} / 100
-                  </b>
-                  <span style={{ color: isWarm ? "#57534e" : "#94a3b8", marginLeft: "6px" }}>({selectedStockForDetail.dataQuality.availableCount}/{selectedStockForDetail.dataQuality.totalRequired} 指標完備)</span>
+                <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "6px" }}>
+                  <div>
+                    <span style={{ color: isWarm ? "#57534e" : "#94a3b8" }}>因子覆蓋度 (Coverage)：</span>
+                    <b style={{ color: selectedStockForDetail.availableFactorCount >= 16 ? (isWarm ? "#15803d" : "#4ade80") : selectedStockForDetail.availableFactorCount >= 12 ? (isWarm ? "#0284c7" : "#60a5fa") : "#f87171" }}>
+                      {selectedStockForDetail.coverageDisplay}
+                    </b>
+                    <span style={{ color: isWarm ? "#57534e" : "#94a3b8", marginLeft: "8px" }}>
+                      (可用 {selectedStockForDetail.availableFactorCount} / 缺失 {selectedStockForDetail.missingFactorCount})
+                    </span>
+                  </div>
+                  <div>
+                    <span style={{ color: isWarm ? "#57534e" : "#94a3b8" }}>原始加權分: </span>
+                    <b style={{ color: selectedStockForDetail.rawScore >= 0 ? (isWarm ? "#15803d" : "#4ade80") : "#f87171" }}>
+                      {selectedStockForDetail.rawScore >= 0 ? "+" : ""}{selectedStockForDetail.rawScore.toFixed(2)}
+                    </b>
+                    <span style={{ color: isWarm ? "#57534e" : "#94a3b8", marginLeft: "6px" }}>｜ 17因子標準分: </span>
+                    <b style={{ color: selectedStockForDetail.normalizedScore >= 0 ? (isWarm ? "#15803d" : "#4ade80") : "#f87171" }}>
+                      {selectedStockForDetail.normalizedScore >= 0 ? "+" : ""}{selectedStockForDetail.normalizedScore.toFixed(2)}
+                    </b>
+                  </div>
                 </div>
-                <div style={{ color: isWarm ? "#0284c7" : "#38bdf8" }}>
-                  🧠 17 維多因子 Ensemble ｜ 引擎：<b>CPU/GPU 加速</b> ｜ 即時運算：<b>零人工假設</b>
+                <div style={{ color: isWarm ? "#0284c7" : "#38bdf8", borderTop: isWarm ? "1px dashed rgba(140,110,80,0.15)" : "1px dashed rgba(255,255,255,0.08)", paddingTop: "4px", marginTop: "2px" }}>
+                  🧠 17 維多因子 Ensemble ｜ 引擎：<b>CPU/GPU 加速</b> ｜ 全母體分母：<b>無分母縮小偏誤 (Zero Denominator Bias)</b>
                 </div>
               </div>
             )}
