@@ -151,7 +151,7 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
       };
 
       // ──────────────────────────────────────────────────────────────────────────
-      // 階段 1：全市場基本面與財務特徵高速初篩 (0.1秒內完成全市場 2,000+ 檔標的評分)
+      // 階段 1：全市場基本面與財務特徵高速初篩 (即時 Progressive 渲染)
       // ──────────────────────────────────────────────────────────────────────────
       for (let i = 0; i < total; i++) {
         if (cancelRef.current) break;
@@ -195,13 +195,23 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
           }
         }
 
-        if (i % 150 === 0 || i === total - 1) {
-          setProgress(Math.round(((i + 1) / total) * 40));
+        // 漸進式即時回饋：每掃描 60 檔即時更新進度與初步名單
+        if (i % 60 === 0 || i === total - 1) {
+          setProgress(Math.round(((i + 1) / total) * 35));
+          setProgressMsg(`【階段 1/2】初篩進度 ${i + 1}/${total} 檔... 已命中 ${preliminaryList.length} 檔符合標準`);
+          
+          // 即時展示目前初步命中的股票
+          const liveSorted = [...preliminaryList]
+            .sort((a, b) => (strategy === "landmine_risk" ? a.aiResult.winRatePct - b.aiResult.winRatePct : b.aiResult.winRatePct - a.aiResult.winRatePct))
+            .slice(0, 30)
+            .map((item, idx) => ({ ...item.aiResult, rank: idx + 1, info: item.info }));
+          
+          setResults(liveSorted);
           await new Promise((r) => setTimeout(r, 0));
         }
       }
 
-      // 排序並選出前 30 檔優質標的進行階段 2 深度即時 OHLCV K 線加載
+      // 排序並選出前 35 檔優質標的進行階段 2 深度即時 OHLCV K 線加載
       if (strategy === "landmine_risk") {
         preliminaryList.sort((a, b) => a.aiResult.winRatePct - b.aiResult.winRatePct);
       } else {
@@ -214,12 +224,13 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
       // ──────────────────────────────────────────────────────────────────────────
       // 階段 2：深度載入即時真實 1 年期日 K 線，啟動完整 17 維價量動能技術因子
       // ──────────────────────────────────────────────────────────────────────────
-      setProgressMsg(`【階段 2/2】連線抓取前 ${topCandidates.length} 檔標的之真實 OHLCV K 線與 17 維因子...`);
-
-      const BATCH_SIZE = 5;
+      const BATCH_SIZE = 4;
       for (let i = 0; i < topCandidates.length; i += BATCH_SIZE) {
         if (cancelRef.current) break;
         const chunk = topCandidates.slice(i, i + BATCH_SIZE);
+        const stockNames = chunk.map(c => c.info.name).join("、");
+
+        setProgressMsg(`【階段 2/2】連線抓取 ${stockNames} 之即時日 K 線 (${i + 1}/${topCandidates.length})...`);
 
         const chunkResults = await Promise.allSettled(
           chunk.map(async (cand) => {
@@ -258,9 +269,14 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
           }
         }
 
+        // 漸進式即時刷新最終 17 因子精算表格
+        const currentRanked = [...evaluatedList].sort((a, b) => (strategy === "landmine_risk" ? a.winRatePct - b.winRatePct : b.winRatePct - a.winRatePct));
+        currentRanked.forEach((item, idx) => { item.rank = idx + 1; });
+        setResults(currentRanked);
+
         const processed = Math.min(i + BATCH_SIZE, topCandidates.length);
-        setProgress(40 + Math.round((processed / topCandidates.length) * 60));
-        setProgressMsg(`正在完成 ${processed}/${topCandidates.length} 檔即時 K 線精算...`);
+        setProgress(35 + Math.round((processed / topCandidates.length) * 65));
+        await new Promise((r) => setTimeout(r, 0));
       }
 
       if (strategy === "landmine_risk") {
@@ -275,7 +291,7 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
 
       setResults(evaluatedList);
       setProgress(100);
-      setProgressMsg(`評估完成！共精選出 ${evaluatedList.length} 檔 17 維多因子標的`);
+      setProgressMsg(`🎉 評估完成！共精選出 ${evaluatedList.length} 檔 17 維多因子即時標的`);
     } catch (e: any) {
       setProgressMsg(`評估錯誤: ${e.message}`);
     } finally {
