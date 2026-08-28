@@ -92,47 +92,56 @@ export interface AIAlphaResult {
 
 // ─── 輔助函數 ─────────────────────────────────────────────────────────────────
 
-/** Extract numeric value from a Metric<number> field (null-safe) */
-export function metricVal(m: Metric<number> | null | undefined): number | null {
-  return m?.value ?? null;
+/** Extract numeric value from a Metric<number> or primitive number (null-safe) */
+export function metricVal(m: Metric<number> | number | null | undefined): number | null {
+  if (m === null || m === undefined) return null;
+  if (typeof m === "number") return isNaN(m) ? null : m;
+  return m.value !== undefined && m.value !== null && !isNaN(m.value) ? m.value : null;
 }
 
 /** Extract source label from a Metric<number> field */
-export function metricSource(m: Metric<number> | null | undefined, fallback = "Unknown"): string {
-  return m?.source ?? fallback;
+export function metricSource(m: Metric<number> | number | null | undefined, fallback = "TWSE/Yahoo"): string {
+  if (m && typeof m === "object" && "source" in m && m.source) return m.source;
+  return fallback;
 }
 
 /** Extract fetchedAt from a Metric<number> field */
-export function metricTs(m: Metric<number> | null | undefined): string | undefined {
-  return m?.fetchedAt;
+export function metricTs(m: Metric<number> | number | null | undefined): string | undefined {
+  if (m && typeof m === "object" && "fetchedAt" in m) return m.fetchedAt;
+  return undefined;
 }
 
 /** Extract period from a Metric<number> field */
-export function metricPeriod(m: Metric<number> | null | undefined, fallback = "最新"): string {
-  return m?.period ?? fallback;
+export function metricPeriod(m: Metric<number> | number | null | undefined, fallback = "最新"): string {
+  if (m && typeof m === "object" && "period" in m && m.period) return m.period;
+  return fallback;
 }
 
 /** Extract publishedAt from a Metric<number> field */
-export function metricPublishedAt(m: Metric<number> | null | undefined): string | undefined {
-  return m?.publishedAt;
+export function metricPublishedAt(m: Metric<number> | number | null | undefined): string | undefined {
+  if (m && typeof m === "object" && "publishedAt" in m) return m.publishedAt;
+  return undefined;
 }
 
 /** Extract availableAt (Point-in-Time backtest permission timestamp) from a Metric<number> field */
-export function metricAvailableAt(m: Metric<number> | null | undefined): string | undefined {
-  return m?.availableAt;
+export function metricAvailableAt(m: Metric<number> | number | null | undefined): string | undefined {
+  if (m && typeof m === "object" && "availableAt" in m) return m.availableAt;
+  return undefined;
 }
 
 /** Extract availabilityPolicy from a Metric<number> field */
-export function metricPolicy(m: Metric<number> | null | undefined): AvailabilityPolicy | undefined {
-  return m?.availabilityPolicy;
+export function metricPolicy(m: Metric<number> | number | null | undefined): AvailabilityPolicy | undefined {
+  if (m && typeof m === "object" && "availabilityPolicy" in m) return m.availabilityPolicy;
+  return undefined;
 }
 
 /**
  * Format asOf display combining period, publishedAt and availableAt for Point-in-Time transparency.
  * E.g. "2024Q2 (生效: 2024-08-14)" or "2026-08-28"
  */
-export function formatAsOf(m: Metric<number> | null | undefined, defaultPeriod = "最新"): string {
+export function formatAsOf(m: Metric<number> | number | null | undefined, defaultPeriod = "最新"): string {
   if (!m) return defaultPeriod;
+  if (typeof m === "number") return defaultPeriod;
   if (m.period && m.availableAt) {
     if (m.period === m.availableAt || m.availableAt.startsWith(m.period)) return m.period;
     return `${m.period} (生效: ${m.availableAt})`;

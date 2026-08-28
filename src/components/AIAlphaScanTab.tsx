@@ -101,7 +101,7 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
     setScanning(true);
     setHasScanned(true);
     setProgress(0);
-    setProgressMsg("正在進行全市場 17 維神經網路 AI 推論...");
+    setProgressMsg("正在進行全市場 17 維多因子量化模型評估...");
     setResults([]);
 
     try {
@@ -109,7 +109,7 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
       const targetKeys = filterSymbolsByMarket(allKeys, fundamentalsMap, market);
 
       const total = targetKeys.length;
-      setProgressMsg(`正在調用硬體加速單元推論 ${total} 檔標的之 17 維神經網路...`);
+      setProgressMsg(`正在平行運算 ${total} 檔標的之 17 維真實多因子模型...`);
 
       const selectedStrat = STRATEGIES.find(s => s.id === strategy) || STRATEGIES[0];
       const evaluatedList: RankedAlphaStock[] = [];
@@ -153,7 +153,26 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
           market_cap: (safeNum(p.market_cap)) != null ? mkMops((safeNum(p.market_cap))!) : undefined,
         };
 
-        const aiResult = evaluateAIAlpha(info, curP, prevP);
+        // 提取 OHLCV 歷史價格序列供技術動能因子使用
+        let ohlcv: { timestamp: number[]; open: number[]; high: number[]; low: number[]; close: number[]; volume: number[] } | undefined = undefined;
+        if (p.ohlcv && Array.isArray(p.ohlcv.close) && p.ohlcv.close.length >= 20) {
+          ohlcv = p.ohlcv;
+        } else if (Array.isArray(p.closes) && p.closes.length >= 20) {
+          const c = p.closes;
+          const o = Array.isArray(p.opens) ? p.opens : c;
+          const h = Array.isArray(p.highs) ? p.highs : c;
+          const l = Array.isArray(p.lows) ? p.lows : c;
+          const v = Array.isArray(p.volumes) ? p.volumes : c.map(() => p.volume || 1000000);
+          const ts = Array.isArray(p.timestamps) ? p.timestamps : c.map((_: any, idx: number) => Date.now() - (c.length - idx) * 86400000);
+          ohlcv = { timestamp: ts, open: o, high: h, low: l, close: c, volume: v };
+        }
+
+        const aiResult = evaluateAIAlpha(info, curP, prevP, ohlcv);
+
+        // 🛡️ Data Quality Gate: 非偏空策略要求至少 10 項以上可用因子，避免因子過度缺失導致截面排名失真
+        if (strategy !== "landmine_risk" && aiResult.dataQuality.availableCount < 10) {
+          continue;
+        }
 
         if (selectedStrat.filterFn(aiResult, info)) {
           evaluatedList.push({
@@ -165,7 +184,7 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
 
         if (i % 25 === 0 || i === total - 1) {
           setProgress(Math.round(((i + 1) / total) * 100));
-          setProgressMsg(`正在推論 ${i + 1}/${total} 檔... 已命中 ${evaluatedList.length} 檔`);
+          setProgressMsg(`正在評估 ${i + 1}/${total} 檔... 已命中 ${evaluatedList.length} 檔符合條件`);
           await new Promise((r) => setTimeout(r, 0));
         }
       }
@@ -182,9 +201,9 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
 
       setResults(evaluatedList);
       setProgress(100);
-      setProgressMsg(`推論完成！共精選出 ${evaluatedList.length} 檔標的`);
+      setProgressMsg(`評估完成！共精選出 ${evaluatedList.length} 檔標的`);
     } catch (e: any) {
-      setProgressMsg(`推論錯誤: ${e.message}`);
+      setProgressMsg(`評估錯誤: ${e.message}`);
     } finally {
       setScanning(false);
     }
@@ -286,7 +305,7 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
             onClick={startScan}
             disabled={scanning}
           >
-            🧠 開始 AI 多因子推論
+            🧠 開始 AI 多因子量化掃描
           </button>
           {scanning && <button className="btn btn-outline" onClick={stopScan}>⏹ 停止</button>}
           {!scanning && results.length > 0 && (
@@ -307,7 +326,7 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
             <div className="empty-text">
               {hasScanned
                 ? "在此產業範圍中目前無符合該篩選標準之標的，建議可切換至【🚀 FinLab 波段飆股】或【⭐⭐⭐⭐ 穩健多頭】查看更多優質標的！"
-                : "選擇掃描範圍與 AI 策略，點選「開始 AI 多因子推論」執行全市場 17 維神經網路運算"}
+                : "選擇掃描範圍與 AI 策略，點選「開始 AI 多因子量化掃描」執行全市場 17 維多因子評分與截面排名"}
             </div>
           </div>
         ) : (
