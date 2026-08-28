@@ -103,21 +103,11 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
 
     try {
       const targetSymbols = getSymbolsByMarket(market);
-      const symbolSet = new Set(targetSymbols);
 
-      const mopsModule = await import("../utils/twse_mops_profiles.json");
-      const profilesMap: Record<string, any> = (mopsModule as any).default || mopsModule;
+      const mopsModule = await import("../utils/twse_mops_fundamentals.json");
+      const fundamentalsMap: Record<string, any> = (mopsModule as any).default || mopsModule;
 
-      let allEntries = Object.entries(profilesMap).filter(([sym]) => {
-        const clean = sym.split(".")[0];
-        return symbolSet.has(sym) || symbolSet.has(`${clean}.TW`) || symbolSet.has(`${clean}.TWO`);
-      });
-
-      if (allEntries.length === 0 && targetSymbols.length > 0) {
-        allEntries = targetSymbols.map((sym) => [sym, profilesMap[sym] || { symbol: sym, name: sym }]);
-      }
-
-      const total = allEntries.length;
+      const total = targetSymbols.length;
       setProgressMsg(`正在調用硬體加速單元推論 ${total} 檔標的之 17 維神經網路...`);
 
       const selectedStrat = STRATEGIES.find(s => s.id === strategy) || STRATEGIES[0];
@@ -125,9 +115,12 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
 
       for (let i = 0; i < total; i++) {
         if (cancelRef.current) break;
-        const [symbol, p] = allEntries[i];
-        const curP = p.current_price || p.c || 0;
-        const prevP = p.previous_close || curP;
+        const symbol = targetSymbols[i];
+        const clean = symbol.split(".")[0];
+        const p = fundamentalsMap[clean] || fundamentalsMap[symbol] || {};
+
+        const curP = p.close_price || p.current_price || p.c || 0;
+        const prevP = p.previous_close || (p.close_price && p.change != null ? p.close_price - p.change : curP);
 
         const info: StockInfoFull = {
           symbol,
@@ -137,7 +130,7 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
           pe: p.pe,
           tw_pe: p.tw_pe ?? p.pe,
           pb: p.pb,
-          dividend_yield: p.dividend_yield,
+          dividend_yield: p.dividend_yield ?? (p.dividend_yield_pct ? p.dividend_yield_pct / 100 : null),
           eps: p.eps,
           roe: p.roe,
           profit_margins: p.profit_margins,
@@ -163,7 +156,7 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
           });
         }
 
-        if (i % 80 === 0 || i === total - 1) {
+        if (i % 60 === 0 || i === total - 1) {
           setProgress(Math.round(((i + 1) / total) * 100));
           await new Promise((r) => setTimeout(r, 0));
         }
