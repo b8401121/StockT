@@ -125,6 +125,53 @@ const STRATEGIES = [
   },
 ];
 
+/**
+ * 🛡️ Priority 5: Deterministic Ranking Invariant
+ * 保證同條件下輸出 100% 絕對確定性，消除異步並行引起的排名抖動
+ * 
+ * 多層 Tie-Breakers:
+ * 1. winRatePct (多頭 DESC / 避險 ASC)
+ * 2. normalizedScore (全母體標準化多因子得分)
+ * 3. rawScore (原始加權分)
+ * 4. coverageRatio (覆蓋率 DESC - 資料越完備越優先)
+ * 5. availableFactorCount (可用因子數 DESC)
+ * 6. cleanSym / stockCode ASC (代碼自然字典序 - 終極 Tie-Breaker)
+ */
+function deterministicSortRankedStocks(stocks: RankedAlphaStock[], strategy: string): RankedAlphaStock[] {
+  return [...stocks].sort((a, b) => {
+    // 1. 主要指標：勝率
+    const winDiff = strategy === "landmine_risk"
+      ? a.winRatePct - b.winRatePct
+      : b.winRatePct - a.winRatePct;
+    if (Math.abs(winDiff) >= 0.001) return winDiff;
+
+    // 2. 次要指標：標準化多因子分數
+    const normDiff = strategy === "landmine_risk"
+      ? a.normalizedScore - b.normalizedScore
+      : b.normalizedScore - a.normalizedScore;
+    if (Math.abs(normDiff) >= 0.001) return normDiff;
+
+    // 3. 第三指標：原始分數
+    const rawDiff = strategy === "landmine_risk"
+      ? a.rawScore - b.rawScore
+      : b.rawScore - a.rawScore;
+    if (Math.abs(rawDiff) >= 0.001) return rawDiff;
+
+    // 4. 第四指標：因子覆蓋率 (Coverage Ratio 越大越可信)
+    const covDiff = b.coverageRatio - a.coverageRatio;
+    if (Math.abs(covDiff) >= 0.001) return covDiff;
+
+    // 5. 第五指標：可用因子總數
+    const countDiff = b.availableFactorCount - a.availableFactorCount;
+    if (countDiff !== 0) return countDiff;
+
+    // 6. 終極 Tie-Breaker：股票代碼自然字典序 (保證 100% 絕對確定性)
+    const symA = a.symbol.replace(/\.(TW|TWO)$/, "");
+    const symB = b.symbol.replace(/\.(TW|TWO)$/, "");
+    return symA.localeCompare(symB, undefined, { numeric: true, sensitivity: "base" });
+  });
+}
+
 export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => {
   const [theme] = useAppTheme();
   const isWarm = theme === "warm";
@@ -154,6 +201,8 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
     try {
       const allKeys = Object.keys(fundamentalsMap);
       const targetKeys = filterSymbolsByMarket(allKeys, fundamentalsMap, market);
+      // 確定性前置排序：確保批次 Chunk 切片在各執行環境皆完全相同
+      targetKeys.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
       const total = targetKeys.length;
 
       const selectedStrat = STRATEGIES.find(s => s.id === strategy) || STRATEGIES[0];
@@ -238,6 +287,7 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
           })
         );
 
+        // 🛡️ 嚴格計數守恆律 (Conservation Invariant) 記錄
         for (const res of chunkResults) {
           runningAudit.evaluated++;
 
@@ -273,9 +323,8 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
           runningAudit.universe === (runningAudit.evaluated + runningAudit.skipped)
         );
 
-        const currentRanked = [...matchedStocks].sort((a, b) => 
-          strategy === "landmine_risk" ? a.winRatePct - b.winRatePct : b.winRatePct - a.winRatePct
-        );
+        // 🛡️ Deterministic Progressive Ranking
+        const currentRanked = deterministicSortRankedStocks(matchedStocks, strategy);
         currentRanked.forEach((item, idx) => { item.rank = idx + 1; });
         setResults(currentRanked);
         setAuditMetrics({ ...runningAudit });
@@ -290,9 +339,15 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
         runningAudit.universe === (runningAudit.evaluated + runningAudit.skipped)
       );
 
-      setResults(matchedStocks);
+      // 🛡️ Deterministic Final Ranking
+      const finalRanked = deterministicSortRankedStocks(matchedStocks, strategy);
+      finalRanked.forEach((item, idx) => {
+        item.rank = idx + 1;
+      });
+
+      setResults(finalRanked);
       setProgress(100);
-      setProgressMsg(`🎉 評估完成！共精選出 ${matchedStocks.length} 檔 17 維多因子即時標的`);
+      setProgressMsg(`🎉 評估完成！共精選出 ${finalRanked.length} 檔 17 維多因子即時標的`);
       setAuditMetrics({ ...runningAudit });
     } catch (e: any) {
       setProgressMsg(`評估錯誤: ${e.message}`);
