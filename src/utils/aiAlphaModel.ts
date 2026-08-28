@@ -24,24 +24,24 @@ export interface FactorResult {
 }
 
 export const CANONICAL_FACTOR_DEFINITIONS = [
-  { name: "momentum20", category: "OHLCV", weight: 0.12 },
-  { name: "momentum60", category: "OHLCV", weight: 0.10 },
-  { name: "momentum120", category: "OHLCV", weight: 0.08 },
-  { name: "MA20", category: "OHLCV", weight: 0.09 },
-  { name: "MA60", category: "OHLCV", weight: 0.08 },
-  { name: "MA120", category: "OHLCV", weight: 0.07 },
-  { name: "MA240", category: "OHLCV", weight: 0.09 },
-  { name: "VolumeSurge", category: "OHLCV", weight: 0.08 },
-  { name: "ROE", category: "Fundamental", weight: 0.14 },
-  { name: "GrossMargins", category: "Fundamental", weight: 0.08 },
-  { name: "OperatingMargins", category: "Fundamental", weight: 0.09 },
-  { name: "RevenueGrowthYoY", category: "Fundamental", weight: 0.12 },
-  { name: "DebtToEquity", category: "Safety", weight: 0.08 },
-  { name: "CurrentRatio", category: "Safety", weight: 0.06 },
-  { name: "FCF", category: "Fundamental", weight: 0.08 },
-  { name: "PE", category: "Valuation", weight: 0.08 },
-  { name: "PB", category: "Valuation", weight: 0.06 },
-  { name: "Dividend Yield", category: "Valuation", weight: 0.06 },
+  { name: "momentum20", category: "OHLCV", weight: 0.09 },
+  { name: "momentum60", category: "OHLCV", weight: 0.08 },
+  { name: "momentum120", category: "OHLCV", weight: 0.06 },
+  { name: "MA20", category: "OHLCV", weight: 0.07 },
+  { name: "MA60", category: "OHLCV", weight: 0.06 },
+  { name: "MA120", category: "OHLCV", weight: 0.05 },
+  { name: "MA240", category: "OHLCV", weight: 0.07 },
+  { name: "VolumeSurge", category: "OHLCV", weight: 0.06 },
+  { name: "ROE", category: "Fundamental", weight: 0.10 },
+  { name: "GrossMargins", category: "Fundamental", weight: 0.05 },
+  { name: "OperatingMargins", category: "Fundamental", weight: 0.06 },
+  { name: "RevenueGrowthYoY", category: "Fundamental", weight: 0.08 },
+  { name: "DebtToEquity", category: "Safety", weight: 0.04 },
+  { name: "CurrentRatio", category: "Safety", weight: 0.04 },
+  { name: "FCF", category: "Fundamental", weight: 0.05 },
+  { name: "PE", category: "Valuation", weight: 0.05 },
+  { name: "PB", category: "Valuation", weight: 0.04 },
+  { name: "Dividend Yield", category: "Valuation", weight: 0.05 },
 ];
 
 /** 舊版相容性介面 */
@@ -926,6 +926,7 @@ export function evaluateAIAlpha(
   // 4. ML Track (決策樹集成 & 特徵交互推論 - 嚴格 Null-Safe，無人工合成 Fallback)
   // ──────────────────────────────────────────────────────────────────────────
   const currP = curP || 100;
+  const currRatio = metricVal(info.current_ratio);
 
   const mlResult = evaluateMLModel({
     momentum20: m20 !== null ? m20 / 100 : null,
@@ -935,14 +936,17 @@ export function evaluateAIAlpha(
     ma60Bias: (currP && ma60) ? (currP - ma60) / ma60 : null,
     ma120Bias: (currP && ma120) ? (currP - ma120) / ma120 : null,
     ma240Bias: (currP && ma240) ? (currP - ma240) / ma240 : null,
-    volumeRatio: vRatio !== null ? vRatio : null,
+    volumeSurge: vRatio !== null ? vRatio : null,
     roe: roeVal,
+    grossMargins: grossM,
+    operatingMargins: operM,
+    revenueGrowthYoY: revGrowth,
+    debtToEquity: debtVal,
+    currentRatio: currRatio,
+    freeCashFlow: fcfVal,
     pe: peVal,
     pb: pbVal,
     dividendYield: dyVal,
-    grossMargins: grossM,
-    profitMargins: operM,
-    debtToEquity: debtVal,
   });
 
   // 雙軌 Ensemble: 60% 規則多因子 + 40% 機器學習決策樹

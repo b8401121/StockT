@@ -212,7 +212,7 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
     setScanning(true);
     setHasScanned(true);
     setProgress(0);
-    setProgressMsg("正在準備全市場 17 維多因子量化評估...");
+    setProgressMsg("正在準備全市場 18 維多因子量化評估...");
     setResults([]);
     setProvenanceReport(null);
 
@@ -260,7 +260,7 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
         const currentProgress = Math.round(((i + chunkKeys.length) / total) * 100);
         
         setProgress(currentProgress);
-        setProgressMsg(`正在進行 17 維多因子推論 ${i + 1}~${Math.min(i + BATCH_SIZE, total)} / ${total} 檔... (已精選 ${matchedStocks.length} 檔)`);
+        setProgressMsg(`正在進行 18 維多因子推論 ${i + 1}~${Math.min(i + BATCH_SIZE, total)} / ${total} 檔... (已精選 ${matchedStocks.length} 檔)`);
 
         const chunkResults = await Promise.allSettled(
           chunkKeys.map(async (key) => {
@@ -372,7 +372,7 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
 
       setResults(finalRanked);
       setProgress(100);
-      setProgressMsg(`🎉 評估完成！共精選出 ${finalRanked.length} 檔 17 維多因子即時標的`);
+      setProgressMsg(`🎉 評估完成！共精選出 ${finalRanked.length} 檔 18 維多因子即時標的`);
       setAuditMetrics({ ...runningAudit });
 
       // 🛡️ Priority 6: Institutional-Grade Cryptographic Provenance Generation
@@ -420,7 +420,7 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
   const exportHtml = async () => {
     try {
       const stratName = STRATEGIES.find((s) => s.id === strategy)?.label || strategy;
-      const title = `StockT AI 17維多因子選股報告 - ${stratName}`;
+      const title = `StockT AI 18維多因子選股報告 - ${stratName}`;
       const filename = `ai_alpha_scan_${strategy}_${new Date().toISOString().slice(0, 10)}.html`;
       const htmlContent = await exportToHtmlFile(title, results, "aiAlpha");
       const savedPath = await stockService.exportTxtFile(filename, htmlContent);
@@ -580,7 +580,7 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
             <div className="empty-text">
               {hasScanned
                 ? "在此產業範圍中目前無符合該篩選標準之標的，建議可切換至【🚀 FinLab 波段飆股】或【⭐⭐⭐⭐ 穩健多頭】查看更多優質標的！"
-                : "選擇掃描範圍與 AI 策略，點選「開始 AI 多因子量化掃描」執行全市場 17 維多因子評分與截面排名"}
+                : "選擇掃描範圍與 AI 策略，點選「開始 AI 多因子量化掃描」執行全市場 18 維多因子評分與截面排名"}
             </div>
           </div>
         ) : (
@@ -594,9 +594,9 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
                 <th style={{ width: "140px" }}>🧠 20日超額勝率</th>
                 <th>預估超額 Alpha</th>
                 <th>AI 置信評級</th>
-                <th>17 維核心驅動因子</th>
+                <th>18 維核心驅動因子</th>
                 <th>PE / ROE</th>
-                <th style={{ width: "130px" }}>17 因子明細</th>
+                <th style={{ width: "130px" }}>18 因子明細</th>
                 <th style={{ width: "110px" }}>操作</th>
               </tr>
             </thead>
@@ -620,12 +620,12 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
                       <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
                         <span className="badge" style={{
                           fontSize: "0.70rem",
-                          backgroundColor: r.dataQuality.availableCount >= 16 ? "rgba(34, 197, 94, 0.2)" : r.dataQuality.availableCount >= 12 ? "rgba(59, 130, 246, 0.2)" : "rgba(245, 158, 11, 0.2)",
-                          color: r.dataQuality.availableCount >= 16 ? (isWarm ? "#15803d" : "#4ade80") : r.dataQuality.availableCount >= 12 ? (isWarm ? "#0284c7" : "#60a5fa") : (isWarm ? "#b45309" : "#fbbf24"),
-                          border: `1px solid ${r.dataQuality.availableCount >= 16 ? "rgba(34, 197, 94, 0.4)" : "rgba(59, 130, 246, 0.4)"}`,
+                          backgroundColor: r.dataQuality.availableCount >= 17 ? "rgba(34, 197, 94, 0.2)" : r.dataQuality.availableCount >= 12 ? "rgba(59, 130, 246, 0.2)" : "rgba(245, 158, 11, 0.2)",
+                          color: r.dataQuality.availableCount >= 17 ? (isWarm ? "#15803d" : "#4ade80") : r.dataQuality.availableCount >= 12 ? (isWarm ? "#0284c7" : "#60a5fa") : (isWarm ? "#b45309" : "#fbbf24"),
+                          border: `1px solid ${r.dataQuality.availableCount >= 17 ? "rgba(34, 197, 94, 0.4)" : "rgba(59, 130, 246, 0.4)"}`,
                           fontWeight: 700
                         }}>
-                          {r.coverageDisplay || `${r.dataQuality.availableCount}/17`}
+                          {r.coverageDisplay || `${r.dataQuality.availableCount}/18`}
                         </span>
                         <span style={{ fontSize: "0.68rem", color: "var(--text-muted)" }}>
                           標準分: <b style={{ color: r.normalizedScore >= 0 ? (isWarm ? "#15803d" : "#4ade80") : "#f87171" }}>{r.normalizedScore >= 0 ? "+" : ""}{r.normalizedScore.toFixed(2)}</b>
@@ -672,7 +672,7 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
                         style={{ fontSize: "0.72rem", padding: "3px 8px", borderColor: "#a855f7", color: "#c084fc" }}
                         onClick={() => setSelectedStockForDetail(r)}
                       >
-                        🔍 展開 17 因子
+                        🔍 展開 18 因子
                       </button>
                     </td>
                     <td>
@@ -729,7 +729,7 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: isWarm ? "1px solid rgba(140, 110, 80, 0.2)" : "1px solid rgba(124, 58, 237, 0.4)", paddingBottom: "10px", marginBottom: "12px" }}>
               <div>
                 <span style={{ fontSize: "1.2rem", fontWeight: 800, color: isWarm ? "#18181b" : "#f3e8ff" }}>
-                  🧠 {selectedStockForDetail.name} ({selectedStockForDetail.symbol.split(".")[0]}) 17 維真實多因子全景
+                  🧠 {selectedStockForDetail.name} ({selectedStockForDetail.symbol.split(".")[0]}) 18 維真實多因子全景
                 </span>
                 <div style={{ fontSize: "0.82rem", color: isWarm ? "#9a3412" : "#c084fc", marginTop: "2px" }}>
                   20 日超額勝率：<b>{fmtFixed(selectedStockForDetail.winRatePct, 1)}%</b> ｜ 評級：<b>{selectedStockForDetail.convictionTier}</b> ｜ 預估 Alpha：<b>{selectedStockForDetail.expectedAlphaPct >= 0 ? '+' : ''}{fmtFixed(selectedStockForDetail.expectedAlphaPct, 1)}%</b>
@@ -758,7 +758,7 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
                 <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "6px" }}>
                   <div>
                     <span style={{ color: isWarm ? "#57534e" : "#94a3b8" }}>因子覆蓋度 (Coverage)：</span>
-                    <b style={{ color: selectedStockForDetail.availableFactorCount >= 16 ? (isWarm ? "#15803d" : "#4ade80") : selectedStockForDetail.availableFactorCount >= 12 ? (isWarm ? "#0284c7" : "#60a5fa") : "#f87171" }}>
+                    <b style={{ color: selectedStockForDetail.availableFactorCount >= 17 ? (isWarm ? "#15803d" : "#4ade80") : selectedStockForDetail.availableFactorCount >= 12 ? (isWarm ? "#0284c7" : "#60a5fa") : "#f87171" }}>
                       {selectedStockForDetail.coverageDisplay}
                     </b>
                     <span style={{ color: isWarm ? "#57534e" : "#94a3b8", marginLeft: "8px" }}>
