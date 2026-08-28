@@ -1,0 +1,47 @@
+{
+  "certification_title": "StockT Cross-Sectional ML Alpha Engine",
+  "certified_at": "2026-08-28T16:42:53.912Z",
+  "audit_results": {
+    "pit_violations": 0,
+    "zero_future_leakage": true,
+    "monte_carlo_permutation_p_value": 0.04,
+    "is_p_value_significant": false,
+    "top_stock_profit_share_pct": 28.9,
+    "top_3_stocks_profit_share_pct": 76.4,
+    "period_breakdown": [
+      {
+        "period": "2022 Bear Market",
+        "ruleRankIC": 0.1343,
+        "mlRankIC": 0.1434,
+        "ruleNetReturnPct": 55.63,
+        "mlNetReturnPct": 27.64,
+        "mlSuperiority": false
+      },
+      {
+        "period": "2023 Recovery",
+        "ruleRankIC": 0.1768,
+        "mlRankIC": -0.0212,
+        "ruleNetReturnPct": 43.17,
+        "mlNetReturnPct": 16.93,
+        "mlSuperiority": false
+      },
+      {
+        "period": "2024 AI Bull Wave",
+        "ruleRankIC": 0.1212,
+        "mlRankIC": 0.1283,
+        "ruleNetReturnPct": 36.49,
+        "mlNetReturnPct": 40.02,
+        "mlSuperiority": true
+      },
+      {
+        "period": "2025-2026 Locked OOS",
+        "ruleRankIC": 0.0315,
+        "mlRankIC": 0.1939,
+        "ruleNetReturnPct": 6.18,
+        "mlNetReturnPct": 68.52,
+        "mlSuperiority": true
+      }
+    ],
+    "status": "FAILED"
+  }
+}
