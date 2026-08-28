@@ -125,17 +125,27 @@ const STRATEGIES = [
   },
 ];
 
+import {
+  DeterministicProvenanceReport,
+  CANONICAL_MODEL_HASH,
+  CANONICAL_RANKING_ALGORITHM,
+  computeUniverseHash,
+  computeInputSnapshotHash,
+  computeStrategyConfigHash,
+  computeResultHash,
+} from "../utils/quantProvenance";
+
 /**
  * 🛡️ Priority 5: Deterministic Ranking Invariant
  * 保證同條件下輸出 100% 絕對確定性，消除異步並行引起的排名抖動
  * 
- * 多層 Tie-Breakers:
+ * 多層 Tie-Breakers (Pure Numeric & Cross-Platform Collator-Free):
  * 1. winRatePct (多頭 DESC / 避險 ASC)
  * 2. normalizedScore (全母體標準化多因子得分)
  * 3. rawScore (原始加權分)
  * 4. coverageRatio (覆蓋率 DESC - 資料越完備越優先)
  * 5. availableFactorCount (可用因子數 DESC)
- * 6. cleanSym / stockCode ASC (代碼自然字典序 - 終極 Tie-Breaker)
+ * 6. pure numeric stockCode ASC / string fallback (完全跨環境、跨瀏覽器純數字比較)
  */
 function deterministicSortRankedStocks(stocks: RankedAlphaStock[], strategy: string): RankedAlphaStock[] {
   return [...stocks].sort((a, b) => {
@@ -165,10 +175,15 @@ function deterministicSortRankedStocks(stocks: RankedAlphaStock[], strategy: str
     const countDiff = b.availableFactorCount - a.availableFactorCount;
     if (countDiff !== 0) return countDiff;
 
-    // 6. 終極 Tie-Breaker：股票代碼自然字典序 (保證 100% 絕對確定性)
+    // 6. 終極 Tie-Breaker：純數字股票代碼比較 (避免任何環境 locale 歧異)
     const symA = a.symbol.replace(/\.(TW|TWO)$/, "");
     const symB = b.symbol.replace(/\.(TW|TWO)$/, "");
-    return symA.localeCompare(symB, undefined, { numeric: true, sensitivity: "base" });
+    const codeA = Number(symA);
+    const codeB = Number(symB);
+    if (Number.isFinite(codeA) && Number.isFinite(codeB) && codeA !== codeB) {
+      return codeA - codeB;
+    }
+    return symA < symB ? -1 : symA > symB ? 1 : 0;
   });
 }
 
@@ -184,6 +199,7 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
   const [results, setResults] = useState<RankedAlphaStock[]>([]);
   const [selectedStockForDetail, setSelectedStockForDetail] = useState<RankedAlphaStock | null>(null);
   const [auditMetrics, setAuditMetrics] = useState<ScanAuditMetrics | null>(null);
+  const [provenanceReport, setProvenanceReport] = useState<DeterministicProvenanceReport | null>(null);
   const cancelRef = useRef(false);
 
   useEffect(() => {
@@ -197,12 +213,20 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
     setProgress(0);
     setProgressMsg("正在準備全市場 17 維多因子量化評估...");
     setResults([]);
+    setProvenanceReport(null);
 
     try {
       const allKeys = Object.keys(fundamentalsMap);
       const targetKeys = filterSymbolsByMarket(allKeys, fundamentalsMap, market);
-      // 確定性前置排序：確保批次 Chunk 切片在各執行環境皆完全相同
-      targetKeys.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+      // 確定性前置排序：純數字跨平台排序
+      targetKeys.sort((a, b) => {
+        const numA = Number(a);
+        const numB = Number(b);
+        if (Number.isFinite(numA) && Number.isFinite(numB) && numA !== numB) {
+          return numA - numB;
+        }
+        return a < b ? -1 : a > b ? 1 : 0;
+      });
       const total = targetKeys.length;
 
       const selectedStrat = STRATEGIES.find(s => s.id === strategy) || STRATEGIES[0];
@@ -349,6 +373,29 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
       setProgress(100);
       setProgressMsg(`🎉 評估完成！共精選出 ${finalRanked.length} 檔 17 維多因子即時標的`);
       setAuditMetrics({ ...runningAudit });
+
+      // 🛡️ Priority 6: Deterministic Provenance Fingerprint Generation
+      const scanTimestamp = new Date().toISOString();
+      const scanId = `SCAN-${scanTimestamp.slice(0, 10).replace(/-/g, "")}-${strategy.toUpperCase()}-${Math.floor(Date.now() / 1000).toString(36)}`;
+      const [uHash, inHash, stratHash, resHash] = await Promise.all([
+        computeUniverseHash(targetKeys),
+        computeInputSnapshotHash(targetKeys, fundamentalsMap),
+        computeStrategyConfigHash(selectedStrat.id, selectedStrat.label),
+        computeResultHash(finalRanked),
+      ]);
+
+      const provReport: DeterministicProvenanceReport = {
+        scanId,
+        scanTimestamp,
+        rankingAlgorithm: CANONICAL_RANKING_ALGORITHM,
+        modelHash: CANONICAL_MODEL_HASH,
+        universeHash: uHash,
+        inputSnapshotHash: inHash,
+        strategyConfigHash: stratHash,
+        resultHash: resHash,
+        itemCount: finalRanked.length,
+      };
+      setProvenanceReport(provReport);
     } catch (e: any) {
       setProgressMsg(`評估錯誤: ${e.message}`);
     } finally {
@@ -369,6 +416,14 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
     } catch (err) {
       alert(`匯出失敗: ${err}`);
     }
+  };
+
+  const copyProvenanceJson = () => {
+    if (!provenanceReport) return;
+    const jsonStr = JSON.stringify(provenanceReport, null, 2);
+    navigator.clipboard.writeText(jsonStr).then(() => {
+      alert("✅ 已複製審計指紋報告 (Deterministic Provenance JSON) 至剪貼簿！");
+    });
   };
 
   return (
@@ -416,6 +471,7 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
           <span className="progress-label" style={{ fontSize: "0.78rem", minWidth: "160px" }}>{progressMsg}</span>
         </div>
 
+        {/* 📊 嚴格守恆 Scan Pipeline Audit 漏斗統計面板 */}
         {auditMetrics && (
           <div style={{
             marginTop: "10px",
@@ -426,7 +482,7 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
             fontSize: "0.76rem",
             display: "flex",
             flexDirection: "column",
-            gap: "6px"
+            gap: "8px"
           }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "6px" }}>
               <div style={{ fontWeight: 700, color: isWarm ? "#9a3412" : "#c084fc", display: "flex", alignItems: "center", gap: "6px" }}>
@@ -459,6 +515,45 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
                 K線缺失降級標記：{auditMetrics.ohlcvDegradedCount} 檔
               </span>
             </div>
+
+            {/* 📜 Priority 6: Cryptographic Deterministic Provenance Fingerprints */}
+            {provenanceReport && (
+              <div style={{
+                borderTop: isWarm ? "1px dashed rgba(140, 110, 80, 0.2)" : "1px dashed rgba(255, 255, 255, 0.1)",
+                paddingTop: "6px",
+                fontSize: "0.70rem",
+                color: isWarm ? "#57534e" : "#94a3b8",
+                display: "flex",
+                flexDirection: "column",
+                gap: "3px"
+              }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span style={{ fontWeight: 700, color: isWarm ? "#0284c7" : "#38bdf8" }}>
+                    📜 可重現審計指紋 (Provenance Hashes)：
+                  </span>
+                  <button
+                    onClick={copyProvenanceJson}
+                    style={{
+                      background: "transparent",
+                      border: isWarm ? "1px solid rgba(140,110,80,0.3)" : "1px solid rgba(255,255,255,0.2)",
+                      borderRadius: "4px",
+                      color: isWarm ? "#9a3412" : "#c084fc",
+                      fontSize: "0.68rem",
+                      cursor: "pointer",
+                      padding: "1px 6px"
+                    }}
+                  >
+                    📋 複製審計指紋 JSON
+                  </button>
+                </div>
+                <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", fontFamily: "monospace" }}>
+                  <span>Scan ID: <b style={{ color: isWarm ? "#18181b" : "#f8fafc" }}>{provenanceReport.scanId}</b></span>
+                  <span>Model: <b>{provenanceReport.modelHash.slice(0, 15)}...</b></span>
+                  <span>Snapshot: <b>{provenanceReport.inputSnapshotHash.slice(0, 15)}...</b></span>
+                  <span>Result: <b style={{ color: isWarm ? "#15803d" : "#4ade80" }}>{provenanceReport.resultHash.slice(0, 15)}...</b></span>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
