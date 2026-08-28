@@ -133,6 +133,19 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
     return subscribeStocks((s) => setStockDb(s));
   }, []);
 
+  // 初始即時價格預載入（從官方資料庫極速載入真實收盤價，避免等待或假數據）
+  useEffect(() => {
+    const initialPrices: Record<string, number> = {};
+    for (const [code, fund] of Object.entries(twseFundamentals as Record<string, any>)) {
+      if (fund?.close_price && Number(fund.close_price) > 0) {
+        initialPrices[`${code}.TW`] = Number(fund.close_price);
+        initialPrices[`${code}.TWO`] = Number(fund.close_price);
+        initialPrices[code] = Number(fund.close_price);
+      }
+    }
+    setPrices((prev) => ({ ...initialPrices, ...prev }));
+  }, []);
+
   // 標準化資料結構 (支援舊版 PortfolioEntry 相容轉換與代號標準化)
   const normalizeLists = useCallback((rawLists: Record<string, any[]>): Record<string, TradeRecord[]> => {
     const normalized: Record<string, TradeRecord[]> = {};

@@ -125,59 +125,6 @@ function saveStoredWatchlistsIndex(lists: string[]) {
   }
 }
 
-// 產生結構化歷史 K 棒
-function generateFallbackOhlcv(symbol: string, days = 250): OhlcvData {
-  const timestamps: number[] = [];
-  const opens: number[] = [];
-  const highs: number[] = [];
-  const lows: number[] = [];
-  const closes: number[] = [];
-  const volumes: number[] = [];
-
-  const coCode = symbol.split(".")[0];
-  const fund = (FUND_MAP && FUND_MAP[coCode]) ? FUND_MAP[coCode] : null;
-  const officialClose = fund?.close_price != null && Number(fund.close_price) > 0 
-    ? Number(fund.close_price) 
-    : (fund?.eps && fund?.pe ? Number((fund.eps * fund.pe).toFixed(2)) : 50.0);
-
-  const basePrice = officialClose;
-  const now = Math.floor(Date.now() / 1000);
-
-  // 依據官方真實收盤價生成平滑連續的歷史價格序列
-  let price = basePrice;
-  const dayPrices: number[] = [basePrice];
-  for (let i = 1; i <= days; i++) {
-    const change = (Math.sin(i * 0.12) * 0.008 + (Math.random() - 0.5) * 0.012) * basePrice;
-    price = Math.max(1, price - change);
-    dayPrices.unshift(Number(price.toFixed(2)));
-  }
-
-  for (let i = 0; i <= days; i++) {
-    const t = now - (days - i) * 86400;
-    const c = dayPrices[i];
-    const o = i > 0 ? dayPrices[i - 1] : (fund?.open_price ? Number(fund.open_price) : c);
-    const h = Math.max(o, c) + Math.abs(c - o) * 0.3 + c * 0.005;
-    const l = Math.min(o, c) - Math.abs(c - o) * 0.3 - c * 0.005;
-    const v = fund?.volume ? Math.round(Number(fund.volume) * (0.8 + Math.random() * 0.4)) : 1000000;
-
-    timestamps.push(t);
-    opens.push(Number(o.toFixed(2)));
-    highs.push(Number(h.toFixed(2)));
-    lows.push(Number(Math.max(0.1, l).toFixed(2)));
-    closes.push(Number(c.toFixed(2)));
-    volumes.push(v);
-  }
-
-  return {
-    timestamp: timestamps,
-    open: opens,
-    high: highs,
-    low: lows,
-    close: closes,
-    volume: volumes,
-  };
-}
-
 // ─── 產生各別標的真實特徵的基本面財務比率 ──────────────────────────────────────
 function getDeterministicFundamentals(coId: string, normSym: string, curPrice: number, stockName: string) {
   const official = (FUND_MAP && FUND_MAP[coId]) ? FUND_MAP[coId] : null;
@@ -419,11 +366,9 @@ async function fetchWebStockData(symbol: string, range = "1y"): Promise<StockDat
     }
   }
 
-  // 若無網路 K 棒則使用以官方真實收盤價為基準的回退 K 棒
-  if (!ohlcvData) {
-    ohlcvData = generateFallbackOhlcv(normSym, range === "3mo" ? 65 : 250);
-    curPrice = curPrice > 0 ? curPrice : ohlcvData.close[ohlcvData.close.length - 1];
-    prevClose = prevClose > 0 ? prevClose : (ohlcvData.close[ohlcvData.close.length - 2] ?? curPrice);
+  // 若無法獲取真實 K 棒則直接拋出錯誤，絕不捏造任何虛擬正弦波或假數據
+  if (!ohlcvData || ohlcvData.close.length < 3) {
+    throw new Error(`無法連線取得【${stockName} (${normSym})】之交易所真實 K 線資料，請檢查網路連線後再試。`);
   }
 
   // 2. 抓取或生成基本面財務比率
@@ -483,7 +428,7 @@ async function fetchWebStockData(symbol: string, range = "1y"): Promise<StockDat
     }
   } catch {}
 
-  return {
+  const result: StockData = {
     ohlcv: ohlcvData,
     info: {
       symbol: normSym,
@@ -511,6 +456,8 @@ async function fetchWebStockData(symbol: string, range = "1y"): Promise<StockDat
       long_business_summary: summary,
     },
   };
+  memoryStockCache.set(cacheKey, { data: result, expireAt: Date.now() + 180000 });
+  return result;
 }
 
 /**

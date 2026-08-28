@@ -302,6 +302,8 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
     setSearchModalItems([]);
     setLoading(true);
     setError("");
+    setOhlcv(null);
+    setInfo(null);
     setAutocomplete([]);
     try {
       const data: any = await invoke("fetch_stock_data", { symbol: target, range: "1y" });
@@ -334,11 +336,13 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
         .then((n: any) => setNews(n))
         .catch(() => {});
     } catch (e: any) {
-      setError(String(e));
+      setError(e?.message || String(e) || "無法連線取得該標的之即時行情資料，請檢查網路連線後重試。");
+      setOhlcv(null);
+      setInfo(null);
     } finally {
       setLoading(false);
     }
-  }, [query]);
+  }, [query, stockDb]);
 
   const handleKey = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") doAnalysis();
@@ -439,6 +443,14 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
 
         {/* 內容 */}
         <div className="analysis-info">
+          {loading && (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "60px 20px", gap: "14px" }}>
+              <div style={{ fontSize: "2.5rem" }}>⏳</div>
+              <div style={{ color: "#38bdf8", fontWeight: 700, fontSize: "1.05rem" }}>正在連線取得即時行情...</div>
+              <div style={{ color: "#94a3b8", fontSize: "0.82rem", textAlign: "center" }}>正在同步台灣證券交易所與櫃買中心數據，絕不產生虛擬數據</div>
+            </div>
+          )}
+
           {!info && !loading && (
             <div className="empty-state">
               <div className="empty-icon">📊</div>
@@ -446,7 +458,7 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
             </div>
           )}
 
-          {info && (
+          {!loading && info && (
             <>
               {/* 股票名稱與現價 */}
               <div style={{ marginBottom: "12px" }}>
@@ -636,12 +648,18 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
 
       {/* ─── 右側圖表區 ─────────────────────────────────────────────── */}
       <div className="analysis-chart-area">
-        {ohlcv && ind ? (
+        {loading ? (
+          <div className="empty-state" style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "16px" }}>
+            <div style={{ fontSize: "3.5rem" }}>⏳</div>
+            <div style={{ fontSize: "1.2rem", color: "#38bdf8", fontWeight: 700 }}>正在載入真實交易 K 線與技術指標...</div>
+            <div style={{ fontSize: "0.85rem", color: "#94a3b8" }}>正在安全連線官方行情資料集，絕不捏造虛假數據</div>
+          </div>
+        ) : ohlcv && ind ? (
           <ChartPanel ohlcv={ohlcv} ind={ind} symbol={info?.symbol ?? ""} name={info?.name ?? ""} />
         ) : (
           <div className="empty-state" style={{ height: "100%" }}>
             <div className="empty-icon">📈</div>
-            <div className="empty-text">分析後將顯示 K 線圖與7項技術指標</div>
+            <div className="empty-text">{error ? error : "輸入股票代碼並點擊「分析」以載入即時行情"}</div>
           </div>
         )}
       </div>
