@@ -2,7 +2,7 @@ import { AddToWatchlistBtn } from "./AddToWatchlistBtn";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { stockService, newsService, fundamentalService } from "../services";
 import twseFundamentals from "../utils/twse_mops_fundamentals.json";
-import { ChartPanel } from "./Chart";
+import { ChartPanel, ZoomChartModal, SubChartType } from "./Chart";
 import { calculateAllIndicators, OhlcvData } from "../utils/indicators";
 import {
   getAnalysisSuggestions,
@@ -195,6 +195,16 @@ const getTechIndicatorExplanation = (title: string): { label: string, explanatio
   };
 };
 
+const getTechChartType = (title: string): "main" | SubChartType => {
+  if (title.includes("KD")) return "kd";
+  if (title.includes("MACD")) return "macd";
+  if (title.includes("RSI")) return "rsi";
+  if (title.includes("OBV")) return "obv";
+  if (title.includes("威廉")) return "wr";
+  if (title.includes("ATR")) return "atr";
+  return "main";
+};
+
 // ─── 主元件 ───────────────────────────────────────────────────────────────────
 interface Props { initialSymbol?: string; }
 export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
@@ -216,6 +226,7 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
   const [showAIModal, setShowAIModal] = useState(false);
   const [showFsModal, setShowFsModal] = useState(false);
   const [showTechModal, setShowTechModal] = useState(false);
+  const [activeTechChart, setActiveTechChart] = useState<"main" | SubChartType | null>(null);
   const [aiModalFilter, setAiModalFilter] = useState<"ALL" | "OHLCV" | "Fundamental" | "Valuation" | "Safety">("ALL");
   const [fundData, setFundData] = useState<any>(null);
   const [fundLoading, setFundLoading] = useState(false);
@@ -1759,24 +1770,41 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))", gap: "10px" }}>
                   {suggestions.map((s, i) => {
                     const exp = getTechIndicatorExplanation(s.title);
+                    const chartType = getTechChartType(s.title);
                     return (
                       <div
                         key={i}
+                        onClick={() => setActiveTechChart(chartType)}
                         style={{
                           background: "rgba(15, 23, 42, 0.6)",
                           border: `1px solid ${s.color}40`,
                           borderLeft: `4px solid ${s.color}`,
                           borderRadius: "10px", padding: "12px 14px",
-                          display: "flex", flexDirection: "column", gap: "4px"
+                          display: "flex", flexDirection: "column", gap: "4px",
+                          cursor: "pointer", transition: "all 0.15s ease"
                         }}
+                        title={`點擊查看 ${exp.label} 互動圖表`}
                       >
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                           <span style={{ fontWeight: 700, color: s.color, fontSize: "0.88rem" }}>
                             {s.title}
                           </span>
-                          <span style={{ fontSize: "0.68rem", color: "#94a3b8", background: "rgba(255,255,255,0.06)", padding: "1px 6px", borderRadius: "4px" }}>
-                            {exp.label}
-                          </span>
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                            <span style={{ fontSize: "0.68rem", color: "#94a3b8", background: "rgba(255,255,255,0.06)", padding: "1px 6px", borderRadius: "4px" }}>
+                              {exp.label}
+                            </span>
+                            <span style={{
+                              background: "rgba(56, 189, 248, 0.18)",
+                              color: "#38bdf8",
+                              border: "1px solid rgba(56, 189, 248, 0.4)",
+                              padding: "1px 6px",
+                              borderRadius: "4px",
+                              fontSize: "0.68rem",
+                              fontWeight: 700
+                            }}>
+                              📈 檢視圖表 🔍
+                            </span>
+                          </div>
                         </div>
                         <div style={{ fontSize: "0.82rem", color: "#f8fafc", fontWeight: 500, marginTop: "2px" }}>
                           {s.desc}
@@ -1795,7 +1823,7 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
             {/* Footer */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: "12px" }}>
               <span style={{ fontSize: "0.75rem", color: "#64748b" }}>
-                以 8 大指標數值及 20/50/200 日價量統計為依據進行量化加權
+                以 8 大指標數值及 20/50/200 日價量統計為依據進行量化加權 ｜ 點擊任一項目可開啟獨立互動圖表
               </span>
               <button className="btn btn-primary btn-sm" onClick={() => setShowTechModal(false)}>
                 確定關閉
@@ -1804,6 +1832,18 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
 
           </div>
         </div>
+      )}
+
+      {/* 獨立技術指標放大圖表 Modal */}
+      {activeTechChart && ohlcv && ind && (
+        <ZoomChartModal
+          type={activeTechChart}
+          ohlcv={ohlcv}
+          ind={ind}
+          symbol={info?.symbol ?? ""}
+          name={info?.name ?? ""}
+          onClose={() => setActiveTechChart(null)}
+        />
       )}
 
       {/* 指標診斷與解說 Modal */}

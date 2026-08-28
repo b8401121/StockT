@@ -9,7 +9,7 @@ interface ChartPanelProps {
   name: string;
 }
 
-type SubChartType = "kd" | "macd" | "rsi" | "obv" | "wr" | "atr";
+export type SubChartType = "kd" | "macd" | "rsi" | "obv" | "wr" | "atr";
 
 const CHART_OPTS = {
   layout: { background: { type: ColorType.Solid, color: "transparent" }, textColor: "rgba(200,210,230,0.8)" },
@@ -96,7 +96,7 @@ const ChartHUDView: React.FC<{ data: TooltipData }> = ({ data }) => {
 };
 
 // ─── 放大檢視互動式 Modal ───────────────────────────────────────────────────────
-interface ZoomModalProps {
+export interface ZoomModalProps {
   type: "main" | SubChartType;
   ohlcv: OhlcvData;
   ind: Indicators;
@@ -105,7 +105,7 @@ interface ZoomModalProps {
   onClose: () => void;
 }
 
-const ZoomChartModal: React.FC<ZoomModalProps> = ({ type, ohlcv, ind, symbol, name, onClose }) => {
+export const ZoomChartModal: React.FC<ZoomModalProps> = ({ type, ohlcv, ind, symbol, name, onClose }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const [hoverInfo, setHoverInfo] = useState<TooltipData | null>(null);
@@ -417,9 +417,6 @@ const ZoomChartModal: React.FC<ZoomModalProps> = ({ type, ohlcv, ind, symbol, na
 // ─── 主元件 ───────────────────────────────────────────────────────────────────
 export const ChartPanel: React.FC<ChartPanelProps> = ({ ohlcv, ind, symbol, name }) => {
   const mainRef = useRef<HTMLDivElement>(null);
-  const subRefs = useRef<Record<SubChartType, HTMLDivElement | null>>({
-    kd: null, macd: null, rsi: null, obv: null, wr: null, atr: null,
-  });
   const chartsRef = useRef<IChartApi[]>([]);
   const [zoomChart, setZoomChart] = useState<"main" | SubChartType | null>(null);
   const [hoverInfo, setHoverInfo] = useState<TooltipData | null>(null);
@@ -490,10 +487,11 @@ export const ChartPanel: React.FC<ChartPanelProps> = ({ ohlcv, ind, symbol, name
       times.map((t, i) => ({ time: t, value: arr[i] })).filter((d) => !isNaN(d.value) && d.value !== null && d.value !== undefined);
 
     // ── 1. 主圖 K線 + 內嵌成交量 + 均線 + 布林 ──────────────────────────────────────────
+    const mainHeight = Math.max(540, (mainRef.current?.clientHeight ?? 0) || 560);
     const mainChart = createChart(mainRef.current!, {
       ...CHART_OPTS,
       width: mainRef.current!.clientWidth,
-      height: 310,
+      height: mainHeight,
     });
     chartsRef.current.push(mainChart);
 
@@ -559,8 +557,7 @@ export const ChartPanel: React.FC<ChartPanelProps> = ({ ohlcv, ind, symbol, name
         !param.time ||
         param.point.x < 0 ||
         param.point.x > (mainRef.current?.clientWidth ?? 0) ||
-        param.point.y < 0 ||
-        param.point.y > 310
+        param.point.y < 0
       ) {
         setHoverInfo(null);
         return;
@@ -601,100 +598,17 @@ export const ChartPanel: React.FC<ChartPanelProps> = ({ ohlcv, ind, symbol, name
       });
     });
 
-    // ── 2. KD ──────────────────────────────────────────────────────────────────
-    const kdEl = subRefs.current.kd;
-    if (kdEl) {
-      const kdChart = createChart(kdEl, { ...CHART_OPTS, width: kdEl.clientWidth, height: 80 });
-      chartsRef.current.push(kdChart);
-      const kS = kdChart.addLineSeries({ color: "#00bcd4", lineWidth: 1, title: "K" });
-      const dS = kdChart.addLineSeries({ color: "#ffc107", lineWidth: 1, title: "D" });
-      kS.setData(toLineData(ind.k));
-      dS.setData(toLineData(ind.d));
-      mainChart.timeScale().subscribeVisibleLogicalRangeChange((range) => { if (range) kdChart.timeScale().setVisibleLogicalRange(range); });
-      kdChart.timeScale().subscribeVisibleLogicalRangeChange((range) => { if (range) mainChart.timeScale().setVisibleLogicalRange(range); });
-    }
-
-    // ── 3. MACD ────────────────────────────────────────────────────────────────
-    const macdEl = subRefs.current.macd;
-    if (macdEl) {
-      const macdChart = createChart(macdEl, { ...CHART_OPTS, width: macdEl.clientWidth, height: 80 });
-      chartsRef.current.push(macdChart);
-      const macdS = macdChart.addLineSeries({ color: "#ffffff", lineWidth: 1, title: "DIF" });
-      const sigS = macdChart.addLineSeries({ color: "#03a9f4", lineWidth: 1, title: "DEA" });
-      const histS = macdChart.addHistogramSeries({ color: "#4caf50", title: "Hist" });
-      macdS.setData(toLineData(ind.macd));
-      sigS.setData(toLineData(ind.signal));
-      histS.setData(times.map((t, i) => ({
-        time: t, value: ind.hist[i],
-        color: (ind.hist[i] ?? 0) >= 0 ? "rgba(255,82,82,0.7)" : "rgba(76,175,80,0.7)",
-      })).filter((d) => !isNaN(d.value)));
-      mainChart.timeScale().subscribeVisibleLogicalRangeChange((range) => { if (range) macdChart.timeScale().setVisibleLogicalRange(range); });
-      macdChart.timeScale().subscribeVisibleLogicalRangeChange((range) => { if (range) mainChart.timeScale().setVisibleLogicalRange(range); });
-    }
-
-    // ── 4. RSI ────────────────────────────────────────────────────────────────
-    const rsiEl = subRefs.current.rsi;
-    if (rsiEl) {
-      const rsiChart = createChart(rsiEl, { ...CHART_OPTS, width: rsiEl.clientWidth, height: 80 });
-      chartsRef.current.push(rsiChart);
-      const rsiS = rsiChart.addLineSeries({ color: "#f06292", lineWidth: 1, title: "RSI" });
-      const ob = rsiChart.addLineSeries({ color: "rgba(255,82,82,0.4)", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false });
-      const os = rsiChart.addLineSeries({ color: "rgba(76,175,80,0.4)", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false });
-      rsiS.setData(toLineData(ind.rsi));
-      ob.setData(times.map((t) => ({ time: t, value: 70 })));
-      os.setData(times.map((t) => ({ time: t, value: 30 })));
-      mainChart.timeScale().subscribeVisibleLogicalRangeChange((range) => { if (range) rsiChart.timeScale().setVisibleLogicalRange(range); });
-      rsiChart.timeScale().subscribeVisibleLogicalRangeChange((range) => { if (range) mainChart.timeScale().setVisibleLogicalRange(range); });
-    }
-
-    // ── 5. OBV ─────────────────────────────────────────────────────────────────
-    const obvEl = subRefs.current.obv;
-    if (obvEl) {
-      const obvChart = createChart(obvEl, { ...CHART_OPTS, width: obvEl.clientWidth, height: 70 });
-      chartsRef.current.push(obvChart);
-      const obvS = obvChart.addLineSeries({ color: "#9c27b0", lineWidth: 1, title: "OBV" });
-      const obvMaS = obvChart.addLineSeries({ color: "#ff9800", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false });
-      obvS.setData(toLineData(ind.obv));
-      obvMaS.setData(toLineData(ind.obvMa10));
-      mainChart.timeScale().subscribeVisibleLogicalRangeChange((range) => { if (range) obvChart.timeScale().setVisibleLogicalRange(range); });
-      obvChart.timeScale().subscribeVisibleLogicalRangeChange((range) => { if (range) mainChart.timeScale().setVisibleLogicalRange(range); });
-    }
-
-    // ── 6. Williams %R ─────────────────────────────────────────────────────────
-    const wrEl = subRefs.current.wr;
-    if (wrEl) {
-      const wrChart = createChart(wrEl, { ...CHART_OPTS, width: wrEl.clientWidth, height: 70 });
-      chartsRef.current.push(wrChart);
-      const wrS = wrChart.addLineSeries({ color: "#e65100", lineWidth: 1, title: "Wm%R" });
-      const wob = wrChart.addLineSeries({ color: "rgba(255,82,82,0.4)", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false });
-      const wos = wrChart.addLineSeries({ color: "rgba(76,175,80,0.4)", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false });
-      wrS.setData(toLineData(ind.williamsR));
-      wob.setData(times.map((t) => ({ time: t, value: -20 })));
-      wos.setData(times.map((t) => ({ time: t, value: -80 })));
-      mainChart.timeScale().subscribeVisibleLogicalRangeChange((range) => { if (range) wrChart.timeScale().setVisibleLogicalRange(range); });
-      wrChart.timeScale().subscribeVisibleLogicalRangeChange((range) => { if (range) mainChart.timeScale().setVisibleLogicalRange(range); });
-    }
-
-    // ── 7. ATR ─────────────────────────────────────────────────────────────────
-    const atrEl = subRefs.current.atr;
-    if (atrEl) {
-      const atrChart = createChart(atrEl, { ...CHART_OPTS, width: atrEl.clientWidth, height: 70 });
-      chartsRef.current.push(atrChart);
-      const atrS = atrChart.addLineSeries({ color: "#1abc9c", lineWidth: 1, title: "ATR" });
-      atrS.setData(toLineData(ind.atr));
-      mainChart.timeScale().subscribeVisibleLogicalRangeChange((range) => { if (range) atrChart.timeScale().setVisibleLogicalRange(range); });
-      atrChart.timeScale().subscribeVisibleLogicalRangeChange((range) => { if (range) mainChart.timeScale().setVisibleLogicalRange(range); });
-    }
-
     // 自動縮放到最新資料
     mainChart.timeScale().fitContent();
 
     // Resize observer
     const ro = new ResizeObserver(() => {
-      chartsRef.current.forEach((ch, idx) => {
-        const el = idx === 0 ? mainRef.current : Object.values(subRefs.current)[idx - 1];
-        if (el) ch.applyOptions({ width: el.clientWidth });
-      });
+      if (mainRef.current) {
+        mainChart.applyOptions({
+          width: mainRef.current.clientWidth,
+          height: Math.max(540, mainRef.current.clientHeight || 560),
+        });
+      }
     });
     if (mainRef.current) ro.observe(mainRef.current);
 
@@ -705,21 +619,12 @@ export const ChartPanel: React.FC<ChartPanelProps> = ({ ohlcv, ind, symbol, name
     };
   }, [ohlcv, ind]);
 
-  const subCharts: { key: SubChartType; label: string }[] = [
-    { key: "kd", label: "KD 隨機指標" },
-    { key: "macd", label: "MACD 指標" },
-    { key: "rsi", label: "RSI 相對強弱指標" },
-    { key: "obv", label: "OBV 能量潮" },
-    { key: "wr", label: "Williams %R 威廉指標" },
-    { key: "atr", label: "ATR 真實波幅" },
-  ];
-
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "auto", background: "#0a0a12", position: "relative" }}>
-      <div style={{ padding: "6px 12px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(255,255,255,0.02)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden", background: "#0a0a12", position: "relative" }}>
+      <div style={{ padding: "8px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(255,255,255,0.02)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
-          <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--accent-blue)" }}>
-            {name} ({symbol})
+          <span style={{ fontSize: "0.95rem", fontWeight: 700, color: "var(--accent-blue)" }}>
+            {name} ({symbol}) — K線主圖
           </span>
           <div style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.6)", display: "flex", gap: "10px" }}>
             <span><span style={{ color: "#ff9800" }}>●</span> MA5 (橘)</span>
@@ -729,59 +634,37 @@ export const ChartPanel: React.FC<ChartPanelProps> = ({ ohlcv, ind, symbol, name
             <span><span style={{ color: "#26a69a" }}>■</span> 成交量 (紅/綠柱)</span>
           </div>
         </div>
-        <button 
-          onClick={resetZoom}
-          style={{ 
-            padding: "2px 8px", 
-            fontSize: "0.75rem", 
-            background: "rgba(255, 255, 255, 0.05)", 
-            color: "rgba(255, 255, 255, 0.8)", 
-            border: "1px solid rgba(255, 255, 255, 0.15)",
-            borderRadius: "4px",
-            cursor: "pointer",
-            transition: "all 0.2s"
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = "rgba(2, 136, 209, 0.15)";
-            e.currentTarget.style.color = "#29b6f6";
-            e.currentTarget.style.borderColor = "rgba(2, 136, 209, 0.4)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = "rgba(255, 255, 255, 0.05)";
-            e.currentTarget.style.color = "rgba(255, 255, 255, 0.8)";
-            e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.15)";
-          }}
-        >
-          🔄 重設縮放
-        </button>
+        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          <button 
+            onClick={resetZoom}
+            style={{ 
+              padding: "4px 10px", 
+              fontSize: "0.75rem", 
+              background: "rgba(255, 255, 255, 0.05)", 
+              color: "rgba(255, 255, 255, 0.8)", 
+              border: "1px solid rgba(255, 255, 255, 0.15)",
+              borderRadius: "4px",
+              cursor: "pointer",
+              transition: "all 0.2s"
+            }}
+          >
+            🔄 重設縮放
+          </button>
+        </div>
       </div>
       
-      {/* 主 K 線圖 (包含內建成交量柱狀圖) */}
-      <div style={{ position: "relative", width: "100%" }}>
+      {/* 主 K 線圖 (包含內建成交量柱狀圖，填滿空間) */}
+      <div style={{ position: "relative", flex: 1, width: "100%", height: "100%", minHeight: "540px" }}>
         <div 
           ref={mainRef} 
-          style={{ width: "100%", cursor: "zoom-in" }} 
+          style={{ width: "100%", height: "100%", cursor: "zoom-in" }} 
           onClick={() => setZoomChart("main")}
-          title="點擊放大主圖 (含成交量)"
+          title="點擊全螢幕放大主圖"
         />
         {displayData && (
           <ChartHUDView data={displayData} />
         )}
       </div>
-      
-      {/* 各副圖 */}
-      {subCharts.map(({ key, label }) => (
-        <div 
-          key={key} 
-          className="sub-chart" 
-          style={{ cursor: "zoom-in" }} 
-          onClick={() => setZoomChart(key)}
-          title={`點擊放大 ${label} 圖`}
-        >
-          <div className="chart-title">{label}</div>
-          <div ref={(el) => { subRefs.current[key] = el; }} style={{ width: "100%" }} />
-        </div>
-      ))}
 
       {/* 放大 Modal */}
       {zoomChart && (
