@@ -106,8 +106,9 @@ export const HybridScanTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({
     for (let i = 0; i < total; i += BATCH) {
       if (cancelRef.current) break;
       const chunk = symbols.slice(i, Math.min(i + BATCH, total));
-      setProgressMsg(`融合評估 ${i + 1}~${Math.min(i + BATCH, total)} / ${total}`);
+      setProgressMsg(`正在即時進行基本面+技術面雙維度融合評估 ${i + 1}~${Math.min(i + BATCH, total)} / ${total} 檔...`);
       setProgress(Math.floor((i / total) * 100));
+      await new Promise((r) => setTimeout(r, 25));
 
       try {
         const dataList: any[] = await invoke("fetch_batch_stock_data_full", { symbols: chunk, range: "1y" });

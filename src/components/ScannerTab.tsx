@@ -103,8 +103,9 @@ export const ScannerTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ on
     for (let i = 0; i < total; i += BATCH) {
       if (cancelRef.current) break;
       const chunk = symbols.slice(i, Math.min(i + BATCH, total));
-      setProgressMsg(`掃描中... ${i + 1}~${Math.min(i + BATCH, total)} / ${total}`);
+      setProgressMsg(`正在即時掃描分析 ${i + 1}~${Math.min(i + BATCH, total)} / ${total} 檔...`);
       setProgress(Math.floor((i / total) * 100));
+      await new Promise((r) => setTimeout(r, 25));
 
       try {
         const isFull = mode === "landmine" || mode === "short" || mode === "value";

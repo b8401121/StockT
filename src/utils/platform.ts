@@ -675,8 +675,87 @@ export async function invoke<T = any>(cmd: string, args: Record<string, any> = {
       return result as unknown as T;
     }
 
+let lastLiveQuoteFetchTime = 0;
+async function refreshLiveMarketQuotes(): Promise<void> {
+  // 5 分鐘內不重複刷新全市場行情
+  if (Date.now() - lastLiveQuoteFetchTime < 300000) return;
+  lastLiveQuoteFetchTime = Date.now();
+
+  try {
+    const isBrowser = !isTauri();
+    const twseUrl = "https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL";
+    const tpexUrl = "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes";
+
+    const fetchTwse = async () => {
+      try {
+        const u = isBrowser ? `https://api.allorigins.win/raw?url=${encodeURIComponent(twseUrl)}` : twseUrl;
+        const res = await fetch(u, { signal: AbortSignal.timeout(4000) });
+        if (res.ok) {
+          const items = await res.json();
+          if (Array.isArray(items)) {
+            for (const it of items) {
+              const code = it.Code;
+              if (code && FUND_MAP[code]) {
+                const closeP = parseFloat(String(it.ClosingPrice).replace(/,/g, ""));
+                const openP = parseFloat(String(it.OpeningPrice).replace(/,/g, ""));
+                const highP = parseFloat(String(it.HighestPrice).replace(/,/g, ""));
+                const lowP = parseFloat(String(it.LowestPrice).replace(/,/g, ""));
+                const changeP = parseFloat(String(it.Change).replace(/,/g, ""));
+                const vol = parseInt(String(it.TradeVolume).replace(/,/g, ""), 10);
+                if (closeP > 0) {
+                  FUND_MAP[code].close_price = closeP;
+                  FUND_MAP[code].open_price = openP > 0 ? openP : closeP;
+                  FUND_MAP[code].high_price = highP > 0 ? highP : closeP;
+                  FUND_MAP[code].low_price = lowP > 0 ? lowP : closeP;
+                  FUND_MAP[code].change = changeP;
+                  FUND_MAP[code].volume = vol;
+                }
+              }
+            }
+          }
+        }
+      } catch {}
+    };
+
+    const fetchTpex = async () => {
+      try {
+        const u = isBrowser ? `https://api.allorigins.win/raw?url=${encodeURIComponent(tpexUrl)}` : tpexUrl;
+        const res = await fetch(u, { signal: AbortSignal.timeout(4000) });
+        if (res.ok) {
+          const items = await res.json();
+          if (Array.isArray(items)) {
+            for (const it of items) {
+              const code = it.SecuritiesCompanyCode;
+              if (code && FUND_MAP[code]) {
+                const closeP = parseFloat(String(it.Close).replace(/,/g, ""));
+                const openP = parseFloat(String(it.Open).replace(/,/g, ""));
+                const highP = parseFloat(String(it.High).replace(/,/g, ""));
+                const lowP = parseFloat(String(it.Low).replace(/,/g, ""));
+                const changeP = parseFloat(String(it.Change).replace(/,/g, ""));
+                const vol = parseInt(String(it.TradingShares).replace(/,/g, ""), 10);
+                if (closeP > 0) {
+                  FUND_MAP[code].close_price = closeP;
+                  FUND_MAP[code].open_price = openP > 0 ? openP : closeP;
+                  FUND_MAP[code].high_price = highP > 0 ? highP : closeP;
+                  FUND_MAP[code].low_price = lowP > 0 ? lowP : closeP;
+                  FUND_MAP[code].change = changeP;
+                  FUND_MAP[code].volume = vol;
+                }
+              }
+            }
+          }
+        }
+      } catch {}
+    };
+
+    await Promise.allSettled([fetchTwse(), fetchTpex()]);
+  } catch {}
+}
+
     case "fetch_batch_stock_data":
     case "fetch_batch_stock_data_full": {
+      // 掃描開始前非同步更新全市場即時報價
+      refreshLiveMarketQuotes().catch(() => {});
       const symbols: string[] = args.symbols || [];
       const range = args.range || "3mo";
       const results: StockData[] = [];
