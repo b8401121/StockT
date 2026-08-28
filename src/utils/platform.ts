@@ -284,8 +284,8 @@ async function fetchWebStockData(symbol: string, range = "1y"): Promise<StockDat
       ? [
           `https://proxy.cors.sh/${rawTarget}`,
           `https://corsproxy.io/?url=${encodeURIComponent(rawTarget)}`,
-          `https://api.allorigins.win/raw?url=${encodeURIComponent(rawTarget)}`,
           `https://corsproxy.org/?url=${encodeURIComponent(rawTarget)}`,
+          `https://r.jina.ai/http://${encodeURIComponent(rawTarget)}`,
         ]
       : [
           rawTarget,
@@ -407,7 +407,7 @@ async function fetchWebStockData(symbol: string, range = "1y"): Promise<StockDat
     const isBrowser = !isTauri();
     const sumTarget = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(normSym)}?modules=financialData,defaultKeyStatistics,summaryDetail,assetProfile`;
     const sumUrl = isBrowser
-      ? `https://api.allorigins.win/raw?url=${encodeURIComponent(sumTarget)}`
+      ? `https://corsproxy.io/?url=${encodeURIComponent(sumTarget)}`
       : sumTarget;
 
     const controller = new AbortController();
@@ -700,7 +700,7 @@ async function refreshLiveMarketQuotes(): Promise<void> {
 
     const fetchTwse = async () => {
       try {
-        const u = isBrowser ? `https://api.allorigins.win/raw?url=${encodeURIComponent(twseUrl)}` : twseUrl;
+        const u = isBrowser ? `https://corsproxy.io/?url=${encodeURIComponent(twseUrl)}` : twseUrl;
         const res = await fetch(u, { signal: AbortSignal.timeout(4000) });
         if (res.ok) {
           const items = await res.json();
@@ -731,7 +731,7 @@ async function refreshLiveMarketQuotes(): Promise<void> {
 
     const fetchTpex = async () => {
       try {
-        const u = isBrowser ? `https://api.allorigins.win/raw?url=${encodeURIComponent(tpexUrl)}` : tpexUrl;
+        const u = isBrowser ? `https://corsproxy.io/?url=${encodeURIComponent(tpexUrl)}` : tpexUrl;
         const res = await fetch(u, { signal: AbortSignal.timeout(4000) });
         if (res.ok) {
           const items = await res.json();
@@ -869,7 +869,7 @@ async function refreshLiveMarketQuotes(): Promise<void> {
         for (const page of pages) {
           try {
             const twUrl = `https://tw.stock.yahoo.com/quote/${coId}/${page}`;
-            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(twUrl)}`;
+            const proxyUrl = `https://corsproxy.io/?url=${encodeURIComponent(twUrl)}`;
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 4000);
             const resp = await fetch(proxyUrl, { signal: controller.signal });

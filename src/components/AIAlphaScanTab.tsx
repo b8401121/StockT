@@ -122,28 +122,34 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
         const curP = p.close_price || p.current_price || p.c || 0;
         const prevP = p.previous_close || (p.close_price && p.change != null ? p.close_price - p.change : curP);
 
+        const safeNum = (v: any) => {
+          if (v == null || v === "Infinity" || v === "-Infinity" || v === "NaN" || v === "") return undefined;
+          const n = Number(v);
+          return isNaN(n) ? undefined : n;
+        };
+
         const info: StockInfoFull = {
           symbol,
           name: p.name || p.n || key,
-          current_price: curP,
-          previous_close: prevP,
-          pe: p.pe,
-          tw_pe: p.tw_pe ?? p.pe,
-          pb: p.pb,
-          dividend_yield: p.dividend_yield ?? (p.dividend_yield_pct ? p.dividend_yield_pct / 100 : null),
-          eps: p.eps,
-          roe: p.roe,
-          profit_margins: p.profit_margins,
-          gross_margins: p.gross_margins,
-          operating_margins: p.operating_margins,
-          revenue_growth: p.revenue_growth,
-          earnings_growth: p.earnings_growth,
-          debt_to_equity: p.debt_to_equity,
-          current_ratio: p.current_ratio,
-          quick_ratio: p.quick_ratio,
-          free_cashflow: p.free_cashflow,
-          operating_cashflow: p.operating_cashflow,
-          market_cap: p.market_cap,
+          current_price: safeNum(curP) || 0,
+          previous_close: safeNum(prevP) || 0,
+          pe: safeNum(p.pe),
+          tw_pe: safeNum(p.tw_pe ?? p.pe),
+          pb: safeNum(p.pb),
+          dividend_yield: safeNum(p.dividend_yield) ?? (safeNum(p.dividend_yield_pct) ? safeNum(p.dividend_yield_pct)! / 100 : undefined),
+          eps: safeNum(p.eps),
+          roe: safeNum(p.roe),
+          profit_margins: safeNum(p.profit_margins),
+          gross_margins: safeNum(p.gross_margins),
+          operating_margins: safeNum(p.operating_margins),
+          revenue_growth: safeNum(p.revenue_growth),
+          earnings_growth: safeNum(p.earnings_growth),
+          debt_to_equity: safeNum(p.debt_to_equity),
+          current_ratio: safeNum(p.current_ratio),
+          quick_ratio: safeNum(p.quick_ratio),
+          free_cashflow: safeNum(p.free_cashflow),
+          operating_cashflow: safeNum(p.operating_cashflow),
+          market_cap: safeNum(p.market_cap),
         };
 
         const aiResult = evaluateAIAlpha(info, curP, prevP);
