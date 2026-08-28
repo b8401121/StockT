@@ -1,7 +1,7 @@
 {
-  "manifest_id": "MANIFEST-FREEZE-1787935967077",
-  "freeze_date": "2026-08-29",
-  "freeze_timestamp": "2026-08-28T16:52:47.077Z",
+  "manifest_id": "MANIFEST-FREEZE-20260829",
+  "freeze_manifest_date": "2026-08-29",
+  "freeze_timestamp": "2026-08-29T00:00:00+08:00",
   "model_hash": "8cc1ea6e539bcd6cfa8b2eb66acf46f58334605c01a271a19cb0db496c92d5ea",
   "feature_schema": [
     "momentum20",

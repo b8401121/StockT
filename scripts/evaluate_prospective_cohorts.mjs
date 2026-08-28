@@ -31,7 +31,7 @@ function calculateSpearmanRankCorrelation(x, y) {
 
 async function runProspectiveEvaluator() {
   console.log("================================================================================");
-  console.log(" 📊 StockT Prospective Paper Trading: 20-Day Cohort Realized Evaluation Engine   ");
+  console.log(" 📊 StockT Prospective Paper Trading: Blind & Realized Performance Evaluator   ");
   console.log("================================================================================\n");
 
   if (!fs.existsSync(manifestFile)) {
@@ -40,18 +40,20 @@ async function runProspectiveEvaluator() {
   }
 
   const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf-8"));
-  console.log(`📌 Active Freeze Manifest: ${manifest.manifest_id} (Frozen on ${manifest.freeze_date})`);
+  console.log(`📌 Active Freeze Manifest: ${manifest.manifest_id} (Locked on ${manifest.freeze_manifest_date})`);
   console.log(`📌 Model SHA-256:          ${manifest.model_hash}`);
-  console.log(`📌 Horizon:                ${manifest.evaluation_horizon_trading_days} Trading Days (T+1 Open to T+20 Close)\n`);
+  console.log(`📌 Evaluation Protocol:    T+1 Open -> T+20 Close (${manifest.evaluation_horizon_trading_days} Trading Days)`);
+  console.log(`📌 Friction Accounting:    ${manifest.cost_friction_bps} bps (Commission + Tax + Slippage)\n`);
 
   const ledgerFiles = fs.readdirSync(ledgerDir).filter(f => f.endsWith(".json")).sort();
-  console.log(`📁 Found ${ledgerFiles.length} Immutable Daily Ledger Records.\n`);
+  console.log(`📁 Found ${ledgerFiles.length} Sealed Daily Ledger Records.\n`);
 
   const datasetPath = path.join(rootDir, "backtest", "dataset", "taiwan_equities_2018_2026.json");
   const dataset = JSON.parse(fs.readFileSync(datasetPath, "utf-8"));
   const benchmarkBars = dataset.benchmark_bars;
 
-  const evaluatedCohorts = [];
+  const completedCohorts = [];
+  const blindCohorts = [];
 
   for (const file of ledgerFiles) {
     const filePath = path.join(ledgerDir, file);
@@ -62,11 +64,25 @@ async function runProspectiveEvaluator() {
     if (sigIdx === -1) continue;
 
     const exitIdx = sigIdx + manifest.evaluation_horizon_trading_days;
+    const elapsedTradingDays = benchmarkBars.length - 1 - sigIdx;
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // BLIND EVALUATION MODE: If elapsed < 20 days, seal actual prices & PnL
+    // ──────────────────────────────────────────────────────────────────────────
     if (exitIdx >= benchmarkBars.length) {
-      console.log(`⏳ Cohort [ ${signalDate} ]: Still active (Elapsed: ${benchmarkBars.length - 1 - sigIdx} / ${manifest.evaluation_horizon_trading_days} trading days)`);
+      blindCohorts.push({
+        cohortDate: signalDate,
+        blockSha: record.block_sha256.slice(0, 12) + "...",
+        elapsed: `${elapsedTradingDays} / ${manifest.evaluation_horizon_trading_days} Days`,
+        status: "🔒 LOCKED / WAITING (Predictions Sealed)",
+        topPicks: record.top_picks.map(p => `${p.symbol} (#${p.rank})`).join(", "),
+      });
       continue;
     }
 
+    // ──────────────────────────────────────────────────────────────────────────
+    // COMPLETED COHORT: Full Realized Metric Evaluation
+    // ──────────────────────────────────────────────────────────────────────────
     const benchEntry = benchmarkBars[sigIdx + 1];
     const benchExit = benchmarkBars[exitIdx];
     const benchReturnPct = ((benchExit.rawClose - benchEntry.rawOpen) / benchEntry.rawOpen) * 100;
@@ -98,34 +114,70 @@ async function runProspectiveEvaluator() {
     }
 
     if (realizedRows.length >= 5) {
-      const rankIC = calculateSpearmanRankCorrelation(
+      const realizedRankIC = calculateSpearmanRankCorrelation(
         realizedRows.map(r => r.ensembleScore),
         realizedRows.map(r => r.excessReturnPct)
       );
 
-      const top3Picks = realizedRows.slice(0, 3);
-      const realizedNetReturn = top3Picks.reduce((a, b) => a + b.netReturnPct, 0) / top3Picks.length;
-      const realizedExcessReturn = top3Picks.reduce((a, b) => a + b.excessReturnPct, 0) / top3Picks.length;
+      // Sort by prediction rank
+      realizedRows.sort((a, b) => a.rank - b.rank);
 
-      evaluatedCohorts.push({
+      const topDecile = realizedRows.slice(0, Math.max(1, Math.floor(realizedRows.length * 0.10)));
+      const bottomDecile = realizedRows.slice(-Math.max(1, Math.floor(realizedRows.length * 0.10)));
+
+      const topDecileReturn = topDecile.reduce((a, b) => a + b.grossReturnPct, 0) / topDecile.length;
+      const bottomDecileReturn = bottomDecile.reduce((a, b) => a + b.grossReturnPct, 0) / bottomDecile.length;
+      const decileSpread = topDecileReturn - bottomDecileReturn;
+
+      const top3Picks = realizedRows.slice(0, 3);
+      const bottom3Picks = realizedRows.slice(-3);
+
+      const longOnlyNetReturn = top3Picks.reduce((a, b) => a + b.netReturnPct, 0) / top3Picks.length;
+      const shortSideReturn = bottom3Picks.reduce((a, b) => a + b.grossReturnPct, 0) / bottom3Picks.length;
+      const longShortSpread = (top3Picks.reduce((a, b) => a + b.grossReturnPct, 0) / 3) - shortSideReturn;
+      const hitRatePct = (top3Picks.filter(p => p.netReturnPct > 0).length / top3Picks.length) * 100;
+
+      completedCohorts.push({
         signalDate,
         entryDate: benchEntry.date,
         exitDate: benchExit.date,
-        benchmarkReturnPct: Number(benchReturnPct.toFixed(2)),
-        realizedNetReturnPct: Number(realizedNetReturn.toFixed(2)),
-        realizedExcessAlphaPct: Number(realizedExcessReturn.toFixed(2)),
-        realizedRankIC: Number(rankIC.toFixed(4)),
-        topPicks: top3Picks.map(p => `${p.symbol} (+${p.netReturnPct.toFixed(1)}%)`),
+        realizedRankIC: Number(realizedRankIC.toFixed(4)),
+        topDecileReturn: Number(topDecileReturn.toFixed(2)),
+        bottomDecileReturn: Number(bottomDecileReturn.toFixed(2)),
+        decileSpread: Number(decileSpread.toFixed(2)),
+        longOnlyNetReturn: Number(longOnlyNetReturn.toFixed(2)),
+        longShortSpread: Number(longShortSpread.toFixed(2)),
+        benchmarkReturn: Number(benchReturnPct.toFixed(2)),
+        netAlpha: Number((longOnlyNetReturn - benchReturnPct).toFixed(2)),
+        hitRatePct: Number(hitRatePct.toFixed(1)),
       });
     }
   }
 
-  if (evaluatedCohorts.length > 0) {
-    console.log("\n【Completed Prospective Cohorts Performance】");
-    console.table(evaluatedCohorts);
-  } else {
-    console.log("\n💡 Note: All recorded prospective cohorts are currently in active incubation.");
-    console.log("   As new daily trading bars arrive, this evaluator will automatically compute verified Realized PnL!");
+  // 1. Print Active Blind Cohorts Table
+  if (blindCohorts.length > 0) {
+    console.log("【1. Blind Incubation Cohorts (Hindsight-Free Protocol)】");
+    console.log("┌─────────────┬────────────────┬─────────────────┬───────────────────────────────────────┐");
+    console.log("│ Signal Date │ Sealed Block   │ Elapsed Days    │ Status / Top Picks (Blind)            │");
+    console.log("├─────────────┼────────────────┼─────────────────┼───────────────────────────────────────┤");
+    blindCohorts.forEach(c => {
+      console.log(`│ ${c.cohortDate.padEnd(11)} │ ${c.blockSha.padEnd(14)} │ ${c.elapsed.padEnd(15)} │ ${c.status.padEnd(37)} │`);
+    });
+    console.log("└─────────────┴────────────────┴─────────────────┴───────────────────────────────────────┘\n");
+  }
+
+  // 2. Print Completed Realized Performance Table
+  if (completedCohorts.length > 0) {
+    console.log("【2. Completed Prospective Realized Cohorts (Full Metric Suite)】");
+    console.log("┌─────────────┬─────────────┬────────────┬─────────────┬──────────────┬──────────────┬────────────┬──────────┐");
+    console.log("│ Signal Date │ Exit Date   │ RealizedIC │ DecileSpread│ Long-Only Net│ Long-Short   │ Net Alpha  │ Hit Rate │");
+    console.log("├─────────────┼─────────────┼────────────┼─────────────┼──────────────┼──────────────┼────────────┼──────────┤");
+    completedCohorts.forEach(c => {
+      console.log(
+        `│ ${c.signalDate}  │ ${c.exitDate}  │ ${c.realizedRankIC >= 0 ? "+" : ""}${c.realizedRankIC.toFixed(4)} │ ${c.decileSpread >= 0 ? "+" : ""}${c.decileSpread.toFixed(2)}%     │ ${c.longOnlyNetReturn.toFixed(2).padStart(11)}% │ ${c.longShortSpread.toFixed(2).padStart(11)}% │ ${c.netAlpha.toFixed(2).padStart(9)}% │ ${c.hitRatePct.toFixed(1).padStart(7)}% │`
+      );
+    });
+    console.log("└─────────────┴─────────────┴────────────┴─────────────┴──────────────┴──────────────┴────────────┴──────────┘\n");
   }
 }
 

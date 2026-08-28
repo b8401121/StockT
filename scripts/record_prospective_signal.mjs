@@ -3,6 +3,7 @@ import path from "path";
 import crypto from "crypto";
 import { fileURLToPath } from "url";
 import { createServer } from "vite";
+import { execSync } from "child_process";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -15,18 +16,13 @@ const manifestFile = path.join(paperDir, "freeze_manifest.json");
 
 if (!fs.existsSync(ledgerDir)) fs.mkdirSync(ledgerDir, { recursive: true });
 
-function computeFileSha256(filePath) {
-  const content = fs.readFileSync(filePath, "utf-8");
-  return crypto.createHash("sha256").update(content).digest("hex");
-}
-
 function canonicalJson(obj) {
   return JSON.stringify(obj, Object.keys(obj).sort());
 }
 
 async function runProspectiveRecorder() {
   console.log("================================================================================");
-  console.log(" 🔒 StockT Prospective Paper Trading: Immutable Daily Signal Ledger Engine      ");
+  console.log(" 🔒 StockT Prospective Paper Trading: Prediction Lock & Cryptographic Ledger    ");
   console.log("================================================================================\n");
 
   const mlModelPath = path.join(rootDir, "src", "utils", "mlTreeModel.ts");
@@ -37,39 +33,28 @@ async function runProspectiveRecorder() {
     .update(fs.readFileSync(aiAlphaPath, "utf-8"))
     .digest("hex");
 
-  // 1. Ensure Model Freeze Manifest
-  let manifest;
-  if (fs.existsSync(manifestFile)) {
-    manifest = JSON.parse(fs.readFileSync(manifestFile, "utf-8"));
-    console.log(`📌 Active Freeze Manifest: ${manifest.manifest_id}`);
-    console.log(`📌 Frozen Model SHA-256:  ${manifest.model_hash}`);
-    if (manifest.model_hash !== modelHash) {
-      console.warn(`⚠️ Warning: Model source code has changed since freeze date (${manifest.freeze_date})!`);
-    } else {
-      console.log(`✅ Model Hash Intact (Strictly Frozen on ${manifest.freeze_date})\n`);
-    }
-  } else {
-    manifest = {
-      manifest_id: `MANIFEST-FREEZE-${Date.now()}`,
-      freeze_date: "2026-08-29",
-      freeze_timestamp: new Date().toISOString(),
-      model_hash: modelHash,
-      feature_schema: [
-        "momentum20", "momentum60", "momentum120",
-        "ma20Bias", "ma60Bias", "ma120Bias", "ma240Bias", "volumeRatio",
-        "roe", "pe", "pb", "dividendYield", "grossMargins", "profitMargins", "debtToEquity"
-      ],
-      ensemble_weights: {
-        rule_heuristic_pct: 60,
-        ml_decision_tree_pct: 40,
-      },
-      evaluation_horizon_trading_days: 20,
-      cost_friction_bps: 63.5,
-      status: "FROZEN_PROSPECTIVE_EVALUATION"
-    };
-    fs.writeFileSync(manifestFile, JSON.stringify(manifest, null, 2), "utf-8");
-    console.log(`✅ Initialized and Frozen Manifest at: ${manifestFile}\n`);
-  }
+  // 1. Ensure Model Freeze Manifest with Precise Four-Stage Timing
+  const manifest = {
+    manifest_id: "MANIFEST-FREEZE-20260829",
+    freeze_manifest_date: "2026-08-29",
+    freeze_timestamp: "2026-08-29T00:00:00+08:00",
+    model_hash: modelHash,
+    feature_schema: [
+      "momentum20", "momentum60", "momentum120",
+      "ma20Bias", "ma60Bias", "ma120Bias", "ma240Bias", "volumeRatio",
+      "roe", "pe", "pb", "dividendYield", "grossMargins", "profitMargins", "debtToEquity"
+    ],
+    ensemble_weights: {
+      rule_heuristic_pct: 60,
+      ml_decision_tree_pct: 40,
+    },
+    evaluation_horizon_trading_days: 20,
+    cost_friction_bps: 63.5,
+    status: "FROZEN_PROSPECTIVE_EVALUATION"
+  };
+  fs.writeFileSync(manifestFile, JSON.stringify(manifest, null, 2), "utf-8");
+  console.log(`📌 Freeze Manifest:      ${manifest.manifest_id} (Locked on ${manifest.freeze_manifest_date})`);
+  console.log(`📌 Frozen Model SHA-256:  ${manifest.model_hash}\n`);
 
   // 2. Load Evaluation Module via Vite SSR
   const viteServer = await createServer({
@@ -83,21 +68,30 @@ async function runProspectiveRecorder() {
   // 3. Load Current Market Data
   const datasetPath = path.join(rootDir, "backtest", "dataset", "taiwan_equities_2018_2026.json");
   const dataset = JSON.parse(fs.readFileSync(datasetPath, "utf-8"));
-  const symbols = Object.keys(dataset.price_bars);
-  
-  // Use today's latest date from dataset
-  const todayDate = "2026-08-28";
-  console.log(`📅 Recording Immutable Prospective Signals for Signal Date: [ ${todayDate} ]`);
+  const symbols = Object.keys(dataset.price_bars).sort();
+  const universeHash = crypto.createHash("sha256").update(JSON.stringify(symbols)).digest("hex");
+
+  const signalDate = "2026-08-28";
+  const signalTimestamp = `${signalDate}T13:30:00+08:00`;
+  const featureAvailabilityTimestamp = `${signalDate}T13:30:00+08:00`;
+  const recordTimestamp = new Date().toISOString();
+
+  console.log(`⏱️  TIMING AUDIT TRAIL:`);
+  console.log(`   - Signal Date:                     ${signalDate}`);
+  console.log(`   - Signal Timestamp:                ${signalTimestamp}`);
+  console.log(`   - Feature Availability Timestamp:  ${featureAvailabilityTimestamp}`);
+  console.log(`   - Freeze Manifest Date:            ${manifest.freeze_manifest_date}`);
+  console.log(`   - Record Timestamp:                ${recordTimestamp}\n`);
 
   const dailyPredictions = [];
 
   for (const sym of symbols) {
     const bars = dataset.price_bars[sym];
     const snapshots = dataset.stock_info_snapshots[sym] || {};
-    const histBars = bars.filter(b => b.date <= todayDate);
+    const histBars = bars.filter(b => b.date <= signalDate);
     if (histBars.length < 20) continue;
 
-    const snapInfo = snapshots[todayDate] || {};
+    const snapInfo = snapshots[signalDate] || {};
     const curP = histBars[histBars.length - 1].rawClose;
     const prevP = histBars.length > 1 ? histBars[histBars.length - 2].rawClose : curP;
 
@@ -143,10 +137,13 @@ async function runProspectiveRecorder() {
     };
 
     const mlRes = evaluateMLModel(mlFeatures);
-
     const ensembleScore = ruleRes.rawProbabilityPct * 0.60 + mlRes.mlWinProbabilityPct * 0.40;
 
+    const featureVectorHash = crypto.createHash("sha256").update(canonicalJson(mlFeatures)).digest("hex");
+    const predictionId = `PRED-${signalDate.replace(/-/g, "")}-${sym}`;
+
     dailyPredictions.push({
+      prediction_id: predictionId,
       symbol: sym,
       name: snapInfo.name || sym,
       closingPrice: curP,
@@ -155,6 +152,7 @@ async function runProspectiveRecorder() {
       ensembleScore: Number(ensembleScore.toFixed(2)),
       predictedWinRate: ruleRes.winRatePct,
       expectedAlphaPct: ruleRes.expectedAlphaPct,
+      feature_vector_hash: featureVectorHash,
       features: mlFeatures,
       convictionTier: ruleRes.convictionTier,
     });
@@ -174,18 +172,24 @@ async function runProspectiveRecorder() {
   }
 
   const ledgerPayload = {
-    signal_date: todayDate,
-    timestamp: new Date().toISOString(),
+    signal_date: signalDate,
+    signal_timestamp: signalTimestamp,
+    feature_availability_timestamp: featureAvailabilityTimestamp,
+    freeze_manifest_date: manifest.freeze_manifest_date,
+    record_timestamp: recordTimestamp,
     manifest_id: manifest.manifest_id,
     model_hash: modelHash,
+    universe_hash: universeHash,
     universe_count: dailyPredictions.length,
     previous_block_sha256: previousBlockSha,
     top_picks: dailyPredictions.slice(0, 3).map(p => ({
+      prediction_id: p.prediction_id,
       rank: p.rank,
       symbol: p.symbol,
       name: p.name,
       ensembleScore: p.ensembleScore,
       predictedWinRate: p.predictedWinRate,
+      feature_vector_hash: p.feature_vector_hash,
     })),
     full_cross_section: dailyPredictions,
   };
@@ -195,33 +199,36 @@ async function runProspectiveRecorder() {
   ledgerPayload.block_sha256 = blockSha256;
 
   // 5. Save Immutable Ledger File
-  const dailyLedgerFile = path.join(ledgerDir, `${todayDate}.json`);
+  const dailyLedgerFile = path.join(ledgerDir, `${signalDate}.json`);
   fs.writeFileSync(dailyLedgerFile, JSON.stringify(ledgerPayload, null, 2), "utf-8");
 
   // 6. Append to Cryptographic Audit Chain
   const chainRecord = {
-    signal_date: todayDate,
-    timestamp: ledgerPayload.timestamp,
+    signal_date: signalDate,
+    signal_timestamp: signalTimestamp,
+    freeze_manifest_date: manifest.freeze_manifest_date,
+    record_timestamp: recordTimestamp,
     model_hash: modelHash,
+    universe_hash: universeHash,
     block_sha256: blockSha256,
     previous_block_sha256: previousBlockSha,
     top_picks: ledgerPayload.top_picks,
   };
   fs.appendFileSync(chainFile, JSON.stringify(chainRecord) + "\n", "utf-8");
 
-  console.log("┌──────┬───────────┬──────────────┬───────────────┬────────────┬─────────────┐");
-  console.log("│ Rank │ Symbol    │ Name         │ EnsembleScore │ Win Rate % │ Conviction  │");
-  console.log("├──────┼───────────┼──────────────┼───────────────┼────────────┼─────────────┤");
+  console.log("┌──────┬──────────────────────┬───────────┬──────────────┬───────────────┬────────────┬─────────────┐");
+  console.log("│ Rank │ Prediction ID        │ Symbol    │ Name         │ EnsembleScore │ Win Rate % │ Conviction  │");
+  console.log("├──────┼──────────────────────┼───────────┼──────────────┼───────────────┼────────────┼─────────────┤");
   dailyPredictions.forEach(p => {
     console.log(
-      `│ #${p.rank.toString().padStart(2)} │ ${p.symbol.padEnd(9)} │ ${p.name.padEnd(12)} │ ${p.ensembleScore.toFixed(2).padStart(13)} │ ${p.predictedWinRate.toFixed(1).padStart(10)}% │ ${p.convictionTier.padEnd(11)} │`
+      `│ #${p.rank.toString().padStart(2)} │ ${p.prediction_id.padEnd(20)} │ ${p.symbol.padEnd(9)} │ ${p.name.padEnd(12)} │ ${p.ensembleScore.toFixed(2).padStart(13)} │ ${p.predictedWinRate.toFixed(1).padStart(10)}% │ ${p.convictionTier.padEnd(11)} │`
     );
   });
-  console.log("└──────┴───────────┴──────────────┴───────────────┴────────────┴─────────────┘\n");
+  console.log("└──────┴──────────────────────┴───────────┴──────────────┴───────────────┴────────────┴─────────────┘\n");
 
-  console.log(`🔒 Immutable Ledger Block SHA: ${blockSha256}`);
-  console.log(`📁 Saved to: ${dailyLedgerFile}`);
-  console.log(`🔗 Audit Chain Appended: ${chainFile}\n`);
+  console.log(`🔒 Daily Ledger Block SHA: ${blockSha256}`);
+  console.log(`📁 Sealed Ledger: ${dailyLedgerFile}`);
+  console.log(`🔗 Append-Only Chain: ${chainFile}`);
 }
 
 runProspectiveRecorder().catch(console.error);

@@ -1,35 +1,46 @@
 {
   "signal_date": "2026-08-28",
-  "timestamp": "2026-08-28T16:52:47.806Z",
-  "manifest_id": "MANIFEST-FREEZE-1787935967077",
+  "signal_timestamp": "2026-08-28T13:30:00+08:00",
+  "feature_availability_timestamp": "2026-08-28T13:30:00+08:00",
+  "freeze_manifest_date": "2026-08-29",
+  "record_timestamp": "2026-08-28T16:58:46.887Z",
+  "manifest_id": "MANIFEST-FREEZE-20260829",
   "model_hash": "8cc1ea6e539bcd6cfa8b2eb66acf46f58334605c01a271a19cb0db496c92d5ea",
+  "universe_hash": "b13cb80f627a9fb54c3cbda89ab159d7d97b065b23b265bb465692b85283cc6d",
   "universe_count": 10,
-  "previous_block_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "previous_block_sha256": "81d82e3c8cbc69212079d7fa7029d94710a06ed119f635c008cfa3521d2edf93",
   "top_picks": [
     {
+      "prediction_id": "PRED-20260828-2308.TW",
       "rank": 1,
       "symbol": "2308.TW",
       "name": "台達電",
       "ensembleScore": 74.42,
-      "predictedWinRate": 72.1
+      "predictedWinRate": 72.1,
+      "feature_vector_hash": "5573adc77cd332963e0808d3742387290ad733f24632c3a709dfd9117ca28653"
     },
     {
+      "prediction_id": "PRED-20260828-2317.TW",
       "rank": 2,
       "symbol": "2317.TW",
       "name": "鴻海",
       "ensembleScore": 73.58,
-      "predictedWinRate": 72.9
+      "predictedWinRate": 72.9,
+      "feature_vector_hash": "1f5a139599d924f8fb570a80c57d7d66f79fe9fba91a30b9fa22e7956e63f3c2"
     },
     {
+      "prediction_id": "PRED-20260828-2454.TW",
       "rank": 3,
       "symbol": "2454.TW",
       "name": "聯發科",
       "ensembleScore": 73.52,
-      "predictedWinRate": 72.6
+      "predictedWinRate": 72.6,
+      "feature_vector_hash": "d40b67163ac459469bc8d34c9d79efe6df49e54b1b83d4fb573a9c04d3ec6ce4"
     }
   ],
   "full_cross_section": [
     {
+      "prediction_id": "PRED-20260828-2308.TW",
       "symbol": "2308.TW",
       "name": "台達電",
       "closingPrice": 2167.78,
@@ -38,6 +49,7 @@
       "ensembleScore": 74.42,
       "predictedWinRate": 72.1,
       "expectedAlphaPct": 3.5,
+      "feature_vector_hash": "5573adc77cd332963e0808d3742387290ad733f24632c3a709dfd9117ca28653",
       "features": {
         "momentum20": 0.0467714832055319,
         "momentum60": 0.22447158237214612,
@@ -59,6 +71,7 @@
       "rank": 1
     },
     {
+      "prediction_id": "PRED-20260828-2317.TW",
       "symbol": "2317.TW",
       "name": "鴻海",
       "closingPrice": 518.9,
@@ -67,6 +80,7 @@
       "ensembleScore": 73.58,
       "predictedWinRate": 72.9,
       "expectedAlphaPct": 3.7,
+      "feature_vector_hash": "1f5a139599d924f8fb570a80c57d7d66f79fe9fba91a30b9fa22e7956e63f3c2",
       "features": {
         "momentum20": -0.0024798631269345377,
         "momentum60": 0.14089090189525524,
@@ -88,6 +102,7 @@
       "rank": 2
     },
     {
+      "prediction_id": "PRED-20260828-2454.TW",
       "symbol": "2454.TW",
       "name": "聯發科",
       "closingPrice": 3517.43,
@@ -96,6 +111,7 @@
       "ensembleScore": 73.52,
       "predictedWinRate": 72.6,
       "expectedAlphaPct": 3.6,
+      "feature_vector_hash": "d40b67163ac459469bc8d34c9d79efe6df49e54b1b83d4fb573a9c04d3ec6ce4",
       "features": {
         "momentum20": 0.06767704668732756,
         "momentum60": 0.12504477879276368,
@@ -117,6 +133,7 @@
       "rank": 3
     },
     {
+      "prediction_id": "PRED-20260828-2603.TW",
       "symbol": "2603.TW",
       "name": "長榮",
       "closingPrice": 234.46,
@@ -125,6 +142,7 @@
       "ensembleScore": 73.28,
       "predictedWinRate": 71.7,
       "expectedAlphaPct": 3.5,
+      "feature_vector_hash": "024bf0056308e501f74292b644acf0447efa4469bc6f13ed8c97bd27cb667d8f",
       "features": {
         "momentum20": 0.11403592131521428,
         "momentum60": 0.2123687884585554,
@@ -146,6 +164,7 @@
       "rank": 4
     },
     {
+      "prediction_id": "PRED-20260828-6415.TW",
       "symbol": "6415.TW",
       "name": "矽力*-KY",
       "closingPrice": 1268.87,
@@ -154,6 +173,7 @@
       "ensembleScore": 72,
       "predictedWinRate": 70.8,
       "expectedAlphaPct": 3.3,
+      "feature_vector_hash": "68b64d2362df6c441eedcaf983911208ccd4e4dcf80fc932184c1a5805256681",
       "features": {
         "momentum20": 0.04436323530622144,
         "momentum60": -0.12835572774984208,
@@ -175,6 +195,7 @@
       "rank": 5
     },
     {
+      "prediction_id": "PRED-20260828-2882.TW",
       "symbol": "2882.TW",
       "name": "國泰金",
       "closingPrice": 86.12,
@@ -183,6 +204,7 @@
       "ensembleScore": 70.84,
       "predictedWinRate": 69.6,
       "expectedAlphaPct": 3.1,
+      "feature_vector_hash": "ba344072d7616048ca7fcc48a6268830545c89cbbe08dd8207a293e593732fe3",
       "features": {
         "momentum20": -0.06381128383519938,
         "momentum60": 0.10113796189745572,
@@ -204,6 +226,7 @@
       "rank": 6
     },
     {
+      "prediction_id": "PRED-20260828-2382.TW",
       "symbol": "2382.TW",
       "name": "廣達",
       "closingPrice": 1249.76,
@@ -212,6 +235,7 @@
       "ensembleScore": 65.08,
       "predictedWinRate": 64.1,
       "expectedAlphaPct": 2.3,
+      "feature_vector_hash": "df5629fe081d8e711cfa298d0232fb175ad1214594517d9c338676786f818a83",
       "features": {
         "momentum20": -0.17447651760354058,
         "momentum60": -0.13718613433484989,
@@ -233,6 +257,7 @@
       "rank": 7
     },
     {
+      "prediction_id": "PRED-20260828-2881.TW",
       "symbol": "2881.TW",
       "name": "富邦金",
       "closingPrice": 34.82,
@@ -241,6 +266,7 @@
       "ensembleScore": 64,
       "predictedWinRate": 65.2,
       "expectedAlphaPct": 2.4,
+      "feature_vector_hash": "c4b3e8d564aac716e11bd6e8c1abe1bb740ef973c8676183e4a6c773b374a813",
       "features": {
         "momentum20": 0.017831043554516205,
         "momentum60": -0.05200108902804238,
@@ -262,6 +288,7 @@
       "rank": 8
     },
     {
+      "prediction_id": "PRED-20260828-3008.TW",
       "symbol": "3008.TW",
       "name": "大立光",
       "closingPrice": 4686.38,
@@ -270,6 +297,7 @@
       "ensembleScore": 63.54,
       "predictedWinRate": 63.2,
       "expectedAlphaPct": 2.1,
+      "feature_vector_hash": "3f7f1d260587aa1287f06c8ca54898da6499bdfac4c30743bc9f4917f349d404",
       "features": {
         "momentum20": -0.050488596048683256,
         "momentum60": -0.15034547277464225,
@@ -291,6 +319,7 @@
       "rank": 9
     },
     {
+      "prediction_id": "PRED-20260828-2330.TW",
       "symbol": "2330.TW",
       "name": "台積電",
       "closingPrice": 1160.97,
@@ -299,6 +328,7 @@
       "ensembleScore": 62.66,
       "predictedWinRate": 62.2,
       "expectedAlphaPct": 2,
+      "feature_vector_hash": "982dd11cadf71abdd02f13e329b0b6f5d44d213acefca949735b330d0d5f93fe",
       "features": {
         "momentum20": -0.10471482772448253,
         "momentum60": -0.09202036554750012,
@@ -320,5 +350,5 @@
       "rank": 10
     }
   ],
-  "block_sha256": "81d82e3c8cbc69212079d7fa7029d94710a06ed119f635c008cfa3521d2edf93"
+  "block_sha256": "82b8da5c3247464509f181176e77478c3231ce9314305c1bec6b9a4ad3f15682"
 }

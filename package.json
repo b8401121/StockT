@@ -15,7 +15,8 @@
     "backtest:validate": "node scripts/statistical_alpha_validator.mjs",
     "backtest:placebo": "node scripts/negative_control_experiment.mjs",
     "paper:record": "node scripts/record_prospective_signal.mjs",
-    "paper:evaluate": "node scripts/evaluate_prospective_cohorts.mjs"
+    "paper:evaluate": "node scripts/evaluate_prospective_cohorts.mjs",
+    "paper:health": "node scripts/monitor_model_health.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",
