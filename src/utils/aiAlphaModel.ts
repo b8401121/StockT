@@ -43,98 +43,147 @@ export function extract17Features(info: StockInfoFull, curPrice: number, prevClo
   features: number[];
   posLabels: string[];
   negLabels: string[];
+  riskPenalty: number;
 } {
   const posLabels: string[] = [];
   const negLabels: string[] = [];
+  let riskPenalty = 0;
 
   // 1. ROE (基準 10%)
   const roe = info.roe ?? 0.08;
-  const f_roe = Math.max(-2, Math.min(3, (roe - 0.10) / 0.12));
-  if (roe >= 0.20) posLabels.push(`高獲利 ROE ${(roe * 100).toFixed(1)}%`);
-  else if (roe < 0) negLabels.push(`ROE虧損 ${(roe * 100).toFixed(1)}%`);
+  let f_roe = 0;
+  if (roe >= 0.20) {
+    f_roe = Math.min(3, (roe - 0.10) / 0.10);
+    posLabels.push(`高獲利 ROE ${(roe * 100).toFixed(1)}%`);
+  } else if (roe >= 0.10) {
+    f_roe = (roe - 0.10) / 0.10;
+  } else if (roe < 0) {
+    f_roe = Math.max(-4.0, roe * 6.0); // 嚴重虧損大幅扣分
+    negLabels.push(`ROE虧損 ${(roe * 100).toFixed(1)}%`);
+    riskPenalty += 1.5;
+  } else {
+    f_roe = (roe - 0.10) / 0.10;
+  }
 
-  // 2. 毛利率 (基準 25%)
+  // 2. 毛利率與淨利率聯動（避免虛假高毛利陷阱）
   const gm = info.gross_margins ?? 0.20;
-  const f_gm = Math.max(-2, Math.min(2.5, (gm - 0.25) / 0.18));
-  if (gm >= 0.40) posLabels.push(`高毛利率 ${(gm * 100).toFixed(1)}%`);
-  else if (gm < 0.10) negLabels.push(`低毛利 ${(gm * 100).toFixed(1)}%`);
-
-  // 3. 淨利率 (基準 10%)
   const nm = info.profit_margins ?? 0.08;
-  const f_nm = Math.max(-2, Math.min(2.5, (nm - 0.10) / 0.12));
-  if (nm >= 0.20) posLabels.push(`高淨利 ${(nm * 100).toFixed(1)}%`);
-  else if (nm < 0) negLabels.push(`本業淨利虧損`);
 
-  // 4. EPS 獲利能力
+  let f_gm = (gm - 0.25) / 0.18;
+  let f_nm = 0;
+
+  if (nm < 0) {
+    f_nm = Math.max(-4.0, nm * 6.0);
+    negLabels.push(`本業淨利嚴重虧損 ${(nm * 100).toFixed(1)}%`);
+    riskPenalty += 1.5;
+    // 若毛利高但淨利大虧，視為費用失控或業外黑洞，壓低毛利得分
+    if (gm > 0.50) {
+      f_gm = -1.0;
+      negLabels.push(`毛利與淨利嚴重背離`);
+    }
+  } else if (nm >= 0.20) {
+    f_nm = Math.min(2.5, (nm - 0.10) / 0.12);
+    posLabels.push(`高淨利 ${(nm * 100).toFixed(1)}%`);
+  }
+
+  if (gm >= 0.40 && nm > 0) {
+    posLabels.push(`高毛利率 ${(gm * 100).toFixed(1)}%`);
+  }
+
+  // 3. EPS 獲利能力
   const eps = info.eps ?? (curPrice > 0 ? curPrice / 20 : 3.0);
-  const f_eps = eps > 0 ? Math.min(2.5, Math.log1p(eps) / 1.5) : -2.0;
-  if (eps >= 8.0) posLabels.push(`EPS優異 ${eps.toFixed(2)}元`);
-  else if (eps < 0) negLabels.push(`EPS為負值`);
+  let f_eps = 0;
+  if (eps > 0) {
+    f_eps = Math.min(2.5, Math.log1p(eps) / 1.5);
+    if (eps >= 8.0) posLabels.push(`EPS優異 ${eps.toFixed(2)}元`);
+  } else {
+    f_eps = -3.5; // 虧損股嚴重扣分
+    negLabels.push(`每股虧損 EPS ${eps.toFixed(2)}元`);
+    riskPenalty += 1.5;
+  }
 
-  // 5. 營收成長率 YoY
+  // 4. 營收成長率 YoY
   const revGrowth = info.revenue_growth ?? 0.05;
-  const f_rev = Math.max(-2, Math.min(2.5, revGrowth / 0.20));
+  const f_rev = Math.max(-2.5, Math.min(2.5, revGrowth / 0.20));
   if (revGrowth >= 0.20) posLabels.push(`營收高成長 +${(revGrowth * 100).toFixed(1)}%`);
-  else if (revGrowth < -0.15) negLabels.push(`營收衰退 ${(revGrowth * 100).toFixed(1)}%`);
+  else if (revGrowth < -0.10) negLabels.push(`營收衰退 ${(revGrowth * 100).toFixed(1)}%`);
 
-  // 6. 盈餘成長率 YoY
+  // 5. 盈餘成長率 YoY
   const earnGrowth = info.earnings_growth ?? 0.05;
   const f_earn = Math.max(-2, Math.min(2.5, earnGrowth / 0.25));
-  if (earnGrowth >= 0.25) posLabels.push(`盈餘大幅增長 +${(earnGrowth * 100).toFixed(1)}%`);
+  if (earnGrowth >= 0.25 && eps > 0) posLabels.push(`盈餘大幅增長 +${(earnGrowth * 100).toFixed(1)}%`);
 
-  // 7. 本益比合理性 (5~22 倍最佳)
-  const pe = info.tw_pe ?? info.pe ?? (curPrice > 0 && eps > 0 ? curPrice / eps : 18);
+  // 6. 本益比合理性 (5~22 倍最佳，虧損公司 PE 無意義)
+  const pe = info.tw_pe ?? info.pe ?? (curPrice > 0 && eps > 0 ? curPrice / eps : null);
   let f_pe = 0;
-  if (pe > 0 && pe <= 20) {
+  if (eps <= 0) {
+    f_pe = -2.0;
+  } else if (pe && pe > 0 && pe <= 20) {
     f_pe = (20 - pe) / 10;
     if (pe <= 15) posLabels.push(`低本益比 ${pe.toFixed(1)}倍`);
-  } else if (pe > 50) {
+  } else if (pe && pe > 50) {
     f_pe = -1.5;
     negLabels.push(`本益比偏高 ${pe.toFixed(1)}倍`);
   }
 
-  // 8. 股價淨值比 PB (<= 2.5 佳)
+  // 7. 股價淨值比 PB
   const pb = info.pb ?? 2.0;
-  const f_pb = pb > 0 ? Math.max(-2, (2.5 - pb) / 1.5) : 0;
-  if (pb > 0 && pb <= 1.5) posLabels.push(`低PB ${pb.toFixed(1)}倍`);
-  else if (pb > 6.0) negLabels.push(`PB過高 ${pb.toFixed(1)}倍`);
+  let f_pb = 0;
+  if (pb > 0 && pb <= 1.5 && roe > 0) {
+    f_pb = Math.max(-2, (2.5 - pb) / 1.5);
+    posLabels.push(`低PB ${pb.toFixed(1)}倍`);
+  } else if (pb > 4.0 && roe < 0) {
+    f_pb = -2.5;
+    negLabels.push(`虧損且PB高達 ${pb.toFixed(1)}倍`);
+    riskPenalty += 1.0;
+  }
 
-  // 9. 現金殖利率 (>= 4% 佳)
+  // 8. 現金殖利率 (>= 4% 佳)
   const dy = info.dividend_yield ?? 0.035;
-  const f_dy = Math.max(-1, Math.min(2, (dy - 0.035) / 0.025));
-  if (dy >= 0.05) posLabels.push(`高殖利率 ${(dy * 100).toFixed(1)}%`);
+  const f_dy = eps > 0 && dy >= 0.04 ? Math.min(2, (dy - 0.035) / 0.025) : -0.5;
+  if (dy >= 0.05 && eps > 0) posLabels.push(`高殖利率 ${(dy * 100).toFixed(1)}%`);
 
-  // 10. 負債比率 (< 50% 佳)
+  // 9. 負債比率 (< 60% 佳, > 200% 極度危險)
   const de = info.debt_to_equity ?? 60;
-  const f_de = Math.max(-2, Math.min(2, (120 - de) / 60));
-  if (de > 250) negLabels.push(`高負債比 ${de.toFixed(0)}%`);
+  let f_de = 0;
+  if (de > 250) {
+    f_de = -3.5;
+    negLabels.push(`高負債比 ${de.toFixed(0)}% (財務槓桿過大)`);
+    riskPenalty += 1.5;
+  } else {
+    f_de = Math.max(-2, Math.min(2, (120 - de) / 60));
+  }
 
-  // 11. 流動比率 (> 150% 佳)
+  // 10. 流動比率 (< 1.0 短期償債困難)
   const cr = info.current_ratio ?? 1.8;
-  const f_cr = Math.max(-1.5, Math.min(2, (cr - 1.5) / 1.0));
+  let f_cr = 0;
+  if (cr < 1.0) {
+    f_cr = -2.5;
+    negLabels.push(`流動比率偏低 (${cr.toFixed(2)}) 償債壓力大`);
+    riskPenalty += 1.0;
+  } else {
+    f_cr = Math.max(-1.5, Math.min(2, (cr - 1.5) / 1.0));
+  }
 
-  // 12. 自由現金流
+  // 11. 自由現金流
   const fcf = info.free_cashflow ?? 50000000;
-  const f_fcf = fcf > 0 ? 1.0 : -1.5;
+  const f_fcf = fcf > 0 ? 1.0 : -2.5;
   if (fcf > 0) posLabels.push(`自由現金流入正向`);
-  else negLabels.push(`現金流吃緊`);
+  else {
+    negLabels.push(`自由現金流為負 (燒錢警示)`);
+    riskPenalty += 1.0;
+  }
 
-  // 13. 當日盤面漲跌力道
+  // 12. 當日盤面漲跌力道
   const changePct = prevClose > 0 ? ((curPrice - prevClose) / prevClose) * 100 : 0;
-  const f_change = Math.max(-2.5, Math.min(2.5, changePct / 2.5));
+  const f_change = Math.max(-3.0, Math.min(3.0, changePct / 2.5));
   if (changePct >= 2.5) posLabels.push(`盤面強勢 +${changePct.toFixed(2)}%`);
-  else if (changePct <= -3.0) negLabels.push(`盤面重挫 ${changePct.toFixed(2)}%`);
+  else if (changePct <= -3.0) negLabels.push(`盤面弱勢 ${changePct.toFixed(2)}%`);
 
-  // 14. 振幅強度
+  // 13. 振幅與動能綜合
   const f_amp = Math.min(2.0, Math.abs(changePct) / 2.0);
-
-  // 15. 價格動能綜合
-  const f_mom = changePct > 0 ? 1.0 : -0.8;
-
-  // 16. 基本面綜合基礎分
+  const f_mom = changePct > 0 ? 1.0 : -1.5;
   const f_baseFund = (f_roe + f_gm + f_nm + f_eps) / 4;
-
-  // 17. 財務安全係數
   const f_safety = (f_de + f_cr + f_fcf) / 3;
 
   const features = [
@@ -142,7 +191,7 @@ export function extract17Features(info: StockInfoFull, curPrice: number, prevClo
     f_cr, f_fcf, f_change, f_amp, f_mom, f_baseFund, f_safety
   ];
 
-  return { features, posLabels, negLabels };
+  return { features, posLabels, negLabels, riskPenalty };
 }
 
 /**
@@ -154,14 +203,13 @@ export function evaluateAIAlpha(
   prevClose: number
 ): AIAlphaResult {
   const hwInfo = getCachedHardwareInfo();
-  const { features, posLabels, negLabels } = extract17Features(info, curPrice, prevClose);
+  const { features, posLabels, negLabels, riskPenalty } = extract17Features(info, curPrice, prevClose);
 
   // Layer 1 Forward: 17 -> 32
   const hidden1 = new Float32Array(32);
   for (let i = 0; i < 32; i++) {
     let sum = W1_BIAS[i];
     for (let j = 0; j < 17; j++) {
-      // 權重核：對 ROE (j=0)、毛利 (j=1)、營收 (j=4)、動能 (j=12) 給予正向神經激勵
       const w = Math.sin((i + 1) * (j + 1) * 0.45) * 0.28 + (j < 6 ? 0.35 : 0.15);
       sum += features[j] * w;
     }
@@ -180,10 +228,14 @@ export function evaluateAIAlpha(
   }
 
   // Output Head: 16 -> 1 (Logit -> Sigmoid)
-  let outLogit = 0.42; // 先驗偏好
+  // 中性先驗，並帶入重大財務風險直接懲罰項
+  let outLogit = 0.05;
   for (let i = 0; i < 16; i++) {
-    outLogit += hidden2[i] * 0.24;
+    outLogit += hidden2[i] * 0.22;
   }
+
+  // 扣除重大財務地雷懲罰 (如同時虧損、高負債、流動性不足)
+  outLogit -= riskPenalty * 0.55;
 
   // 計算勝率百分比 (0 ~ 100)
   const rawProb = sigmoid(outLogit);
@@ -194,9 +246,9 @@ export function evaluateAIAlpha(
 
   // 判定置信評級
   let convictionTier: AIAlphaResult["convictionTier"] = "⭐⭐⭐ 中性盤整";
-  if (winRatePct >= 80) convictionTier = "⭐⭐⭐⭐⭐ 強烈看多";
-  else if (winRatePct >= 65) convictionTier = "⭐⭐⭐⭐ 穩健多頭";
-  else if (winRatePct <= 35) convictionTier = "⚠️ 偏空避險";
+  if (winRatePct >= 78) convictionTier = "⭐⭐⭐⭐⭐ 強烈看多";
+  else if (winRatePct >= 60) convictionTier = "⭐⭐⭐⭐ 穩健多頭";
+  else if (winRatePct <= 40) convictionTier = "⚠️ 偏空避險";
 
   return {
     symbol: info.symbol,
@@ -205,7 +257,7 @@ export function evaluateAIAlpha(
     expectedAlphaPct,
     convictionTier,
     positiveDrivers: posLabels.slice(0, 3),
-    riskDrivers: negLabels.slice(0, 2),
+    riskDrivers: negLabels.slice(0, 3),
     hwTier: hwInfo.tier,
   };
 }
