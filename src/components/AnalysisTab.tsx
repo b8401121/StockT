@@ -227,12 +227,18 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
   const [showFsModal, setShowFsModal] = useState(false);
   const [showTechModal, setShowTechModal] = useState(false);
   const [activeTechChart, setActiveTechChart] = useState<"main" | SubChartType | null>(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [aiModalFilter, setAiModalFilter] = useState<"ALL" | "OHLCV" | "Fundamental" | "Valuation" | "Safety">("ALL");
   const [fundData, setFundData] = useState<any>(null);
   const [fundLoading, setFundLoading] = useState(false);
   const [fundTab, setFundTab] = useState<"income" | "balance" | "cashflow">("income");
   const [fundFreq, setFundFreq] = useState<"annual" | "quarterly">("quarterly");
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const toggleSidebar = () => {
+    setSidebarCollapsed(prev => !prev);
+    setTimeout(() => window.dispatchEvent(new Event("resize")), 60);
+  };
 
   // 指標解說 Modal 狀態
   const [selectedMetric, setSelectedMetric] = useState<{
@@ -458,7 +464,7 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
   return (
     <div className="analysis-layout">
       {/* ─── 左側資訊面板 ─────────────────────────────────────────── */}
-      <div className="analysis-sidebar">
+      <div className="analysis-sidebar" style={{ display: sidebarCollapsed ? "none" : "flex" }}>
         {/* 搜尋列 */}
         <div className="analysis-search">
           <div style={{ position: "relative", flex: 1 }}>
@@ -491,6 +497,14 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
           </div>
           <button className="btn btn-primary" onClick={() => doAnalysis()} disabled={loading}>
             {loading ? <span className="loading-spinner" /> : "分析"}
+          </button>
+          <button
+            className="btn btn-outline"
+            onClick={toggleSidebar}
+            title="隱藏側欄 (全螢幕 K 線圖)"
+            style={{ padding: "0 10px", fontSize: "0.85rem", display: "flex", alignItems: "center", justifyContent: "center" }}
+          >
+            ◀
           </button>
         </div>
 
@@ -784,7 +798,35 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
       </div>
 
       {/* ─── 右側圖表區 ─────────────────────────────────────────────── */}
-      <div className="analysis-chart-area">
+      <div className="analysis-chart-area" style={{ position: "relative" }}>
+        {sidebarCollapsed && (
+          <button
+            onClick={toggleSidebar}
+            style={{
+              position: "absolute",
+              top: "10px",
+              left: "12px",
+              zIndex: 100,
+              background: "rgba(15, 23, 42, 0.92)",
+              border: "1px solid rgba(56, 189, 248, 0.45)",
+              color: "#38bdf8",
+              borderRadius: "6px",
+              padding: "5px 12px",
+              fontSize: "0.82rem",
+              fontWeight: 700,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              boxShadow: "0 4px 14px rgba(0,0,0,0.6)",
+              backdropFilter: "blur(8px)",
+              transition: "all 0.15s ease"
+            }}
+            title="點擊展開左側資訊面板"
+          >
+            ▶ 展開側欄
+          </button>
+        )}
         {loading ? (
           <div className="empty-state" style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "16px" }}>
             <div style={{ fontSize: "3.5rem" }}>⏳</div>
