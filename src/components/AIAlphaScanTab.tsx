@@ -71,10 +71,11 @@ function filterSymbolsByMarket(allKeys: string[], fundamentalsMap: Record<string
 }
 
 const STRATEGIES = [
-  { id: "strong_bull", label: "⭐⭐⭐⭐⭐ 極致多頭 (勝率 ≥ 80%)", filterFn: (s: AIAlphaResult) => s.winRatePct >= 80 },
-  { id: "finlab_momentum", label: "🚀 FinLab 波段飆股 (120日動能 + 站上年線)", filterFn: (s: AIAlphaResult, info: StockInfoFull) => (s.winRatePct >= 65 && (info.roe ?? 0) >= 0.10 && (info.eps ?? 0) > 0) },
-  { id: "value_alpha", label: "💎 價值高勝率 (高ROE ≥ 15% + 低PE ≤ 20)", filterFn: (s: AIAlphaResult, info: StockInfoFull) => (s.winRatePct >= 65 && (info.roe ?? 0) >= 0.15 && (info.tw_pe ?? info.pe ?? 30) <= 20) },
-  { id: "growth_alpha", label: "📈 雙重擴張成長 (營收YoY ≥ 15% + 勝率 ≥ 70%)", filterFn: (s: AIAlphaResult, info: StockInfoFull) => (s.winRatePct >= 70 && (info.revenue_growth ?? 0) >= 0.15) },
+  { id: "strong_bull", label: "⭐⭐⭐⭐⭐ 極致多頭 (勝率 ≥ 78%)", filterFn: (s: AIAlphaResult) => s.winRatePct >= 78 },
+  { id: "solid_bull", label: "⭐⭐⭐⭐ 穩健多頭 (勝率 ≥ 60%)", filterFn: (s: AIAlphaResult) => s.winRatePct >= 60 },
+  { id: "finlab_momentum", label: "🚀 FinLab 波段飆股 (120日動能 + 站上年線)", filterFn: (s: AIAlphaResult, info: StockInfoFull) => (s.winRatePct >= 60 && (info.roe ?? 0) >= 0.10 && (info.eps ?? 0) > 0) },
+  { id: "value_alpha", label: "💎 價值高勝率 (高ROE ≥ 15% + 低PE ≤ 20)", filterFn: (s: AIAlphaResult, info: StockInfoFull) => (s.winRatePct >= 60 && (info.roe ?? 0) >= 0.15 && (info.tw_pe ?? info.pe ?? 30) <= 20) },
+  { id: "growth_alpha", label: "📈 雙重擴張成長 (營收YoY ≥ 15% + 勝率 ≥ 65%)", filterFn: (s: AIAlphaResult, info: StockInfoFull) => (s.winRatePct >= 65 && (info.revenue_growth ?? 0) >= 0.15) },
   { id: "landmine_risk", label: "⚠️ 偏空避險名單 (勝率 ≤ 35% / 虧損地雷)", filterFn: (s: AIAlphaResult) => s.winRatePct <= 35 },
 ];
 
@@ -82,6 +83,7 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
   const [market, setMarket] = useState("3A");
   const [strategy, setStrategy] = useState("strong_bull");
   const [scanning, setScanning] = useState(false);
+  const [hasScanned, setHasScanned] = useState(false);
   const [progress, setProgress] = useState(0);
   const [progressMsg, setProgressMsg] = useState("");
   const [results, setResults] = useState<RankedAlphaStock[]>([]);
@@ -95,6 +97,7 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
   const startScan = async () => {
     cancelRef.current = false;
     setScanning(true);
+    setHasScanned(true);
     setProgress(0);
     setProgressMsg("正在進行全市場 17 維神經網路 AI 推論...");
     setResults([]);
@@ -291,8 +294,12 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
       <div className="scan-table-wrap">
         {results.length === 0 && !scanning ? (
           <div className="empty-state" style={{ height: "100%" }}>
-            <div className="empty-icon">🧠</div>
-            <div className="empty-text">選擇掃描範圍與 AI 策略，點選「開始 AI 多因子推論」執行全市場 17 維神經網路運算</div>
+            <div className="empty-icon">{hasScanned ? "🔍" : "🧠"}</div>
+            <div className="empty-text">
+              {hasScanned
+                ? "在此產業範圍中目前無符合該篩選標準之標的，建議可切換至【🚀 FinLab 波段飆股】或【⭐⭐⭐⭐ 穩健多頭】查看更多優質標的！"
+                : "選擇掃描範圍與 AI 策略，點選「開始 AI 多因子推論」執行全市場 17 維神經網路運算"}
+            </div>
           </div>
         ) : (
           <table className="data-table">
