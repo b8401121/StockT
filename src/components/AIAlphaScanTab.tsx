@@ -328,8 +328,9 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
             <tbody>
               {results.map((r) => {
                 const cleanSym = r.symbol.replace(/\.(TW|TWO)$/, "");
+                const isRisk = r.convictionTier.includes("偏空") || r.winRatePct <= 40;
                 const isTopWin = r.winRatePct >= 78;
-                const winColor = r.winRatePct >= 78 ? "#ff5252" : r.winRatePct >= 60 ? "#ffd740" : "#4caf50";
+                const winColor = isTopWin ? "#38bdf8" : r.winRatePct >= 60 ? "#a855f7" : r.winRatePct <= 40 ? "#ef4444" : "#facc15";
 
                 return (
                   <tr key={r.symbol}>
@@ -350,14 +351,14 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
                         </span>
                       </div>
                     </td>
-                    <td style={{ fontWeight: 700, color: r.expectedAlphaPct >= 0 ? "#38bdf8" : "#94a3b8" }}>
+                    <td style={{ fontWeight: 700, color: r.expectedAlphaPct >= 0 ? "#38bdf8" : "#f87171" }}>
                       {r.expectedAlphaPct >= 0 ? "+" : ""}{fmtFixed(r.expectedAlphaPct, 1)}%
                     </td>
                     <td>
                       <span className="badge" style={{
-                        backgroundColor: isTopWin ? "rgba(239, 68, 68, 0.2)" : "rgba(168, 85, 247, 0.2)",
-                        color: isTopWin ? "#f87171" : "#c084fc",
-                        border: `1px solid ${isTopWin ? "rgba(239, 68, 68, 0.4)" : "rgba(168, 85, 247, 0.4)"}`,
+                        backgroundColor: isRisk ? "rgba(239, 68, 68, 0.2)" : isTopWin ? "rgba(56, 189, 248, 0.2)" : "rgba(168, 85, 247, 0.2)",
+                        color: isRisk ? "#f87171" : isTopWin ? "#38bdf8" : "#c084fc",
+                        border: `1px solid ${isRisk ? "rgba(239, 68, 68, 0.4)" : isTopWin ? "rgba(56, 189, 248, 0.4)" : "rgba(168, 85, 247, 0.4)"}`,
                         fontWeight: 600
                       }}>
                         {r.convictionTier}
@@ -372,7 +373,7 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
                     </td>
                     <td style={{ fontSize: "0.78rem", color: "var(--text-muted)" }}>
                       <div>PE: <b style={{ color: "var(--text-primary)" }}>{fmtFixed(r.info.tw_pe ?? r.info.pe, 1, "-")}</b></div>
-                      <div>ROE: <b style={{ color: (r.info.roe ?? 0) >= 0.15 ? "var(--accent-red)" : "var(--text-primary)" }}>{r.info.roe != null ? fmtFixed(r.info.roe * 100, 1) + "%" : "-"}</b></div>
+                      <div>ROE: <b style={{ color: (r.info.roe ?? 0) < 0 ? "#ff5252" : (r.info.roe ?? 0) >= 0.15 ? "#4ade80" : "var(--text-primary)" }}>{r.info.roe != null ? fmtFixed(r.info.roe * 100, 1) + "%" : "-"}</b></div>
                     </td>
                     <td>
                       <button

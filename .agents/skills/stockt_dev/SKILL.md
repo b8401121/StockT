@@ -47,11 +47,18 @@ The app uses `src/utils/platform.ts` with `isTauri()` to dynamically switch betw
 
 ---
 
-## 3. Critical UI & Financial Conventions
-
-### Taiwan Stock Market Color Conventions (台股慣例)
-- **RED (🔴 漲 / 多頭 / 獲利)**: `var(--accent-red)` / `#ff5252` (Price rise `▲`, positive YoY growth, Bullish advice, capital profit).
-- **GREEN (🟢 跌 / 空頭 / 虧損)**: `var(--accent-green)` / `#4caf50` (Price drop `▼`, negative growth, Bearish advice, capital loss).
+### UI Color Conventions (色彩規範：股價成交量 vs 其他因素)
+> [!IMPORTANT]
+> **絕對區分「股價/成交量」與「其他非價格因素」的色彩邏輯：**
+> 
+> 1. **股價、成交量、價格漲跌、價差損益 (Price & Volume Action)**：
+>    - **漲用紅色 (🔴 RED)**: `var(--accent-red)` / `#ff5252` (價格上漲 `▲`、正報酬 PnL、成交量上漲紅量)。
+>    - **跌用綠色 (🟢 GREEN)**: `var(--accent-green)` / `#4caf50` (價格下跌 `▼`、負報酬虧損 PnL、成交量下跌綠量)。
+> 
+> 2. **其他因素（基本面指標、財務健康、風險評估、地雷、17 維神經網路因子、分數評級、指標診斷）**：
+>    - **不好的用紅色 (🔴 RED 警示/危險)**: `var(--accent-red)` / `#ef4444` / `#dc2626` (財務地雷 💣、虧損/負值 `ROE/EPS < 0`、營收衰退、現金流流出燒錢、負債過高 `D/E > 200%`、自有資本率過低 `< 30%`、AI 低勝率 `< 40%`、偏空避險、評分危險 F 級、檢驗未通過 ✗)。
+>    - **好的用綠色 / 青藍色 / 紫色 (🟢 GREEN / 🔵 CYAN / 🟣 PURPLE 安全/優質)**: `#4ade80` / `#38bdf8` / `#a855f7` (評分 S/A 級、通過檢驗 ✓、高 ROE/營收高成長、現金流充沛、AI 高勝率 `> 75%`、強烈看多)。
+>    - **中性用黃色 / 灰色 (🟡 AMBER / ⚪ GRAY)**: `#facc15` / `#94a3b8` (中性持有、普通 C 級)。
 
 ### Null Safety & Defensive Data Parsing Rules
 > [!IMPORTANT]

@@ -350,7 +350,7 @@ export const ScannerTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ on
                     <td>
                       {r.aiWinRate !== undefined ? (
                         <div>
-                          <span style={{ fontWeight: 700, color: r.aiWinRate >= 75 ? "#ff5252" : r.aiWinRate >= 50 ? "#ffd740" : "#4caf50" }}>
+                          <span style={{ fontWeight: 700, color: r.aiWinRate >= 75 ? "#38bdf8" : r.aiWinRate >= 50 ? "#c084fc" : r.aiWinRate <= 40 ? "#ef4444" : "#facc15" }}>
                             {r.aiWinRate.toFixed(1)}%
                           </span>
                           <div style={{ fontSize: "0.70rem", color: "var(--text-muted)" }}>{r.aiConviction}</div>

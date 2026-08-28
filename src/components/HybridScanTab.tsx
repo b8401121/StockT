@@ -258,7 +258,7 @@ export const HybridScanTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({
                   <td>
                     <div title={`AI 驅動因素:\n${r.aiDrivers.map(d => `• ${d}`).join("\n")}`} style={{ cursor: "help" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                        <span style={{ fontWeight: 700, color: r.aiWinRate >= 75 ? "#ff5252" : r.aiWinRate >= 55 ? "#ffd740" : "#4caf50" }}>
+                        <span style={{ fontWeight: 700, color: r.aiWinRate >= 75 ? "#38bdf8" : r.aiWinRate >= 55 ? "#c084fc" : r.aiWinRate <= 40 ? "#ef4444" : "#facc15" }}>
                           {r.aiWinRate.toFixed(1)}%
                         </span>
                       </div>
