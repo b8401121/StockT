@@ -1,11 +1,11 @@
 ---
 name: stockt_dev
-description: Comprehensive development guidelines and architectural context for StockT (Tauri Desktop & GitHub Pages Web App). Covers cross-platform build commands, multi-platform runtime adapters, Taiwan market conventions, null-safety rules, and business logic caveats.
+description: Comprehensive development guidelines and architectural context for StockT (Tauri Desktop & GitHub Pages Web App). Covers cross-platform build commands, multi-platform runtime adapters, Taiwan market conventions, Metric<T> provenance pipeline, honest multi-factor modeling, null-safety rules, and business logic caveats.
 ---
 
 # StockT (阿山股市終端機 v2.0) Development Guidelines
 
-StockT is a cross-platform financial analytics application supporting both **Tauri Desktop (Linux RPM / Windows EXE)** and **GitHub Pages (Web / Mobile RWD)** using **React 18 + TypeScript + Vite** on the frontend and **Tauri (Rust)** on the desktop backend.
+StockT is a cross-platform financial analytics application supporting both **Tauri Desktop (Linux RPM / Windows EXE)** and **GitHub Pages (Web / Mobile RWD)** using **React 18 + TypeScript + Vite** on the frontend and **Tauri 2 (Rust)** on the desktop backend.
 
 ---
 
@@ -34,18 +34,61 @@ $env:PATH = "f:\StockT\node-v20.12.2-win-x64;f:\StockT\mingw64\mingw64\bin;" + $
 
 ---
 
-## 2. Multi-Platform Runtime Architecture
+## 2. Multi-Platform Runtime Architecture & Data Provenance
 
 The app uses `src/utils/platform.ts` with `isTauri()` to dynamically switch between Desktop and Web environments:
 
 | Feature | Tauri Desktop (`isTauri() === true`) | GitHub Pages (`isTauri() === false`) |
 | :--- | :--- | :--- |
 | **Market Data** | Rust backend (`fetch.rs`) via `invoke()` | Yahoo Web API + CORS Proxy + Bundled TWSE/MOPS DB |
+| **Data Provenance** | `MetricF64` (`value`, `source`, `fetched_at`) | `Metric<number>` (`value`, `source`, `fetchedAt`) |
 | **Watchlist Storage** | Local JSON files in root folder | Firebase Firestore with client-side AES-GCM encryption |
 | **File Export** | Rust IPC writes directly to OS `Downloads/` | Browser dynamic `Blob` download |
 | **Window Controls** | Tauri Native Window API (`@tauri-apps/api`) | Browser standard Fullscreen API |
 
+### End-to-End Metric<T> Data Provenance Pipeline
+All quantitative financial metrics flow through a typed provenance container from data providers to UI:
+
+```
+Rust Backend (fetch.rs / yahoo.rs / twse.rs / tpex.rs)
+  ↓ MetricF64 { value, source: "Yahoo Finance" | "TWSE" | "TPEx", fetched_at }
+Tauri IPC / Deserialization
+  ↓ Metric<number> { value, source, fetchedAt }
+StockInfo / StockInfoFull (TypeScript)
+  ↓ metricVal(info.roe), metricSource(info.roe), metricTs(info.roe)
+AI Alpha Multi-Factor Engine (aiAlphaModel.ts)
+  ↓ FactorResult { value, source, asOf, status, available }
+UI (AnalysisTab / Scanners) -> Transparently displays real data provenance
+```
+
+#### Helper Functions:
+- `metricVal(m)`: Null-safe extraction of `m?.value ?? null`.
+- `metricSource(m, fallback)`: Returns provenance source (`"TWSE"`, `"Yahoo Finance"`, `"MOPS"`, etc.).
+- `metricTs(m)`: Returns ISO-8601 timestamp string (`m?.fetchedAt`).
+
 ---
+
+## 3. Data Integrity, Backend Security & Factor Modeling Rules
+
+> [!IMPORTANT]
+> **Honest Multi-Factor Model & 0-Tolerance for Fake Fallbacks:**
+> 1. **No Fake Momentum Fallbacks**: 
+>    - `momentum20` requires $\ge 20$ trading bars (`closes.length >= 20`).
+>    - `momentum60` requires $\ge 60$ trading bars (`closes.length >= 60`).
+>    - `momentum120` requires $\ge 120$ trading bars (`closes.length >= 120`).
+>    - **NEVER** use heuristic proxies (e.g., `1-day return * 2`) to fabricate momentum when data is missing. If bars are insufficient, return `value: null`, `available: false`, `status: "missing"`.
+> 2. **Valuation Metric Precedence**:
+>    - For Taiwan equities (`.TW` / `.TWO`), TWSE/TPEx official valuations (`tw_pe`, `tw_pb`, `tw_yield`) take precedence over Yahoo Finance trailing estimates.
+> 3. **Calibration & Backtest Claim Honesty**:
+>    - Differentiate clearly between dynamic backtest empirical results and `HeuristicCalibration` (啟發式校準分位估算).
+>    - **DO NOT** hardcode empirical backtest stats (e.g., "68.4% 歷史勝率", "+4.7% Alpha", "IR 1.42") in the UI unless generated dynamically from a reproducible, auditable backtest artifact.
+> 4. **Backend TLS & Session Security**:
+>    - Never enable `danger_accept_invalid_certs(true)` in HTTP client builders.
+>    - Never keep hardcoded session cookies (e.g. `A3=d=AQAB...`) as fallbacks. Dynamic session fetching must fail cleanly with explicit error messages if tokens cannot be retrieved.
+
+---
+
+## 4. UI Color Conventions & Null Safety
 
 ### UI Color Conventions (色彩規範：股價成交量 vs 其他因素)
 > [!IMPORTANT]
@@ -55,7 +98,7 @@ The app uses `src/utils/platform.ts` with `isTauri()` to dynamically switch betw
 >    - **漲用紅色 (🔴 RED)**: `var(--accent-red)` / `#ff5252` (價格上漲 `▲`、正報酬 PnL、成交量上漲紅量)。
 >    - **跌用綠色 (🟢 GREEN)**: `var(--accent-green)` / `#4caf50` (價格下跌 `▼`、負報酬虧損 PnL、成交量下跌綠量)。
 > 
-> 2. **其他因素（基本面指標、財務健康、風險評估、地雷、17 維神經網路因子、分數評級、指標診斷）**：
+> 2. **其他因素（基本面指標、財務健康、風險評估、地雷、神經網路/多因子、分數評級、指標診斷）**：
 >    - **不好的用紅色 (🔴 RED 警示/危險)**: `var(--accent-red)` / `#ef4444` / `#dc2626` (財務地雷 💣、虧損/負值 `ROE/EPS < 0`、營收衰退、現金流流出燒錢、負債過高 `D/E > 200%`、自有資本率過低 `< 30%`、AI 低勝率 `< 40%`、偏空避險、評分危險 F 級、檢驗未通過 ✗)。
 >    - **好的用綠色 / 青藍色 / 紫色 (🟢 GREEN / 🔵 CYAN / 🟣 PURPLE 安全/優質)**: `#4ade80` / `#38bdf8` / `#a855f7` (評分 S/A 級、通過檢驗 ✓、高 ROE/營收高成長、現金流充沛、AI 高勝率 `> 75%`、強烈看多)。
 >    - **中性用黃色 / 灰色 (🟡 AMBER / ⚪ GRAY)**: `#facc15` / `#94a3b8` (中性持有、普通 C 級)。
@@ -84,13 +127,13 @@ export function toSafeNum(v: any, fallback: number | null = null): number | null
 ```
 
 ### Chart UX & Interactive HUD (TradingView Style)
-- **Top-Left Pinned HUD (`ChartHUDView`)**: Interactive K-line charts (including main chart and full-screen zoom modal) pin the information card at `left: 70px; top: 8px` (avoiding the left price scale).
+- **Top-Left Pinned HUD (`ChartHUDView`)**: Interactive K-line charts pin the information card at `left: 70px; top: 8px` (avoiding the left price scale).
 - **Never Obstruct Cursor/Candles**: Never render floating tooltips directly tracking underneath mouse cursor. Use pinned HUD overlay that reacts to `subscribeCrosshairMove`.
 - **Default Display**: When cursor leaves the chart area, default to displaying the latest trading day's metrics (OHLCV, Change ▲/▼, Volume in 張/股, MA5/10/20).
 
 ---
 
-## 4. Core Business Logic & Financial Formulas
+## 5. Core Business Logic & Financial Formulas
 
 ### 1. Cumulative P&L (總累積獲利)
 $$\text{Grand Total P&L} = \text{Unrealized P&L} + \text{Realized P&L} + \text{Est. Net Dividends}$$
@@ -116,14 +159,16 @@ JSON keys for financial statements in `QuoteFinanceStore` are dynamic (e.g. `bal
 
 ---
 
-## 5. Git & Deployment Workflow
+## 6. Git & Branch Management Workflow
 
-1. Perform local development and testing on the `dev` branch.
-2. Commit and push to `origin/dev`:
+1. Perform local development and testing on the `大修正` feature branch.
+2. Commit and push to `origin/大修正`:
    ```bash
-   git add . && git commit -m "feat/fix: description" && git push origin dev
+   git add -A && git commit -m "feat/fix: description" && git push origin 大修正
    ```
-3. To deploy to GitHub Pages, merge `dev` into `main` and push:
+3. To update production and GitHub Pages, sync `大修正` into `main` and `stable`:
    ```bash
-   git checkout main && git merge dev && git push origin main && git checkout dev
+   git checkout main && git merge 大修正 && git push origin main
+   git checkout stable && git merge main && git push origin stable
+   git checkout 大修正
    ```
