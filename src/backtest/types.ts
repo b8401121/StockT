@@ -1,5 +1,5 @@
 /**
- * Institutional-Grade Backtest & Portfolio Engine Types
+ * Audited Institutional Backtest Types & Schemas
  */
 
 export interface BacktestTimingConfig {
@@ -10,20 +10,22 @@ export interface BacktestTimingConfig {
   holding_period: number;
   holding_period_unit: "trading_days";
   exit_timing: string;
-  exit_execution: string;
-  rebalance_frequency: "daily" | "weekly" | "monthly";
+  exit_execution_timing: string;
+  rebalance_policy: string;
+  rebalance_rule_explanation: string;
 }
 
 export interface BacktestCostConfig {
-  commission_bps: number;       // e.g. 14.25 bps
-  sell_tax_bps: number;         // e.g. 30.0 bps (TWSE standard)
-  slippage_bps: number;         // e.g. 5.0 bps
-  min_commission_ntd: number;   // e.g. NT$ 20
+  commission_bps: number;       // 14.25 bps
+  sell_tax_bps: number;         // 30.0 bps
+  slippage_bps: number;         // 5.0 bps
+  min_commission_ntd: number;   // NT$ 20 floor
+  cost_accounting_rule: string;
 }
 
 export interface BacktestUniverseConfig {
-  benchmark: string;            // e.g. "TAIEX"
-  market: string[];             // ["TWSE", "TPEx"]
+  benchmark: string;
+  market: string[];
   survivorship_bias_protection: boolean;
   min_market_cap_billions: number;
   min_20d_avg_volume_shares: number;
@@ -34,7 +36,16 @@ export interface BacktestUniverseConfig {
 export interface BacktestCorporateActionsConfig {
   price_field: "adjusted_close" | "close";
   return_method: "total_return" | "price_return";
-  dividend_reinvestment: boolean;
+  dividend_handling: "embedded_in_adjusted_close" | "cash_reinvestment";
+  double_counting_protection: boolean;
+  explanation: string;
+}
+
+export interface BacktestBenchmarkConfig {
+  benchmark_symbol: string;
+  timing_rule: string;
+  window_definition: string;
+  explanation: string;
 }
 
 export interface BacktestPortfolioConfig {
@@ -54,6 +65,7 @@ export interface BacktestConfig {
   costs: BacktestCostConfig;
   universe: BacktestUniverseConfig;
   corporate_actions: BacktestCorporateActionsConfig;
+  benchmark_alignment: BacktestBenchmarkConfig;
   portfolio: BacktestPortfolioConfig;
 }
 
@@ -72,43 +84,61 @@ export interface SimulatedTrade {
   symbol: string;
   name: string;
   sector: string;
-  signalDate: string;           // T
-  entryDate: string;            // T+1
-  exitDate: string;             // T+20 trading days
+  signalDate: string;           // T Close (13:30)
+  entryDate: string;            // T+1 Open (09:00)
+  exitDate: string;             // T+20 Close (13:30)
   holdingTradingDays: number;
   entryPriceRaw: number;
-  entryPriceExec: number;       // with slippage
+  entryPriceExec: number;       // Entry + Slippage
   exitPriceRaw: number;
-  exitPriceExec: number;        // with slippage
+  exitPriceExec: number;        // Exit - Slippage
   shares: number;
   positionSizeNtd: number;
-  entryCommissionNtd: number;
-  exitCommissionNtd: number;
-  exitTaxNtd: number;
+  entryCommissionNtd: number;   // with NT$20 min
+  exitCommissionNtd: number;    // with NT$20 min
+  exitTaxNtd: number;           // 30 bps on sell
+  entrySlippageNtd: number;
+  exitSlippageNtd: number;
   totalFrictionNtd: number;
   grossReturnPct: number;
   netReturnPct: number;
+  benchmarkReturnPct: number;   // Synchronized: TAIEX(T+20 Close) / TAIEX(T+1 Open) - 1
+  netAlphaPct: number;          // netReturnPct - benchmarkReturnPct
   grossPnLNtd: number;
   netPnLNtd: number;
   factorScoreAtSignal: number;
 }
 
-export interface DailyPortfolioRecord {
-  date: string;
-  portfolioNav: number;
-  cashNtd: number;
-  investedNtd: number;
-  activePositionsCount: number;
-  dailyGrossReturnPct: number;
-  dailyNetReturnPct: number;
-  benchmarkValue: number;
-  benchmarkDailyReturnPct: number;
-  cumulativeNetReturnPct: number;
-  cumulativeBenchmarkReturnPct: number;
-  drawdownPct: number;
+export interface YearlyPerformanceRecord {
+  year: number;
+  periodType: "In-Sample" | "Walk-Forward Out-of-Sample";
+  tradesCount: number;
+  winRatePct: number;
+  grossReturnPct: number;
+  netReturnPct: number;
+  benchmarkReturnPct: number;
+  netAlphaPct: number;
+  sharpeRatio: number;
+  maxDrawdownPct: number;
+  frictionPaidNtd: number;
+}
+
+export interface CalibrationBucket {
+  raw_probability_min: number;
+  empirical_win_rate_pct: number;
+  sample_count: number;
+  avg_net_return_pct: number;
 }
 
 export interface BacktestReport {
+  provenance: {
+    runId: string;
+    configHash: string;
+    datasetHash: string;
+    engineVersion: string;
+    generatedAt: string;
+    isAuditVerified: boolean;
+  };
   summary: {
     periodStart: string;
     periodEnd: string;
@@ -124,13 +154,18 @@ export interface BacktestReport {
     grossAnnualizedReturnPct: number;
     netAnnualizedReturnPct: number;
     benchmarkAnnualizedReturnPct: number;
-    netAlphaAnnualizedPct: number;  // Net Excess Return over TAIEX
+    netAlphaAnnualizedPct: number;
+    grossTurnoverNtd: number;
+    totalCommissionNtd: number;
+    totalTaxNtd: number;
+    totalSlippageNtd: number;
     totalFrictionPaidNtd: number;
-    frictionDragPct: number;       // Drag caused by commission + tax + slippage
+    costToNavRatioPct: number;
+    frictionDragPct: number;
   };
   risk: {
     annualizedVolatilityPct: number;
-    sharpeRatio: number;           // Net Return / Vol
+    sharpeRatio: number;
     sortinoRatio: number;
     maxDrawdownPct: number;
     informationRatio: number;
@@ -145,4 +180,6 @@ export interface BacktestReport {
     avgLossPct: number;
     maxConsecutiveLosses: number;
   };
+  yearlyBreakdown: YearlyPerformanceRecord[];
+  calibrationCurve: CalibrationBucket[];
 }

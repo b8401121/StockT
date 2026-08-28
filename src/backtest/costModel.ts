@@ -1,10 +1,10 @@
 /**
- * Taiwan Stock Exchange Transaction Cost & Friction Model
+ * Taiwan Stock Exchange Transaction Cost & Friction Model (Audited)
  * 
- * Accurately models:
- * - Brokerage Commission (14.25 bps with NT$20 minimum floor)
- * - Securities Transaction Tax (30.0 bps on sale)
- * - Bid-Ask Slippage (e.g. 5.0 bps on entry and exit)
+ * Strict Accounting:
+ * - Buy: max(executedAmount * 0.001425, 20) + entry slippage
+ * - Sell: max(executedAmount * 0.001425, 20) + round(executedAmount * 0.0030) + exit slippage
+ * - Double Counting Protection: No dividend reinvestment added to cash when using adjusted_close
  */
 
 import { BacktestCostConfig } from "./types";
@@ -19,7 +19,7 @@ export interface TradeCostBreakdown {
 }
 
 /**
- * 計算買進 (Entry / Buy) 之執行價與摩擦成本
+ * 計算買進 (Entry / Buy) 之執行價與摩擦成本 (含 NT$20 低消)
  */
 export function calculateBuyFriction(
   rawPrice: number,
@@ -32,6 +32,7 @@ export function calculateBuyFriction(
   const executedAmount = executedPrice * shares;
   const slippageAmount = executedAmount - rawAmount;
 
+  // 券商手續費 14.25 bps，強制最低 20 元低消
   const rawCommission = executedAmount * (config.commission_bps / 10000);
   const commission = Math.max(config.min_commission_ntd, Math.round(rawCommission));
   const tax = 0; // 買進不課證交稅
@@ -47,7 +48,7 @@ export function calculateBuyFriction(
 }
 
 /**
- * 計算賣出 (Exit / Sell) 之執行價與摩擦成本
+ * 計算賣出 (Exit / Sell) 之執行價與摩擦成本 (含 NT$20 低消與 30 bps 證交稅)
  */
 export function calculateSellFriction(
   rawPrice: number,
@@ -60,8 +61,10 @@ export function calculateSellFriction(
   const executedAmount = executedPrice * shares;
   const slippageAmount = rawAmount - executedAmount;
 
+  // 券商手續費 14.25 bps，強制最低 20 元低消
   const rawCommission = executedAmount * (config.commission_bps / 10000);
   const commission = Math.max(config.min_commission_ntd, Math.round(rawCommission));
+  // 證券交易稅 30 bps (四捨五入至整數)
   const tax = Math.round(executedAmount * (config.sell_tax_bps / 10000));
 
   return {
@@ -87,6 +90,11 @@ export function computeTradePnL(
   netReturnPct: number;
   grossPnLNtd: number;
   netPnLNtd: number;
+  entryCommissionNtd: number;
+  exitCommissionNtd: number;
+  exitTaxNtd: number;
+  entrySlippageNtd: number;
+  exitSlippageNtd: number;
   totalFrictionNtd: number;
   buyBreakdown: TradeCostBreakdown;
   sellBreakdown: TradeCostBreakdown;
@@ -111,6 +119,11 @@ export function computeTradePnL(
     netReturnPct: Number(netReturnPct.toFixed(2)),
     grossPnLNtd: Math.round(grossPnLNtd),
     netPnLNtd: Math.round(netPnLNtd),
+    entryCommissionNtd: buy.commission,
+    exitCommissionNtd: sell.commission,
+    exitTaxNtd: sell.tax,
+    entrySlippageNtd: Math.round(buy.slippageAmount),
+    exitSlippageNtd: Math.round(sell.slippageAmount),
     totalFrictionNtd: Math.round(totalFrictionNtd),
     buyBreakdown: buy,
     sellBreakdown: sell,

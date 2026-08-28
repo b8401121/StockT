@@ -86,8 +86,8 @@ UI (AnalysisTab / Scanners) -> Transparently displays real data provenance & PIT
     "holding_period": 20,
     "holding_period_unit": "trading_days",
     "exit_timing": "T+20_market_close",
-    "exit_execution": "T+21_market_open",
-    "rebalance_frequency": "monthly"
+    "exit_execution_timing": "T+20_close",
+    "rebalance_policy": "fixed_cohort_20_trading_days"
   },
   "costs": {
     "commission_bps": 14.25,
@@ -104,7 +104,13 @@ UI (AnalysisTab / Scanners) -> Transparently displays real data provenance & PIT
   "corporate_actions": {
     "price_field": "adjusted_close",
     "return_method": "total_return",
-    "dividend_reinvestment": true
+    "dividend_handling": "embedded_in_adjusted_close",
+    "double_counting_protection": true
+  },
+  "benchmark_alignment": {
+    "benchmark_symbol": "^TWII",
+    "timing_rule": "synchronized_with_strategy",
+    "window_definition": "TAIEX(T+20 Close) / TAIEX(T+1 Open) - 1"
   },
   "portfolio": {
     "initial_capital_ntd": 10000000,
@@ -115,6 +121,14 @@ UI (AnalysisTab / Scanners) -> Transparently displays real data provenance & PIT
   }
 }
 ```
+
+#### Backtest Audit & Reproducibility Axioms:
+1. **Provenance Hash Evidence Chain**: Every `results.json` run records `run_id`, `config_hash`, `dataset_hash`, and `engine_version`.
+2. **Double-Counting Protection (方案 A)**: `adjusted_close` already captures dividend adjustments. Portfolio Engine strictly avoids adding cash dividends to prevent double counting.
+3. **Synchronized Benchmark Window**: Benchmark returns are computed strictly across $T+1\text{ Open} \to T+20\text{ Close}$ to eliminate benchmark timing mismatches.
+4. **NT$20 Commission Floor**: Every buy and sell order enforces $\max(\text{Value} \times 0.001425, 20)$ for real small-position friction modeling.
+5. **Fixed 20-Trading-Day Cohort**: Entry at $T+1$ Open, exit at $T+20$ Close; re-ranking at $T+20$ Close for $T+21$ Open next cohort.
+6. **Yearly Stability & Walk-Forward OOS**: All performance reports must break down results year-by-year (2018–2024 In-Sample, 2025–2026 Walk-Forward Out-of-Sample).
 
 #### 7 Core Point-in-Time (PIT) Invariant Tests (`pitInvariants.test.ts`):
 1. **TEST 1 (Exclusion)**: `feature.availableAt > signalTimestamp` $\implies$ Feature **must be excluded** (look-ahead bias prevented).

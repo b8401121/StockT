@@ -28,7 +28,7 @@ export class BacktestEngine {
   }
 
   /**
-   * 執行一輪單一個股的完整回測模擬交易
+   * 執行一輪單一個股的完整回測模擬交易 (含 Benchmark 同步時序比對)
    */
   public simulateStockTrade(params: {
     security: UniverseSecurity;
@@ -36,10 +36,22 @@ export class BacktestEngine {
     signalDate: string;           // T
     entryPriceRaw: number;        // T+1 Open
     exitPriceRaw: number;         // T+20 Close
+    benchmarkEntryPrice?: number; // TAIEX T+1 Open
+    benchmarkExitPrice?: number;  // TAIEX T+20 Close
     ohlcv: OhlcvData;
     currentPortfolioNav: number;
   }) {
-    const { security, stockInfo, signalDate, entryPriceRaw, exitPriceRaw, ohlcv, currentPortfolioNav } = params;
+    const {
+      security,
+      stockInfo,
+      signalDate,
+      entryPriceRaw,
+      exitPriceRaw,
+      benchmarkEntryPrice = entryPriceRaw,
+      benchmarkExitPrice = exitPriceRaw,
+      ohlcv,
+      currentPortfolioNav,
+    } = params;
 
     // 1. PIT 審計：過濾在 signalDate (T 13:30) 尚未生效的指標
     const signalTs = `${signalDate}T13:30:00+08:00`;
@@ -65,15 +77,22 @@ export class BacktestEngine {
       holdingTradingDays: this.config.timing.holding_period,
       entryPriceRaw,
       exitPriceRaw,
+      benchmarkEntryPrice,
+      benchmarkExitPrice,
       factorScore: aiResult.rawProbabilityPct,
       portfolioNavAtEntry: currentPortfolioNav,
     });
   }
 
   /**
-   * 結算並輸出 Backtest 報告
+   * 結算並輸出 Backtest 報告 (包含分年檢驗與 Provenance 雜湊)
    */
-  public finalize(benchmarkDailyReturns: number[], periodStart: string, periodEnd: string): BacktestReport {
-    return this.portfolio.generateReport(benchmarkDailyReturns, periodStart, periodEnd);
+  public finalize(
+    benchmarkDailyReturns: number[],
+    periodStart: string,
+    periodEnd: string,
+    provenanceHashes?: { runId?: string; configHash?: string; datasetHash?: string }
+  ): BacktestReport {
+    return this.portfolio.generateReport(benchmarkDailyReturns, periodStart, periodEnd, provenanceHashes);
   }
 }

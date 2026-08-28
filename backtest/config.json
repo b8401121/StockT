@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "engine_version": "v1.0.0-pit",
+  "engine_version": "v1.0.0-pit-audited",
   "model_name": "Data-backed Multi-Factor Model v1",
   "timezone": "Asia/Taipei",
   "timing": {
@@ -11,14 +11,16 @@
     "holding_period": 20,
     "holding_period_unit": "trading_days",
     "exit_timing": "T+20_market_close",
-    "exit_execution": "T+21_market_open",
-    "rebalance_frequency": "monthly"
+    "exit_execution_timing": "T+20_close",
+    "rebalance_policy": "fixed_cohort_20_trading_days",
+    "rebalance_rule_explanation": "Cohort buys on T+1 Open, exits on T+20 Close; next cohort ranks on T+20 Close and buys on T+21 Open"
   },
   "costs": {
     "commission_bps": 14.25,
     "sell_tax_bps": 30.0,
     "slippage_bps": 5.0,
-    "min_commission_ntd": 20
+    "min_commission_ntd": 20,
+    "cost_accounting_rule": "Both buy & sell enforce max(trade_value * 0.001425, 20); sell enforces trade_value * 0.0030"
   },
   "universe": {
     "benchmark": "TAIEX",
@@ -32,7 +34,15 @@
   "corporate_actions": {
     "price_field": "adjusted_close",
     "return_method": "total_return",
-    "dividend_reinvestment": true
+    "dividend_handling": "embedded_in_adjusted_close",
+    "double_counting_protection": true,
+    "explanation": "方案 A：adjusted_close 已內含除權息與減資調整，Portfolio Engine 嚴禁重複計算股息再投資"
+  },
+  "benchmark_alignment": {
+    "benchmark_symbol": "^TWII",
+    "timing_rule": "synchronized_with_strategy",
+    "window_definition": "TAIEX(T+20 Close) / TAIEX(T+1 Open) - 1",
+    "explanation": "Benchmark 與策略使用完全相同的 T+1 Open 至 T+20 Close 時間窗口，確保 Alpha 零時序偏差"
   },
   "portfolio": {
     "initial_capital_ntd": 10000000,
