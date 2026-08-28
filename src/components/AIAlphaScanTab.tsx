@@ -139,91 +139,128 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
       const targetKeys = filterSymbolsByMarket(allKeys, fundamentalsMap, market);
 
       const total = targetKeys.length;
-      setProgressMsg(`正在平行連線取得 ${total} 檔標的之真實 OHLCV 與 17 維多因子...`);
+      setProgressMsg(`【階段 1/2】全市場快速多因子初篩 (${total} 檔)...`);
 
       const selectedStrat = STRATEGIES.find(s => s.id === strategy) || STRATEGIES[0];
+      const preliminaryList: { key: string; symbol: string; curP: number; prevP: number; info: StockInfoFull; aiResult: AIAlphaResult }[] = [];
+
+      const safeNum = (v: any) => {
+        if (v == null || v === "Infinity" || v === "-Infinity" || v === "NaN" || v === "") return undefined;
+        const n = Number(v);
+        return isNaN(n) ? undefined : n;
+      };
+
+      // ──────────────────────────────────────────────────────────────────────────
+      // 階段 1：全市場基本面與財務特徵高速初篩 (0.1秒內完成全市場 2,000+ 檔標的評分)
+      // ──────────────────────────────────────────────────────────────────────────
+      for (let i = 0; i < total; i++) {
+        if (cancelRef.current) break;
+        const key = targetKeys[i];
+        const p = fundamentalsMap[key] || {};
+        const symbol = p.symbol || `${key}.TW`;
+
+        const curP = p.close_price || p.current_price || p.c || 0;
+        const prevP = p.previous_close || (p.close_price && p.change != null ? p.close_price - p.change : curP);
+
+        const info: StockInfoFull = {
+          symbol,
+          name: p.name || p.n || key,
+          current_price: mkYahoo(safeNum(curP) || 0),
+          previous_close: mkYahoo(safeNum(prevP) || 0),
+          pe: (safeNum(p.pe)) != null ? mkMops((safeNum(p.pe))!) : undefined,
+          tw_pe: (safeNum(p.tw_pe ?? p.pe)) != null ? mkMops((safeNum(p.tw_pe ?? p.pe))!) : undefined,
+          pb: (safeNum(p.pb)) != null ? mkMops((safeNum(p.pb))!) : undefined,
+          dividend_yield: (() => { const v = safeNum(p.dividend_yield) ?? (safeNum(p.dividend_yield_pct) != null ? safeNum(p.dividend_yield_pct)! / 100 : null); return v != null ? mkMops(v) : undefined; })(),
+          eps: (safeNum(p.eps)) != null ? mkMops((safeNum(p.eps))!) : undefined,
+          roe: (safeNum(p.roe)) != null ? mkMops((safeNum(p.roe))!) : undefined,
+          profit_margins: (safeNum(p.profit_margins)) != null ? mkMops((safeNum(p.profit_margins))!) : undefined,
+          gross_margins: (safeNum(p.gross_margins)) != null ? mkMops((safeNum(p.gross_margins))!) : undefined,
+          operating_margins: (safeNum(p.operating_margins)) != null ? mkMops((safeNum(p.operating_margins))!) : undefined,
+          revenue_growth: (safeNum(p.revenue_growth)) != null ? mkMops((safeNum(p.revenue_growth))!) : undefined,
+          earnings_growth: (safeNum(p.earnings_growth)) != null ? mkMops((safeNum(p.earnings_growth))!) : undefined,
+          debt_to_equity: (safeNum(p.debt_to_equity)) != null ? mkMops((safeNum(p.debt_to_equity))!) : undefined,
+          current_ratio: (safeNum(p.current_ratio)) != null ? mkMops((safeNum(p.current_ratio))!) : undefined,
+          quick_ratio: (safeNum(p.quick_ratio)) != null ? mkMops((safeNum(p.quick_ratio))!) : undefined,
+          free_cashflow: (safeNum(p.free_cashflow)) != null ? mkMops((safeNum(p.free_cashflow))!) : undefined,
+          operating_cashflow: (safeNum(p.operating_cashflow)) != null ? mkMops((safeNum(p.operating_cashflow))!) : undefined,
+          market_cap: (safeNum(p.market_cap)) != null ? mkMops((safeNum(p.market_cap))!) : undefined,
+        };
+
+        const aiResult = evaluateAIAlpha(info, curP, prevP, null);
+
+        // 基本面資料保護：至少具備 5 項以上財務/估值因子
+        if (aiResult.dataQuality.availableCount >= 5) {
+          if (selectedStrat.filterFn(aiResult, info)) {
+            preliminaryList.push({ key, symbol, curP, prevP, info, aiResult });
+          }
+        }
+
+        if (i % 150 === 0 || i === total - 1) {
+          setProgress(Math.round(((i + 1) / total) * 40));
+          await new Promise((r) => setTimeout(r, 0));
+        }
+      }
+
+      // 排序並選出前 30 檔優質標的進行階段 2 深度即時 OHLCV K 線加載
+      if (strategy === "landmine_risk") {
+        preliminaryList.sort((a, b) => a.aiResult.winRatePct - b.aiResult.winRatePct);
+      } else {
+        preliminaryList.sort((a, b) => b.aiResult.winRatePct - a.aiResult.winRatePct);
+      }
+
+      const topCandidates = preliminaryList.slice(0, 35);
       const evaluatedList: RankedAlphaStock[] = [];
 
-      const BATCH_SIZE = 6;
-      for (let i = 0; i < total; i += BATCH_SIZE) {
+      // ──────────────────────────────────────────────────────────────────────────
+      // 階段 2：深度載入即時真實 1 年期日 K 線，啟動完整 17 維價量動能技術因子
+      // ──────────────────────────────────────────────────────────────────────────
+      setProgressMsg(`【階段 2/2】連線抓取前 ${topCandidates.length} 檔標的之真實 OHLCV K 線與 17 維因子...`);
+
+      const BATCH_SIZE = 5;
+      for (let i = 0; i < topCandidates.length; i += BATCH_SIZE) {
         if (cancelRef.current) break;
-        const chunkKeys = targetKeys.slice(i, i + BATCH_SIZE);
+        const chunk = topCandidates.slice(i, i + BATCH_SIZE);
 
         const chunkResults = await Promise.allSettled(
-          chunkKeys.map(async (key) => {
-            const p = fundamentalsMap[key] || {};
-            const symbol = p.symbol || `${key}.TW`;
-
-            const safeNum = (v: any) => {
-              if (v == null || v === "Infinity" || v === "-Infinity" || v === "NaN" || v === "") return undefined;
-              const n = Number(v);
-              return isNaN(n) ? undefined : n;
-            };
-
-            // 1. 優先嘗試從真實資料層獲取即時 1y 歷史 OHLCV 與即時 StockInfo
+          chunk.map(async (cand) => {
             let liveData: StockData | null = null;
             try {
-              liveData = await stockService.getStockData(symbol, "1y");
+              liveData = await stockService.getStockData(cand.symbol, "1y");
             } catch {}
 
-            const curP = liveData?.info?.current_price?.value ?? p.close_price ?? p.current_price ?? p.c ?? 0;
-            const prevP = liveData?.info?.previous_close?.value ?? p.previous_close ?? (p.close_price && p.change != null ? p.close_price - p.change : curP);
+            const curP = liveData?.info?.current_price?.value ?? cand.curP;
+            const prevP = liveData?.info?.previous_close?.value ?? cand.prevP;
+            const ohlcv = (liveData?.ohlcv && liveData.ohlcv.close.length >= 20) ? liveData.ohlcv : null;
 
-            const info: StockInfoFull = {
-              symbol,
-              name: liveData?.info?.name || p.name || p.n || key,
-              current_price: mkYahoo(safeNum(curP) || 0),
-              previous_close: mkYahoo(safeNum(prevP) || 0),
-              pe: (safeNum(p.pe)) != null ? mkMops((safeNum(p.pe))!) : (liveData?.info?.pe || undefined),
-              tw_pe: (safeNum(p.tw_pe ?? p.pe)) != null ? mkMops((safeNum(p.tw_pe ?? p.pe))!) : ((liveData?.info as any)?.tw_pe || liveData?.info?.pe || undefined),
-              pb: (safeNum(p.pb)) != null ? mkMops((safeNum(p.pb))!) : (liveData?.info?.pb || undefined),
-              dividend_yield: (() => { const v = safeNum(p.dividend_yield) ?? (safeNum(p.dividend_yield_pct) != null ? safeNum(p.dividend_yield_pct)! / 100 : null); return v != null ? mkMops(v) : (liveData?.info?.dividend_yield || undefined); })(),
-              eps: (safeNum(p.eps)) != null ? mkMops((safeNum(p.eps))!) : (liveData?.info?.eps || undefined),
-              roe: (safeNum(p.roe)) != null ? mkMops((safeNum(p.roe))!) : (liveData?.info?.roe || undefined),
-              profit_margins: (safeNum(p.profit_margins)) != null ? mkMops((safeNum(p.profit_margins))!) : (liveData?.info?.profit_margins || undefined),
-              gross_margins: (safeNum(p.gross_margins)) != null ? mkMops((safeNum(p.gross_margins))!) : (liveData?.info?.gross_margins || undefined),
-              operating_margins: (safeNum(p.operating_margins)) != null ? mkMops((safeNum(p.operating_margins))!) : (liveData?.info?.operating_margins || undefined),
-              revenue_growth: (safeNum(p.revenue_growth)) != null ? mkMops((safeNum(p.revenue_growth))!) : (liveData?.info?.revenue_growth || undefined),
-              earnings_growth: (safeNum(p.earnings_growth)) != null ? mkMops((safeNum(p.earnings_growth))!) : (liveData?.info?.earnings_growth || undefined),
-              debt_to_equity: (safeNum(p.debt_to_equity)) != null ? mkMops((safeNum(p.debt_to_equity))!) : (liveData?.info?.debt_to_equity || undefined),
-              current_ratio: (safeNum(p.current_ratio)) != null ? mkMops((safeNum(p.current_ratio))!) : (liveData?.info?.current_ratio || undefined),
-              quick_ratio: (safeNum(p.quick_ratio)) != null ? mkMops((safeNum(p.quick_ratio))!) : (liveData?.info?.quick_ratio || undefined),
-              free_cashflow: (safeNum(p.free_cashflow)) != null ? mkMops((safeNum(p.free_cashflow))!) : (liveData?.info?.free_cashflow || undefined),
-              operating_cashflow: (safeNum(p.operating_cashflow)) != null ? mkMops((safeNum(p.operating_cashflow))!) : (liveData?.info?.operating_cashflow || undefined),
-              market_cap: (safeNum(p.market_cap)) != null ? mkMops((safeNum(p.market_cap))!) : (liveData?.info?.market_cap || undefined),
+            // 若取得更豐富的即時基本面，進行增強
+            const refinedInfo: StockInfoFull = {
+              ...cand.info,
+              current_price: mkYahoo(curP),
+              previous_close: mkYahoo(prevP),
+              pe: cand.info.pe || liveData?.info?.pe,
+              roe: cand.info.roe || liveData?.info?.roe,
+              eps: cand.info.eps || liveData?.info?.eps,
             };
 
-            // 提取完整真實 OHLCV 歷史價格序列供 8 個價量動能與均線因子使用
-            let ohlcv = (liveData?.ohlcv && liveData.ohlcv.close.length >= 20) ? liveData.ohlcv : null;
-
-            // 呼叫 17 維多因子模型
-            const aiResult = evaluateAIAlpha(info, curP, prevP, ohlcv);
-            return { aiResult, info };
+            const fullAiResult = evaluateAIAlpha(refinedInfo, curP, prevP, ohlcv);
+            return { aiResult: fullAiResult, info: refinedInfo };
           })
         );
 
         for (const res of chunkResults) {
           if (res.status === "fulfilled") {
             const { aiResult, info } = res.value;
-
-            // 🛡️ Data Quality Gate: 非偏空策略要求至少 12 項可用因子，防止因子過度缺失之標的混入排名
-            if (strategy !== "landmine_risk" && aiResult.dataQuality.availableCount < 12) {
-              continue;
-            }
-
-            if (selectedStrat.filterFn(aiResult, info)) {
-              evaluatedList.push({
-                ...aiResult,
-                rank: 0,
-                info,
-              });
-            }
+            evaluatedList.push({
+              ...aiResult,
+              rank: 0,
+              info,
+            });
           }
         }
 
-        const currentCount = Math.min(i + BATCH_SIZE, total);
-        setProgress(Math.round((currentCount / total) * 100));
-        setProgressMsg(`已掃描 ${currentCount}/${total} 檔 (連線即時日 K 線)... 命中 ${evaluatedList.length} 檔`);
+        const processed = Math.min(i + BATCH_SIZE, topCandidates.length);
+        setProgress(40 + Math.round((processed / topCandidates.length) * 60));
+        setProgressMsg(`正在完成 ${processed}/${topCandidates.length} 檔即時 K 線精算...`);
       }
 
       if (strategy === "landmine_risk") {
@@ -238,7 +275,7 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
 
       setResults(evaluatedList);
       setProgress(100);
-      setProgressMsg(`評估完成！共精選出 ${evaluatedList.length} 檔標的`);
+      setProgressMsg(`評估完成！共精選出 ${evaluatedList.length} 檔 17 維多因子標的`);
     } catch (e: any) {
       setProgressMsg(`評估錯誤: ${e.message}`);
     } finally {

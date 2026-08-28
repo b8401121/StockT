@@ -1,12 +1,12 @@
 {
   "provenance": {
-    "run_id": "RUN-PIT-1787931581444",
-    "git_commit": "15c313a",
+    "run_id": "RUN-PIT-1787932303134",
+    "git_commit": "c3705f7",
     "config_sha256": "0e80b50903deda83169ffc47daaf10e7e424296a3f728b0ada01e0a0baad7c55",
     "dataset_sha256": "6594d56f77c52df583bc3fbee66c57f6df17fd2827d8d6db8cf80cf0318194c6",
     "engine_sha256": "085a0fe07aaa38100bc5b1a4a9cb827301389fb33e88bfbc89ee2fd9179e4e66",
     "engine_version": "v1.0.0-pit-audited",
-    "generated_at": "2026-08-28T15:39:41.954Z",
+    "generated_at": "2026-08-28T15:51:43.527Z",
     "audit_status": "AUDITED_VERIFIED_POINT_IN_TIME",
     "dataset_spec": "TWSE / TPEx / MOPS Point-in-Time Historical Database (Institutional Grade)",
     "benchmark": "^TWII (Synchronized T+1 Open to T+20 Close)"
