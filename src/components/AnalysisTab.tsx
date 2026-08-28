@@ -1930,7 +1930,7 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
         <div style={{
           position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
           background: isWarm ? "rgba(40, 30, 20, 0.4)" : "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)",
-          zIndex: 20000, display: "flex", justifyContent: "center", alignItems: "center"
+          zIndex: 60000, display: "flex", justifyContent: "center", alignItems: "center"
         }} onClick={() => setSelectedMetric(null)}>
           <div style={{
             background: isWarm ? "rgba(255, 252, 245, 0.98)" : "#161622", borderRadius: "12px", width: "420px", maxWidth: "90%",
