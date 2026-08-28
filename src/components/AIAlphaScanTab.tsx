@@ -13,16 +13,64 @@ interface RankedAlphaStock extends AIAlphaResult {
   info: StockInfoFull;
 }
 
+import { getCachedStocks, subscribeStocks, StockEntry } from "../utils/stocks";
+
+let STOCK_DB: StockEntry[] = getCachedStocks();
+subscribeStocks((stocks) => {
+  STOCK_DB = stocks;
+});
+
 const MARKETS = [
-  { label: "全部市場 (上市 + 上櫃)", value: "all" },
-  { label: "半導體 / 建造 / 資服 (30~36xx)", value: "30-36" },
-  { label: "電子零組件 / 光電 (23~24xx)", value: "23-24" },
-  { label: "生技 / 醫療 (41~47xx)", value: "41-47" },
-  { label: "通訊網路 / 綠能 (61~68xx)", value: "61-68" },
-  { label: "其他及新興產業 (80~99xx)", value: "80-99" },
-  { label: "上市股票 (TWSE 全部)", value: "twse" },
-  { label: "上櫃股票 (TPEX 全部)", value: "tpex" },
+  { label: "全部上市+上櫃", value: "ALL" },
+  { label: "全部上市股 (.TW)", value: "TW" },
+  { label: "全部上櫃股 (.TWO)", value: "TWO" },
+  { label: "ETF/指數基金 (00xx)", value: "00" },
+  { label: "半導體/建造/資服 (30~36xx)", value: "3A" },
+  { label: "光電/網路/通信 (37~38xx)", value: "3B" },
+  { label: "電子零組件 (41~49xx)", value: "4A" },
+  { label: "機械/電工/金融 (20~29xx)", value: "2A" },
+  { label: "水泥/食品/紡織 (11~16xx)", value: "1A" },
+  { label: "化學/玻璃/鋼鐵 (17~19xx)", value: "1B" },
+  { label: "服務/觀光/貿易 (50~59xx)", value: "5A" },
+  { label: "其他/小型股 (60~69xx)", value: "6A" },
+  { label: "生技/其他 (80~99xx)", value: "8A" },
 ];
+
+function isCommonStockOrValidEtf(symbol: string, market: string): boolean {
+  const code = symbol.split(".")[0];
+  if (code.length > 5 || /[a-zA-Z]/.test(code)) return false;
+  if (/^\d{6}$/.test(code)) return false;
+  if (/^(03|04|05|06|07|08|70|71|72|73)\d+/.test(code) && !code.startsWith("00")) return false;
+
+  if (market === "00") {
+    return /^00\d{2,4}$/.test(code);
+  }
+  return /^\d{4}$/.test(code);
+}
+
+function getSymbolsByMarket(market: string): string[] {
+  if (!STOCK_DB.length) return ["2330.TW", "0050.TW", "2317.TW", "2412.TW", "2308.TW"];
+  return STOCK_DB.filter((s) => {
+    if (!isCommonStockOrValidEtf(s.symbol, market)) return false;
+    const code = s.symbol.split(".")[0];
+    if (market === "ALL") return true;
+    if (market === "TW") return s.symbol.endsWith(".TW");
+    if (market === "TWO") return s.symbol.endsWith(".TWO");
+    if (market === "00") return code.startsWith("00");
+    const n = parseInt(code, 10);
+    if (isNaN(n)) return false;
+    if (market === "1A") return n >= 1100 && n < 1700;
+    if (market === "1B") return n >= 1700 && n < 2000;
+    if (market === "2A") return n >= 2000 && n < 3000;
+    if (market === "3A") return n >= 3000 && n < 3700;
+    if (market === "3B") return n >= 3700 && n < 3900;
+    if (market === "4A") return n >= 4100 && n < 5000;
+    if (market === "5A") return n >= 5000 && n < 6000;
+    if (market === "6A") return n >= 6000 && n < 7000;
+    if (market === "8A") return n >= 8000;
+    return false;
+  }).map((s) => s.symbol);
+}
 
 const STRATEGIES = [
   { id: "strong_bull", label: "⭐⭐⭐⭐⭐ 極致多頭 (勝率 ≥ 80%)", filterFn: (s: AIAlphaResult) => s.winRatePct >= 80 },
@@ -33,7 +81,7 @@ const STRATEGIES = [
 ];
 
 export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => {
-  const [market, setMarket] = useState("all");
+  const [market, setMarket] = useState("3A");
   const [strategy, setStrategy] = useState("strong_bull");
   const [scanning, setScanning] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -54,24 +102,19 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
     setResults([]);
 
     try {
+      const targetSymbols = getSymbolsByMarket(market);
+      const symbolSet = new Set(targetSymbols);
+
       const mopsModule = await import("../utils/twse_mops_profiles.json");
       const profilesMap: Record<string, any> = (mopsModule as any).default || mopsModule;
-      let allEntries = Object.entries(profilesMap);
 
-      if (market === "30-36") {
-        allEntries = allEntries.filter(([sym]) => /^(3[0-6]\d{2})/.test(sym));
-      } else if (market === "23-24") {
-        allEntries = allEntries.filter(([sym]) => /^(2[3-4]\d{2})/.test(sym));
-      } else if (market === "41-47") {
-        allEntries = allEntries.filter(([sym]) => /^(4[1-7]\d{2})/.test(sym));
-      } else if (market === "61-68") {
-        allEntries = allEntries.filter(([sym]) => /^(6[1-8]\d{2})/.test(sym));
-      } else if (market === "80-99") {
-        allEntries = allEntries.filter(([sym]) => /^(8\d{3}|9\d{3})/.test(sym));
-      } else if (market === "twse") {
-        allEntries = allEntries.filter(([, p]) => p.market === "上市" || !p.market);
-      } else if (market === "tpex") {
-        allEntries = allEntries.filter(([, p]) => p.market === "上櫃");
+      let allEntries = Object.entries(profilesMap).filter(([sym]) => {
+        const clean = sym.split(".")[0];
+        return symbolSet.has(sym) || symbolSet.has(`${clean}.TW`) || symbolSet.has(`${clean}.TWO`);
+      });
+
+      if (allEntries.length === 0 && targetSymbols.length > 0) {
+        allEntries = targetSymbols.map((sym) => [sym, profilesMap[sym] || { symbol: sym, name: sym }]);
       }
 
       const total = allEntries.length;
