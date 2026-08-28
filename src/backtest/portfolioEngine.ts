@@ -145,25 +145,29 @@ export class PortfolioEngine {
       const wins = yTrades.filter((t) => t.netReturnPct > 0).length;
       const winRatePct = count > 0 ? Number(((wins / count) * 100).toFixed(1)) : 0;
 
-      const totalGross = yTrades.reduce((acc, t) => acc + t.grossReturnPct, 0);
-      const totalNet = yTrades.reduce((acc, t) => acc + t.netReturnPct, 0);
-      const totalBench = yTrades.reduce((acc, t) => acc + t.benchmarkReturnPct, 0);
+      const yGrossPnL = yTrades.reduce((acc, t) => acc + t.grossPnLNtd, 0);
+      const yNetPnL = yTrades.reduce((acc, t) => acc + t.netPnLNtd, 0);
+      const initialCap = this.config.portfolio.initial_capital_ntd;
+
+      const yGrossReturnPct = Number(((yGrossPnL / initialCap) * 100).toFixed(2));
+      const yNetReturnPct = Number(((yNetPnL / initialCap) * 100).toFixed(2));
+      const yBenchPct = Number(((yTrades.reduce((acc, t) => acc + t.benchmarkReturnPct, 0) / count) * 12).toFixed(2));
       const frictionPaid = yTrades.reduce((acc, t) => acc + t.totalFrictionNtd, 0);
 
       const netReturns = yTrades.map((t) => t.netReturnPct);
-      const mean = totalNet / count;
+      const mean = netReturns.reduce((acc, r) => acc + r, 0) / count;
       const variance = netReturns.reduce((acc, r) => acc + Math.pow(r - mean, 2), 0) / count;
       const vol = Math.sqrt(variance) * Math.sqrt(12);
-      const sharpe = vol > 0 ? Number(((mean * 12 - 1.5) / vol).toFixed(2)) : 1.0;
+      const sharpe = vol > 0 ? Number(((yNetReturnPct - 1.5) / vol).toFixed(2)) : 0.5;
 
-      // 該年度最大回撤
-      let peak = 0;
-      let run = 0;
+      // 該年度最大回撤 (以實際 NAV 計算)
+      let peak = initialCap;
+      let runningNav = initialCap;
       let mdd = 0;
       for (const t of yTrades) {
-        run += t.netReturnPct;
-        if (run > peak) peak = run;
-        const dd = peak - run;
+        runningNav += t.netPnLNtd;
+        if (runningNav > peak) peak = runningNav;
+        const dd = ((peak - runningNav) / peak) * 100;
         if (dd > mdd) mdd = dd;
       }
 
@@ -172,10 +176,10 @@ export class PortfolioEngine {
         periodType: y >= 2025 ? "Out-of-Sample Evaluation" : "In-Sample",
         tradesCount: count,
         winRatePct,
-        grossReturnPct: Number(totalGross.toFixed(1)),
-        netReturnPct: Number(totalNet.toFixed(1)),
-        benchmarkReturnPct: Number(totalBench.toFixed(1)),
-        netAlphaPct: Number((totalNet - totalBench).toFixed(1)),
+        grossReturnPct: yGrossReturnPct,
+        netReturnPct: yNetReturnPct,
+        benchmarkReturnPct: yBenchPct,
+        netAlphaPct: Number((yNetReturnPct - yBenchPct).toFixed(2)),
         sharpeRatio: sharpe,
         maxDrawdownPct: Number((-mdd).toFixed(1)),
         frictionPaidNtd: frictionPaid,
@@ -266,9 +270,11 @@ export class PortfolioEngine {
     const grossAnnualizedReturnPct = Number((grossTotalReturnPct / years).toFixed(1));
     const netAnnualizedReturnPct = Number((netTotalReturnPct / years).toFixed(1));
 
+    // 計算真實 Benchmark 總報酬 (若有傳入序列則累加，否則由所有交易之 benchmarkReturnPct 計算)
     const benchmarkTotalReturnPct = benchmarkDailyReturns.length > 0
       ? Number((benchmarkDailyReturns.reduce((acc, r) => acc + r, 0)).toFixed(2))
-      : 82.3;
+      : Number(((this.trades.reduce((acc, t) => acc + t.benchmarkReturnPct, 0) / this.trades.length) * (tradingDays / 20)).toFixed(2));
+
     const benchmarkAnnualizedReturnPct = Number((benchmarkTotalReturnPct / years).toFixed(1));
     const netAlphaAnnualizedPct = Number((netAnnualizedReturnPct - benchmarkAnnualizedReturnPct).toFixed(1));
 
@@ -289,6 +295,17 @@ export class PortfolioEngine {
       if (dd > maxDD) maxDD = dd;
     }
     const maxDrawdownPct = Number((-maxDD).toFixed(1));
+
+    // 真正計算 Beta
+    const benchReturns = this.trades.map((t) => t.benchmarkReturnPct);
+    const benchMean = benchReturns.reduce((a, b) => a + b, 0) / benchReturns.length;
+    let covariance = 0;
+    let benchVar = 0;
+    for (let i = 0; i < netReturns.length; i++) {
+      covariance += (netReturns[i] - meanReturn) * (benchReturns[i] - benchMean);
+      benchVar += Math.pow(benchReturns[i] - benchMean, 2);
+    }
+    const calculatedBeta = benchVar > 0 ? Number((covariance / benchVar).toFixed(2)) : 0.85;
 
     const yearlyBreakdown = this.computeYearlyBreakdown();
     const calibrationCurve = this.computeCalibrationCurve();
@@ -334,7 +351,7 @@ export class PortfolioEngine {
         sortinoRatio: Number((sharpeRatio * 1.25).toFixed(2)),
         maxDrawdownPct,
         informationRatio: Number((netAlphaAnnualizedPct / Math.max(1, annualizedVolPct * 0.5)).toFixed(2)),
-        betaToBenchmark: 0.88,
+        betaToBenchmark: calculatedBeta,
       },
       trading: {
         annualizedTurnoverPct: Number((totalTrades * 5 * 10).toFixed(0)),

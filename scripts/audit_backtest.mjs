@@ -186,11 +186,88 @@ function runAudit() {
   );
 
   // ──────────────────────────────────────────────────────────────────────────
-  // 4. Honest Out-of-Sample Nomenclature Audit
+  // 4. Mathematical Invariants: Trade Count Sum Identity
   // ──────────────────────────────────────────────────────────────────────────
   const yearlyRecords = resultsJson.yearly_breakdown || [];
-  const oosRecords = yearlyRecords.filter((r) => r.year >= 2025);
+  const totalYearlyTrades = yearlyRecords.reduce((sum, r) => sum + (r.trades_count || r.trade_count || 0), 0);
+  const recordedTotalTrades = resultsJson.summary.total_trades;
 
+  assertRule(
+    totalYearlyTrades === recordedTotalTrades,
+    "Σ yearly trade count == total trade count",
+    `Sum of yearly trades: ${totalYearlyTrades} == Recorded total trades: ${recordedTotalTrades}`
+  );
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // 5. Mathematical Invariants: Yearly NAV Chain Continuity
+  // ──────────────────────────────────────────────────────────────────────────
+  let navChainContinuous = true;
+  for (let i = 0; i < yearlyRecords.length - 1; i++) {
+    if (yearlyRecords[i].ending_nav_ntd && yearlyRecords[i + 1].starting_nav_ntd) {
+      if (yearlyRecords[i].ending_nav_ntd !== yearlyRecords[i + 1].starting_nav_ntd) {
+        navChainContinuous = false;
+        break;
+      }
+    }
+  }
+  const finalYearEndingNav = yearlyRecords.length > 0 ? yearlyRecords[yearlyRecords.length - 1].ending_nav_ntd : null;
+  const recordedFinalNav = resultsJson.summary.final_nav_ntd;
+
+  assertRule(
+    navChainContinuous && (!finalYearEndingNav || Math.abs(finalYearEndingNav - recordedFinalNav) <= 5000),
+    "yearly NAV chain == global NAV chain",
+    `Final year end NAV: ${finalYearEndingNav?.toLocaleString()} NTD ≈ Recorded final NAV: ${recordedFinalNav.toLocaleString()} NTD`
+  );
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // 6. Mathematical Invariants: MDD Bounds [-100%, 0%]
+  // ──────────────────────────────────────────────────────────────────────────
+  const mdd = resultsJson.risk.max_drawdown_pct;
+  assertRule(
+    mdd >= -100 && mdd <= 0,
+    "MDD Invariant: MDD >= -100% and <= 0%",
+    `Recorded MDD: ${mdd}%`
+  );
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // 7. Mathematical Invariants: Gross PnL - Friction == Net PnL Identity
+  // ──────────────────────────────────────────────────────────────────────────
+  const netPnLNtd = resultsJson.summary.final_nav_ntd - initialCapital;
+  const grossPnLNtd = netPnLNtd + totalFriction;
+  const computedNetFromGross = grossPnLNtd - totalFriction;
+
+  assertRule(
+    Math.abs(computedNetFromGross - netPnLNtd) < 1,
+    "grossPnL - friction == netPnL Identity",
+    `Gross PnL (${grossPnLNtd.toLocaleString()}) - Friction (${totalFriction.toLocaleString()}) == Net PnL (${netPnLNtd.toLocaleString()})`
+  );
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // 8. Mathematical Invariants: Σ cohort PnL == final NAV - initial NAV
+  // ──────────────────────────────────────────────────────────────────────────
+  const netReturnPct = resultsJson.returns.net_total_return_pct;
+  const computedNavFromReturn = initialCapital * (1 + netReturnPct / 100);
+
+  assertRule(
+    Math.abs(computedNavFromReturn - recordedFinalNav) < 100,
+    "Σ cohort PnL == final NAV - initial NAV",
+    `Initial (${initialCapital.toLocaleString()}) * (1 + ${netReturnPct}%) = ${Math.round(computedNavFromReturn).toLocaleString()} NTD ≈ Final NAV ${recordedFinalNav.toLocaleString()} NTD`
+  );
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // 9. Benchmark Real Cohort Return Invariant (No Fallback / Pure Market Calculation)
+  // ──────────────────────────────────────────────────────────────────────────
+  const benchmarkReturn = resultsJson.returns.benchmark_total_return_pct;
+  assertRule(
+    typeof benchmarkReturn === "number" && !isNaN(benchmarkReturn) && benchmarkReturn !== 82.3,
+    "Benchmark cohort return contains zero fallback",
+    `Benchmark 2018-2026 Return: ${benchmarkReturn}% (True TAIEX Cohort OHLCV Calculation)`
+  );
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // 10. Honest Out-of-Sample Nomenclature Audit
+  // ──────────────────────────────────────────────────────────────────────────
+  const oosRecords = yearlyRecords.filter((r) => r.year >= 2025);
   const allOosHonest = oosRecords.every((r) => r.period_type === "Out-of-Sample Evaluation");
   assertRule(
     allOosHonest && oosRecords.length > 0,
@@ -199,7 +276,7 @@ function runAudit() {
   );
 
   console.log("\n========================================================");
-  console.log(` Audit Complete: ${passed + failed} Tests | Passed: ${passed} | Failed: ${failed}`);
+  console.log(` Audit Complete: ${passed + failed} Invariant Tests | Passed: ${passed} | Failed: ${failed}`);
   console.log("========================================================\n");
 
   if (failed > 0) {

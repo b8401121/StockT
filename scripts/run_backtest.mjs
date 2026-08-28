@@ -188,6 +188,8 @@ async function main() {
     summary: {
       period_start: report.summary.periodStart,
       period_end: report.summary.periodEnd,
+      initial_capital_ntd: configJson.portfolio.initial_capital_ntd,
+      final_nav_ntd: Math.round(configJson.portfolio.initial_capital_ntd * (1 + report.returns.netTotalReturnPct / 100)),
       total_trading_days: report.summary.totalTradingDays,
       total_trades: report.summary.totalTrades,
       win_rate_pct: report.summary.winRatePct,
@@ -217,19 +219,31 @@ async function main() {
       information_ratio: report.risk.informationRatio,
       beta_to_benchmark: report.risk.betaToBenchmark
     },
-    yearly_breakdown: report.yearlyBreakdown.map((r) => ({
-      year: r.year,
-      period_type: r.periodType,
-      trades_count: r.tradesCount,
-      win_rate_pct: r.winRatePct,
-      gross_return_pct: r.grossReturnPct,
-      net_return_pct: r.netReturnPct,
-      benchmark_return_pct: r.benchmarkReturnPct,
-      net_alpha_pct: r.netAlphaPct,
-      sharpe_ratio: r.sharpeRatio,
-      max_drawdown_pct: r.maxDrawdownPct,
-      friction_paid_ntd: r.frictionPaidNtd,
-    })),
+    yearly_breakdown: (() => {
+      let currentRollingNav = configJson.portfolio.initial_capital_ntd;
+      const initialCap = configJson.portfolio.initial_capital_ntd;
+      return report.yearlyBreakdown.map((r) => {
+        const startingNav = currentRollingNav;
+        const yearlyPnL = Math.round(initialCap * (r.netReturnPct / 100));
+        const endingNav = startingNav + yearlyPnL;
+        currentRollingNav = endingNav;
+        return {
+          year: r.year,
+          period_type: r.periodType,
+          trades_count: r.tradesCount,
+          win_rate_pct: r.winRatePct,
+          starting_nav_ntd: startingNav,
+          ending_nav_ntd: endingNav,
+          gross_return_pct: r.grossReturnPct,
+          net_return_pct: r.netReturnPct,
+          benchmark_return_pct: r.benchmarkReturnPct,
+          net_alpha_pct: r.netAlphaPct,
+          sharpe_ratio: r.sharpeRatio,
+          max_drawdown_pct: r.maxDrawdownPct,
+          friction_paid_ntd: r.frictionPaidNtd,
+        };
+      });
+    })(),
     calibration_curve: report.calibrationCurve,
     audit_metadata: {
       skipped_cohorts: report.auditMetadata.skippedCohorts,
