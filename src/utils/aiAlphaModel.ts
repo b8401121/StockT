@@ -126,14 +126,13 @@ function calcSMA(values: number[], period: number): number | null {
 export function evaluateAIAlpha(
   info: StockInfoFull,
   currentPrice: number,
-  previousClose: number,
+  _previousClose?: number,
   ohlcv?: OhlcvData | null
 ): AIAlphaResult {
   const symbol = info.symbol || "";
   const name = info.name || symbol;
   const hwInfo = getCachedHardwareInfo();
   const curP = currentPrice > 0 ? currentPrice : toSafeNum(info.current_price, 0);
-  const prevP = previousClose > 0 ? previousClose : toSafeNum(info.previous_close, curP);
 
   const factors: FactorResult[] = [];
 
@@ -149,8 +148,6 @@ export function evaluateAIAlpha(
     const cNow = closes[closes.length - 1];
     const c20 = closes[closes.length - 20];
     if (c20 > 0) m20 = ((cNow - c20) / c20) * 100;
-  } else if (curP > 0 && prevP > 0) {
-    m20 = ((curP - prevP) / prevP) * 100 * 2; // 降級估計
   }
 
   if (m20 !== null) {
