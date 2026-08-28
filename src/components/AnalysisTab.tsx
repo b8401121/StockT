@@ -512,23 +512,7 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                       <div style={{ display: "flex", alignItems: "center", gap: "6px", fontWeight: 700, fontSize: "0.95rem", color: "#e9d5ff" }}>
                         <span>🧠 CPU 內建 AI 多因子診斷 (量化校準版)</span>
                       </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                        <span style={{
-                          background: "rgba(168, 85, 247, 0.25)",
-                          color: "#d8b4fe",
-                          border: "1px solid rgba(168, 85, 247, 0.5)",
-                          padding: "2px 8px",
-                          borderRadius: "6px",
-                          fontSize: "0.72rem",
-                          fontWeight: 700,
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "4px"
-                        }}>
-                          🔍 放大查看
-                        </span>
-                        <HardwareBadge />
-                      </div>
+                      <HardwareBadge />
                     </div>
 
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(0,0,0,0.28)", padding: "10px 12px", borderRadius: "8px", marginBottom: "10px" }}>
@@ -557,7 +541,6 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                       border: "1px solid rgba(148, 163, 184, 0.2)",
                       borderRadius: "6px",
                       padding: "8px 10px",
-                      marginBottom: "10px",
                       fontSize: "0.75rem"
                     }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
@@ -575,22 +558,6 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                         <span>・ 官方估值: {dq.valuationCompleteness}%</span>
                         <span>・ 財務安全: {dq.financialSafetyCompleteness}%</span>
                       </div>
-                    </div>
-
-                    {/* 點擊展開放大視窗提示 */}
-                    <div style={{
-                      marginTop: "6px",
-                      paddingTop: "8px",
-                      borderTop: "1px solid rgba(168, 85, 247, 0.25)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      color: "#d8b4fe",
-                      fontSize: "0.76rem",
-                      fontWeight: 600
-                    }}>
-                      <span>🔍 點擊查看 17 維因子與 ML 全景評分</span>
-                      <span style={{ fontSize: "0.85rem" }}>▸</span>
                     </div>
                   </div>
                 );
