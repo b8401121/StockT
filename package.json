@@ -10,7 +10,8 @@
     "tauri": "tauri",
     "build-update": "node build-update.js",
     "backtest:run": "node scripts/run_backtest.mjs",
-    "backtest:audit": "node scripts/audit_backtest.mjs"
+    "backtest:audit": "node scripts/audit_backtest.mjs",
+    "backtest:oos": "node scripts/evaluate_oos_ablation.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",

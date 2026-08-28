@@ -1,0 +1,101 @@
+{
+  "metadata": {
+    "generatedAt": "2026-08-28T16:38:34.118Z",
+    "evaluationPeriod": "2025-01-01 to 2026-08-28 (Locked Out-of-Sample)",
+    "frictionBps": 63.5,
+    "benchmark": "TAIEX Synchronized T+1 to T+20"
+  },
+  "ablationResults": [
+    {
+      "mixture": "Rule 100% (Heuristic Multi-Factor)",
+      "rankIC": 0.0315,
+      "icir": 0.12,
+      "netTotalReturnPct": 6.18,
+      "sharpeRatio": 0.38,
+      "maxDrawdownPct": -11.29,
+      "winRatePct": 48.3,
+      "topDecileReturnPct": -0.88,
+      "bottomDecileReturnPct": 0.9,
+      "decileSpreadPct": -1.79,
+      "decileMonotonic": false
+    },
+    {
+      "mixture": "Rule 80% / ML 20%",
+      "rankIC": 0.037,
+      "icir": 0.14,
+      "netTotalReturnPct": -2.97,
+      "sharpeRatio": -0.17,
+      "maxDrawdownPct": -11.44,
+      "winRatePct": 46.7,
+      "topDecileReturnPct": 0.79,
+      "bottomDecileReturnPct": -0.74,
+      "decileSpreadPct": 1.53,
+      "decileMonotonic": true
+    },
+    {
+      "mixture": "Rule 60% / ML 40% (StockT Default)",
+      "rankIC": 0.0624,
+      "icir": 0.24,
+      "netTotalReturnPct": 9.75,
+      "sharpeRatio": 0.57,
+      "maxDrawdownPct": -10.95,
+      "winRatePct": 48.3,
+      "topDecileReturnPct": 0.61,
+      "bottomDecileReturnPct": -2.52,
+      "decileSpreadPct": 3.13,
+      "decileMonotonic": true
+    },
+    {
+      "mixture": "Rule 50% / ML 50% (Balanced)",
+      "rankIC": 0.0848,
+      "icir": 0.33,
+      "netTotalReturnPct": 18.72,
+      "sharpeRatio": 1.07,
+      "maxDrawdownPct": -9.99,
+      "winRatePct": 51.7,
+      "topDecileReturnPct": 1.5,
+      "bottomDecileReturnPct": -0.75,
+      "decileSpreadPct": 2.25,
+      "decileMonotonic": true
+    },
+    {
+      "mixture": "Rule 40% / ML 60%",
+      "rankIC": 0.0861,
+      "icir": 0.33,
+      "netTotalReturnPct": 24.44,
+      "sharpeRatio": 1.53,
+      "maxDrawdownPct": -9.99,
+      "winRatePct": 50,
+      "topDecileReturnPct": 1.4,
+      "bottomDecileReturnPct": -0.85,
+      "decileSpreadPct": 2.24,
+      "decileMonotonic": true
+    },
+    {
+      "mixture": "Rule 20% / ML 80%",
+      "rankIC": 0.1733,
+      "icir": 0.63,
+      "netTotalReturnPct": 48.47,
+      "sharpeRatio": 2.58,
+      "maxDrawdownPct": -6.31,
+      "winRatePct": 53.3,
+      "topDecileReturnPct": 2.86,
+      "bottomDecileReturnPct": -2.63,
+      "decileSpreadPct": 5.49,
+      "decileMonotonic": true
+    },
+    {
+      "mixture": "ML 100% (8-Tree GBDT + Ridge Interaction)",
+      "rankIC": 0.1939,
+      "icir": 0.82,
+      "netTotalReturnPct": 68.52,
+      "sharpeRatio": 3.21,
+      "maxDrawdownPct": -8.24,
+      "winRatePct": 60,
+      "topDecileReturnPct": 2.75,
+      "bottomDecileReturnPct": -1.41,
+      "decileSpreadPct": 4.17,
+      "decileMonotonic": true
+    }
+  ]
+}
