@@ -61,10 +61,6 @@ export interface HeuristicCalibration {
   calibrationType: "Heuristic-calibrated estimate";
   calibratedWinRatePct: number;
   methodologyNote: string;
-  historicalWinRatePct?: number;
-  historicalAlphaPct?: number;
-  maxDrawdownPct?: number;
-  samplePeriod?: string;
 }
 
 export type BacktestCalibration = HeuristicCalibration;
