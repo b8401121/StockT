@@ -156,8 +156,9 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
           });
         }
 
-        if (i % 60 === 0 || i === total - 1) {
+        if (i % 25 === 0 || i === total - 1) {
           setProgress(Math.round(((i + 1) / total) * 100));
+          setProgressMsg(`正在推論 ${i + 1}/${total} 檔... 已命中 ${evaluatedList.length} 檔`);
           await new Promise((r) => setTimeout(r, 0));
         }
       }
