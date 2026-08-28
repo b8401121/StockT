@@ -1,9 +1,10 @@
-import { mkMops, mkYahoo } from "../utils/platform";
+import { mkMops, mkYahoo, StockData } from "../utils/platform";
 import React, { useState, useRef, useEffect } from "react";
 import { StockInfoFull } from "../utils/analysis";
 import { evaluateAIAlpha, AIAlphaResult, fmtFixed, metricVal } from "../utils/aiAlphaModel";
 import { HardwareBadge } from "./HardwareBadge";
 import { AddToWatchlistBtn } from "./AddToWatchlistBtn";
+import { stockService } from "../services/stockService";
 import twseFundamentals from "../utils/twse_mops_fundamentals.json";
 
 const fundamentalsMap: Record<string, any> = twseFundamentals as any;
@@ -130,7 +131,7 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
     setScanning(true);
     setHasScanned(true);
     setProgress(0);
-    setProgressMsg("正在進行全市場 17 維多因子量化模型評估...");
+    setProgressMsg("正在準備全市場 17 維多因子量化評估...");
     setResults([]);
 
     try {
@@ -138,84 +139,91 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
       const targetKeys = filterSymbolsByMarket(allKeys, fundamentalsMap, market);
 
       const total = targetKeys.length;
-      setProgressMsg(`正在平行運算 ${total} 檔標的之 17 維真實多因子模型...`);
+      setProgressMsg(`正在平行連線取得 ${total} 檔標的之真實 OHLCV 與 17 維多因子...`);
 
       const selectedStrat = STRATEGIES.find(s => s.id === strategy) || STRATEGIES[0];
       const evaluatedList: RankedAlphaStock[] = [];
 
-      for (let i = 0; i < total; i++) {
+      const BATCH_SIZE = 6;
+      for (let i = 0; i < total; i += BATCH_SIZE) {
         if (cancelRef.current) break;
-        const key = targetKeys[i];
-        const p = fundamentalsMap[key] || {};
-        const symbol = p.symbol || `${key}.TW`;
+        const chunkKeys = targetKeys.slice(i, i + BATCH_SIZE);
 
-        const curP = p.close_price || p.current_price || p.c || 0;
-        const prevP = p.previous_close || (p.close_price && p.change != null ? p.close_price - p.change : curP);
+        const chunkResults = await Promise.allSettled(
+          chunkKeys.map(async (key) => {
+            const p = fundamentalsMap[key] || {};
+            const symbol = p.symbol || `${key}.TW`;
 
-        const safeNum = (v: any) => {
-          if (v == null || v === "Infinity" || v === "-Infinity" || v === "NaN" || v === "") return undefined;
-          const n = Number(v);
-          return isNaN(n) ? undefined : n;
-        };
+            const safeNum = (v: any) => {
+              if (v == null || v === "Infinity" || v === "-Infinity" || v === "NaN" || v === "") return undefined;
+              const n = Number(v);
+              return isNaN(n) ? undefined : n;
+            };
 
-        const info: StockInfoFull = {
-          symbol,
-          name: p.name || p.n || key,
-          current_price: mkYahoo(safeNum(curP) || 0),
-          previous_close: mkYahoo(safeNum(prevP) || 0),
-          pe: (safeNum(p.pe)) != null ? mkMops((safeNum(p.pe))!) : undefined,
-          tw_pe: (safeNum(p.tw_pe ?? p.pe)) != null ? mkMops((safeNum(p.tw_pe ?? p.pe))!) : undefined,
-          pb: (safeNum(p.pb)) != null ? mkMops((safeNum(p.pb))!) : undefined,
-          dividend_yield: (() => { const v = safeNum(p.dividend_yield) ?? (safeNum(p.dividend_yield_pct) != null ? safeNum(p.dividend_yield_pct)! / 100 : null); return v != null ? mkMops(v) : undefined; })(),
-          eps: (safeNum(p.eps)) != null ? mkMops((safeNum(p.eps))!) : undefined,
-          roe: (safeNum(p.roe)) != null ? mkMops((safeNum(p.roe))!) : undefined,
-          profit_margins: (safeNum(p.profit_margins)) != null ? mkMops((safeNum(p.profit_margins))!) : undefined,
-          gross_margins: (safeNum(p.gross_margins)) != null ? mkMops((safeNum(p.gross_margins))!) : undefined,
-          operating_margins: (safeNum(p.operating_margins)) != null ? mkMops((safeNum(p.operating_margins))!) : undefined,
-          revenue_growth: (safeNum(p.revenue_growth)) != null ? mkMops((safeNum(p.revenue_growth))!) : undefined,
-          earnings_growth: (safeNum(p.earnings_growth)) != null ? mkMops((safeNum(p.earnings_growth))!) : undefined,
-          debt_to_equity: (safeNum(p.debt_to_equity)) != null ? mkMops((safeNum(p.debt_to_equity))!) : undefined,
-          current_ratio: (safeNum(p.current_ratio)) != null ? mkMops((safeNum(p.current_ratio))!) : undefined,
-          quick_ratio: (safeNum(p.quick_ratio)) != null ? mkMops((safeNum(p.quick_ratio))!) : undefined,
-          free_cashflow: (safeNum(p.free_cashflow)) != null ? mkMops((safeNum(p.free_cashflow))!) : undefined,
-          operating_cashflow: (safeNum(p.operating_cashflow)) != null ? mkMops((safeNum(p.operating_cashflow))!) : undefined,
-          market_cap: (safeNum(p.market_cap)) != null ? mkMops((safeNum(p.market_cap))!) : undefined,
-        };
+            // 1. 優先嘗試從真實資料層獲取即時 1y 歷史 OHLCV 與即時 StockInfo
+            let liveData: StockData | null = null;
+            try {
+              liveData = await stockService.getStockData(symbol, "1y");
+            } catch {}
 
-        // 提取 OHLCV 歷史價格序列供技術動能因子使用
-        let ohlcv: { timestamp: number[]; open: number[]; high: number[]; low: number[]; close: number[]; volume: number[] } | undefined = undefined;
-        if (p.ohlcv && Array.isArray(p.ohlcv.close) && p.ohlcv.close.length >= 20) {
-          ohlcv = p.ohlcv;
-        } else if (Array.isArray(p.closes) && p.closes.length >= 20) {
-          const c = p.closes;
-          const o = Array.isArray(p.opens) ? p.opens : c;
-          const h = Array.isArray(p.highs) ? p.highs : c;
-          const l = Array.isArray(p.lows) ? p.lows : c;
-          const v = Array.isArray(p.volumes) ? p.volumes : c.map(() => p.volume || 1000000);
-          const ts = Array.isArray(p.timestamps) ? p.timestamps : c.map((_: any, idx: number) => Date.now() - (c.length - idx) * 86400000);
-          ohlcv = { timestamp: ts, open: o, high: h, low: l, close: c, volume: v };
+            const curP = liveData?.info?.current_price?.value ?? p.close_price ?? p.current_price ?? p.c ?? 0;
+            const prevP = liveData?.info?.previous_close?.value ?? p.previous_close ?? (p.close_price && p.change != null ? p.close_price - p.change : curP);
+
+            const info: StockInfoFull = {
+              symbol,
+              name: liveData?.info?.name || p.name || p.n || key,
+              current_price: mkYahoo(safeNum(curP) || 0),
+              previous_close: mkYahoo(safeNum(prevP) || 0),
+              pe: (safeNum(p.pe)) != null ? mkMops((safeNum(p.pe))!) : (liveData?.info?.pe || undefined),
+              tw_pe: (safeNum(p.tw_pe ?? p.pe)) != null ? mkMops((safeNum(p.tw_pe ?? p.pe))!) : ((liveData?.info as any)?.tw_pe || liveData?.info?.pe || undefined),
+              pb: (safeNum(p.pb)) != null ? mkMops((safeNum(p.pb))!) : (liveData?.info?.pb || undefined),
+              dividend_yield: (() => { const v = safeNum(p.dividend_yield) ?? (safeNum(p.dividend_yield_pct) != null ? safeNum(p.dividend_yield_pct)! / 100 : null); return v != null ? mkMops(v) : (liveData?.info?.dividend_yield || undefined); })(),
+              eps: (safeNum(p.eps)) != null ? mkMops((safeNum(p.eps))!) : (liveData?.info?.eps || undefined),
+              roe: (safeNum(p.roe)) != null ? mkMops((safeNum(p.roe))!) : (liveData?.info?.roe || undefined),
+              profit_margins: (safeNum(p.profit_margins)) != null ? mkMops((safeNum(p.profit_margins))!) : (liveData?.info?.profit_margins || undefined),
+              gross_margins: (safeNum(p.gross_margins)) != null ? mkMops((safeNum(p.gross_margins))!) : (liveData?.info?.gross_margins || undefined),
+              operating_margins: (safeNum(p.operating_margins)) != null ? mkMops((safeNum(p.operating_margins))!) : (liveData?.info?.operating_margins || undefined),
+              revenue_growth: (safeNum(p.revenue_growth)) != null ? mkMops((safeNum(p.revenue_growth))!) : (liveData?.info?.revenue_growth || undefined),
+              earnings_growth: (safeNum(p.earnings_growth)) != null ? mkMops((safeNum(p.earnings_growth))!) : (liveData?.info?.earnings_growth || undefined),
+              debt_to_equity: (safeNum(p.debt_to_equity)) != null ? mkMops((safeNum(p.debt_to_equity))!) : (liveData?.info?.debt_to_equity || undefined),
+              current_ratio: (safeNum(p.current_ratio)) != null ? mkMops((safeNum(p.current_ratio))!) : (liveData?.info?.current_ratio || undefined),
+              quick_ratio: (safeNum(p.quick_ratio)) != null ? mkMops((safeNum(p.quick_ratio))!) : (liveData?.info?.quick_ratio || undefined),
+              free_cashflow: (safeNum(p.free_cashflow)) != null ? mkMops((safeNum(p.free_cashflow))!) : (liveData?.info?.free_cashflow || undefined),
+              operating_cashflow: (safeNum(p.operating_cashflow)) != null ? mkMops((safeNum(p.operating_cashflow))!) : (liveData?.info?.operating_cashflow || undefined),
+              market_cap: (safeNum(p.market_cap)) != null ? mkMops((safeNum(p.market_cap))!) : (liveData?.info?.market_cap || undefined),
+            };
+
+            // 提取完整真實 OHLCV 歷史價格序列供 8 個價量動能與均線因子使用
+            let ohlcv = (liveData?.ohlcv && liveData.ohlcv.close.length >= 20) ? liveData.ohlcv : null;
+
+            // 呼叫 17 維多因子模型
+            const aiResult = evaluateAIAlpha(info, curP, prevP, ohlcv);
+            return { aiResult, info };
+          })
+        );
+
+        for (const res of chunkResults) {
+          if (res.status === "fulfilled") {
+            const { aiResult, info } = res.value;
+
+            // 🛡️ Data Quality Gate: 非偏空策略要求至少 12 項可用因子，防止因子過度缺失之標的混入排名
+            if (strategy !== "landmine_risk" && aiResult.dataQuality.availableCount < 12) {
+              continue;
+            }
+
+            if (selectedStrat.filterFn(aiResult, info)) {
+              evaluatedList.push({
+                ...aiResult,
+                rank: 0,
+                info,
+              });
+            }
+          }
         }
 
-        const aiResult = evaluateAIAlpha(info, curP, prevP, ohlcv);
-
-        // 🛡️ Data Quality Gate: 非偏空策略要求至少 10 項以上可用因子，避免因子過度缺失導致截面排名失真
-        if (strategy !== "landmine_risk" && aiResult.dataQuality.availableCount < 10) {
-          continue;
-        }
-
-        if (selectedStrat.filterFn(aiResult, info)) {
-          evaluatedList.push({
-            ...aiResult,
-            rank: 0,
-            info,
-          });
-        }
-
-        if (i % 25 === 0 || i === total - 1) {
-          setProgress(Math.round(((i + 1) / total) * 100));
-          setProgressMsg(`正在評估 ${i + 1}/${total} 檔... 已命中 ${evaluatedList.length} 檔符合條件`);
-          await new Promise((r) => setTimeout(r, 0));
-        }
+        const currentCount = Math.min(i + BATCH_SIZE, total);
+        setProgress(Math.round((currentCount / total) * 100));
+        setProgressMsg(`已掃描 ${currentCount}/${total} 檔 (連線即時日 K 線)... 命中 ${evaluatedList.length} 檔`);
       }
 
       if (strategy === "landmine_risk") {

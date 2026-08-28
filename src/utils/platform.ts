@@ -420,21 +420,21 @@ async function fetchWebStockData(symbol: string, range = "1y"): Promise<StockDat
     }
   }
 
-  // 3. 若外部網路均未連上，利用官方收盤價與基本面數據庫提供真實數據（絕不捏造隨機數據）
+  // 3. 若外部網路未連上或歷史 K 線不足，嚴格拋出錯誤或保持為空，絕不捏造 1 根假 K 線
   if (!ohlcvData || ohlcvData.close.length === 0) {
     if (officialFund && officialFund.close_price != null && Number(officialFund.close_price) > 0) {
       curPrice = Number(officialFund.close_price);
       prevClose = officialFund.open_price ? Number(officialFund.open_price) : (officialFund.change ? curPrice - Number(officialFund.change) : curPrice);
       ohlcvData = {
-        timestamp: [Math.floor(Date.now() / 1000)],
-        open: [officialFund.open_price ? Number(officialFund.open_price) : curPrice],
-        high: [officialFund.high_price ? Number(officialFund.high_price) : curPrice],
-        low: [officialFund.low_price ? Number(officialFund.low_price) : curPrice],
-        close: [curPrice],
-        volume: [officialFund.volume ? Number(officialFund.volume) : 1000000],
+        timestamp: [],
+        open: [],
+        high: [],
+        low: [],
+        close: [],
+        volume: [],
       };
     } else {
-      throw new Error(`無法連線取得【${stockName} (${normSym})】之交易所即時報價，請檢查代碼或網路連線後再試。`);
+      throw new Error(`無法連線取得【${stockName} (${normSym})】之真實歷史日 K 線，請檢查網路連線。`);
     }
   }
 
