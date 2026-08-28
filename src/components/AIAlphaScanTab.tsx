@@ -1,7 +1,7 @@
 import { mkMops, mkYahoo } from "../utils/platform";
 import React, { useState, useRef, useEffect } from "react";
 import { StockInfoFull } from "../utils/analysis";
-import { evaluateAIAlpha, AIAlphaResult, fmtFixed } from "../utils/aiAlphaModel";
+import { evaluateAIAlpha, AIAlphaResult, fmtFixed, metricVal } from "../utils/aiAlphaModel";
 import { HardwareBadge } from "./HardwareBadge";
 import { AddToWatchlistBtn } from "./AddToWatchlistBtn";
 import twseFundamentals from "../utils/twse_mops_fundamentals.json";
@@ -73,12 +73,41 @@ function filterSymbolsByMarket(allKeys: string[], fundamentalsMap: Record<string
 }
 
 const STRATEGIES = [
-  { id: "strong_bull", label: "⭐⭐⭐⭐⭐ 極致多頭 (勝率 ≥ 78%)", filterFn: (s: AIAlphaResult) => s.winRatePct >= 78 },
-  { id: "solid_bull", label: "⭐⭐⭐⭐ 穩健多頭 (勝率 ≥ 60%)", filterFn: (s: AIAlphaResult) => s.winRatePct >= 60 },
-  { id: "finlab_momentum", label: "🚀 FinLab 波段飆股 (120日動能 + 站上年線)", filterFn: (s: AIAlphaResult, info: StockInfoFull) => (s.winRatePct >= 60 && (info.roe?.value ?? 0) >= 0.10 && (info.eps?.value ?? 0) > 0) },
-  { id: "value_alpha", label: "💎 價值高勝率 (高ROE ≥ 15% + 低PE ≤ 20)", filterFn: (s: AIAlphaResult, info: StockInfoFull) => (s.winRatePct >= 60 && (info.roe?.value ?? 0) >= 0.15 && (info.tw_pe?.value ?? info.pe?.value ?? 30) <= 20) },
-  { id: "growth_alpha", label: "📈 雙重擴張成長 (營收YoY ≥ 15% + 勝率 ≥ 65%)", filterFn: (s: AIAlphaResult, info: StockInfoFull) => (s.winRatePct >= 65 && (info.revenue_growth?.value ?? 0) >= 0.15) },
-  { id: "landmine_risk", label: "⚠️ 偏空避險名單 (勝率 ≤ 35% / 虧損地雷)", filterFn: (s: AIAlphaResult) => s.winRatePct <= 35 },
+  {
+    id: "strong_bull",
+    label: "⭐⭐⭐⭐⭐ 極致多頭 (勝率 ≥ 68% / 強烈看多)",
+    filterFn: (s: AIAlphaResult) => s.winRatePct >= 68 || s.convictionTier.includes("強烈看多"),
+  },
+  {
+    id: "solid_bull",
+    label: "⭐⭐⭐⭐ 穩健多頭 (勝率 ≥ 58% / 穩健多頭)",
+    filterFn: (s: AIAlphaResult) => s.winRatePct >= 58 || s.convictionTier.includes("穩健多頭"),
+  },
+  {
+    id: "finlab_momentum",
+    label: "🚀 FinLab 波段飆股 (動能加分 + 基本面正向)",
+    filterFn: (s: AIAlphaResult, info: StockInfoFull) =>
+      s.winRatePct >= 55 && (metricVal(info.roe) ?? 0) >= 0.08 && (metricVal(info.eps) ?? 0) > 0,
+  },
+  {
+    id: "value_alpha",
+    label: "💎 價值高勝率 (高 ROE ≥ 12% + 本益比合理 ≤ 25)",
+    filterFn: (s: AIAlphaResult, info: StockInfoFull) =>
+      s.winRatePct >= 55 &&
+      (metricVal(info.roe) ?? 0) >= 0.12 &&
+      (metricVal(info.tw_pe ?? info.pe) ?? 20) <= 25,
+  },
+  {
+    id: "growth_alpha",
+    label: "📈 雙重擴張成長 (營收 YoY ≥ 10% + 勝率 ≥ 58%)",
+    filterFn: (s: AIAlphaResult, info: StockInfoFull) =>
+      s.winRatePct >= 58 && (metricVal(info.revenue_growth) ?? 0) >= 0.10,
+  },
+  {
+    id: "landmine_risk",
+    label: "⚠️ 偏空避險名單 (勝率 ≤ 48% / 虧損地雷)",
+    filterFn: (s: AIAlphaResult) => s.winRatePct <= 48 || s.convictionTier.includes("偏空避險"),
+  },
 ];
 
 export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => {
@@ -253,7 +282,7 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
           <td><span class="badge-win">${fmtFixed(r.winRatePct, 1)}%</span></td>
           <td style="color:#38bdf8; font-weight:bold;">${r.expectedAlphaPct >= 0 ? '+' : ''}${fmtFixed(r.expectedAlphaPct, 1)}%</td>
           <td><span class="badge-tier">${r.convictionTier}</span></td>
-          <td>PE: ${fmtFixed(r.info.tw_pe?.value ?? r.info.pe?.value, 1, "-")} | ROE: ${r.info.roe?.value != null ? fmtFixed(r.info.roe?.value * 100, 1) + "%" : "-"}</td>
+          <td>PE: ${fmtFixed(metricVal(r.info.tw_pe ?? r.info.pe), 1, "-")} | ROE: ${metricVal(r.info.roe) != null ? fmtFixed(metricVal(r.info.roe)! * 100, 1) + "%" : "-"}</td>
           <td>${r.positiveDrivers.join("、") || r.riskDrivers.join("、")}</td>
         </tr>
       `).join("")}
@@ -392,8 +421,8 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
                       )}
                     </td>
                     <td style={{ fontSize: "0.78rem", color: "var(--text-muted)" }}>
-                      <div>PE: <b style={{ color: "var(--text-primary)" }}>{fmtFixed(r.info.tw_pe?.value ?? r.info.pe?.value, 1, "-")}</b></div>
-                      <div>ROE: <b style={{ color: (r.info.roe?.value ?? 0) < 0 ? "#ff5252" : (r.info.roe?.value ?? 0) >= 0.15 ? "#4ade80" : "var(--text-primary)" }}>{r.info.roe?.value != null ? fmtFixed(r.info.roe?.value * 100, 1) + "%" : "-"}</b></div>
+                      <div>PE: <b style={{ color: "var(--text-primary)" }}>{fmtFixed(metricVal(r.info.tw_pe ?? r.info.pe), 1, "-")}</b></div>
+                      <div>ROE: <b style={{ color: (metricVal(r.info.roe) ?? 0) < 0 ? "#ff5252" : (metricVal(r.info.roe) ?? 0) >= 0.15 ? "#4ade80" : "var(--text-primary)" }}>{metricVal(r.info.roe) != null ? fmtFixed(metricVal(r.info.roe)! * 100, 1) + "%" : "-"}</b></div>
                     </td>
                     <td>
                       <button
