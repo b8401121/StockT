@@ -75,18 +75,44 @@ UI (AnalysisTab / Scanners) -> Transparently displays real data provenance & PIT
 - `"next_market_open"`: 盤後公告數據 (公告時間後之次一交易日 09:00 開盤生效)。
 - `"conservative_statutory_deadline"`: 最晚法定公告截止日推定 (Q1: 05-15, Q2: 08-14, Q3: 11-14, Q4: 次年 03-31)。
 
-#### Backtest Configuration Specification:
+#### Full Institutional Backtest Configuration (`backtest/config.json`):
 ```json
 {
-  "signal_time": "market_close",
-  "execution_time": "next_market_open",
-  "holding_period": 20,
-  "holding_period_unit": "trading_days",
-  "entry_timing": "T+1_open",
-  "exit_timing": "T+20_close",
-  "benchmark": "TAIEX",
-  "timezone": "Asia/Taipei",
-  "availability_rule": "feature.availableAt <= signalTimestamp"
+  "timing": {
+    "signal_time": "market_close",
+    "signal_timestamp_rule": "T 13:30:00+08:00",
+    "execution_time": "next_market_open",
+    "execution_timestamp_rule": "T+1 09:00:00+08:00",
+    "holding_period": 20,
+    "holding_period_unit": "trading_days",
+    "exit_timing": "T+20_market_close",
+    "exit_execution": "T+21_market_open",
+    "rebalance_frequency": "monthly"
+  },
+  "costs": {
+    "commission_bps": 14.25,
+    "sell_tax_bps": 30.0,
+    "slippage_bps": 5.0,
+    "min_commission_ntd": 20
+  },
+  "universe": {
+    "benchmark": "TAIEX",
+    "survivorship_bias_protection": true,
+    "exclude_suspended_trading": true,
+    "exclude_full_cash_delivery": true
+  },
+  "corporate_actions": {
+    "price_field": "adjusted_close",
+    "return_method": "total_return",
+    "dividend_reinvestment": true
+  },
+  "portfolio": {
+    "initial_capital_ntd": 10000000,
+    "max_positions": 20,
+    "position_weighting": "equal",
+    "max_single_position_weight": 0.05,
+    "cash_buffer_weight": 0.02
+  }
 }
 ```
 

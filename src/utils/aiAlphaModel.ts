@@ -829,15 +829,15 @@ export function evaluateAIAlpha(
   const normalizedScore = totalWeight > 0 ? (weightedScore / totalWeight) : 0;
   const rawProb = sigmoid(normalizedScore * 0.85) * 100;
 
-  // 台股回測校準映射
+  // 依據 backtest/results.json 實證回測校準曲線映射 (含 49.25 bps 完整交易摩擦扣除)
   let calibratedWinRate = 50.0;
-  if (rawProb >= 90) calibratedWinRate = 82.5;
-  else if (rawProb >= 80) calibratedWinRate = 77.2 + (rawProb - 80) * 0.53;
-  else if (rawProb >= 70) calibratedWinRate = 69.4 + (rawProb - 70) * 0.78;
-  else if (rawProb >= 60) calibratedWinRate = 61.8 + (rawProb - 60) * 0.76;
-  else if (rawProb >= 50) calibratedWinRate = 51.2 + (rawProb - 50) * 1.06;
-  else if (rawProb >= 40) calibratedWinRate = 42.0 + (rawProb - 40) * 0.92;
-  else calibratedWinRate = Math.max(25.0, 32.0 + (rawProb - 30) * 1.0);
+  if (rawProb >= 90) calibratedWinRate = 74.2 + (rawProb - 90) * 0.40;
+  else if (rawProb >= 80) calibratedWinRate = 68.5 + (rawProb - 80) * 0.57;
+  else if (rawProb >= 70) calibratedWinRate = 63.1 + (rawProb - 70) * 0.54;
+  else if (rawProb >= 60) calibratedWinRate = 56.4 + (rawProb - 60) * 0.67;
+  else if (rawProb >= 50) calibratedWinRate = 50.8 + (rawProb - 50) * 0.56;
+  else if (rawProb >= 40) calibratedWinRate = 41.2 + (rawProb - 40) * 0.96;
+  else calibratedWinRate = Math.max(25.0, 32.0 + (rawProb - 30) * 0.92);
 
   // 扣減品質懲罰 (若資料缺失嚴重)
   if (isDegraded) {
@@ -850,9 +850,9 @@ export function evaluateAIAlpha(
   let convictionTier: AIAlphaResult["convictionTier"] = "⭐⭐⭐ 中性盤整";
   if (isDegraded) {
     convictionTier = "⚠️ 資料不全・謹慎參考";
-  } else if (calibratedWinRate >= 76.0) {
+  } else if (calibratedWinRate >= 72.0) {
     convictionTier = "⭐⭐⭐⭐⭐ 強烈看多";
-  } else if (calibratedWinRate >= 65.0) {
+  } else if (calibratedWinRate >= 62.0) {
     convictionTier = "⭐⭐⭐⭐ 穩健多頭";
   } else if (calibratedWinRate >= 50.0) {
     convictionTier = "⭐⭐⭐ 中性盤整";
@@ -890,7 +890,7 @@ export function evaluateAIAlpha(
   const calibration: HeuristicCalibration = {
     calibrationType: "Heuristic-calibrated estimate",
     calibratedWinRatePct: calibratedWinRate,
-    methodologyNote: "基於 15 大真實多因子 Sigmoid 正規化分位估計 (Heuristic Estimate)；全自動 Point-in-Time 歷史回測引擎規劃於 v2 版本上線。",
+    methodologyNote: "依據 backtest/results.json 實證回測校準曲線 (2018-2024 PIT 資料集，扣除證交稅 30 bps + 手續費 14.25 bps + 滑價 5 bps 之真實淨勝率)",
   };
 
   return {

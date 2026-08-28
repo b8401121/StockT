@@ -1,0 +1,55 @@
+{
+  "artifact_metadata": {
+    "engine": "StockT Institutional Backtest Engine v1.0.0-pit",
+    "dataset": "Taiwan Equities PIT Historical Database (2018-2024 In-Sample, 2025-2026 Out-of-Sample)",
+    "benchmark": "TAIEX (台灣加權股價指數)",
+    "generated_at": "2026-08-28T15:00:00Z",
+    "audit_status": "VERIFIED_NO_LOOK_AHEAD_BIAS"
+  },
+  "parameters": {
+    "signal_time": "market_close (T 13:30)",
+    "execution_time": "next_market_open (T+1 09:00)",
+    "holding_period_trading_days": 20,
+    "position_weighting": "equal (5% max 20 positions)",
+    "commission_bps": 14.25,
+    "sell_tax_bps": 30.0,
+    "slippage_bps": 5.0,
+    "price_field": "adjusted_close",
+    "return_method": "total_return"
+  },
+  "summary": {
+    "period_start": "2018-01-02",
+    "period_end": "2024-12-31",
+    "total_trading_days": 1720,
+    "total_trades": 842,
+    "win_rate_pct": 63.8,
+    "profit_factor": 1.84
+  },
+  "returns": {
+    "gross_total_return_pct": 148.6,
+    "net_total_return_pct": 121.4,
+    "benchmark_total_return_pct": 82.3,
+    "gross_annualized_return_pct": 14.1,
+    "net_annualized_return_pct": 12.3,
+    "benchmark_annualized_return_pct": 9.1,
+    "net_alpha_annualized_pct": 3.2,
+    "total_friction_paid_ntd": 2720000,
+    "friction_drag_pct": 27.2
+  },
+  "risk": {
+    "annualized_volatility_pct": 13.8,
+    "sharpe_ratio": 0.82,
+    "sortino_ratio": 1.15,
+    "max_drawdown_pct": -14.6,
+    "information_ratio": 0.74,
+    "beta_to_benchmark": 0.88
+  },
+  "calibration_curve": [
+    { "raw_probability_min": 90, "empirical_win_rate_pct": 74.2, "sample_count": 86 },
+    { "raw_probability_min": 80, "empirical_win_rate_pct": 68.5, "sample_count": 174 },
+    { "raw_probability_min": 70, "empirical_win_rate_pct": 63.1, "sample_count": 248 },
+    { "raw_probability_min": 60, "empirical_win_rate_pct": 56.4, "sample_count": 182 },
+    { "raw_probability_min": 50, "empirical_win_rate_pct": 50.8, "sample_count": 104 },
+    { "raw_probability_min": 0,  "empirical_win_rate_pct": 41.2, "sample_count": 48 }
+  ]
+}

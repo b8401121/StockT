@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "engine_version": "v1.0.0-pit",
+  "model_name": "Data-backed Multi-Factor Model v1",
+  "timezone": "Asia/Taipei",
+  "timing": {
+    "signal_time": "market_close",
+    "signal_timestamp_rule": "T 13:30:00+08:00",
+    "execution_time": "next_market_open",
+    "execution_timestamp_rule": "T+1 09:00:00+08:00",
+    "holding_period": 20,
+    "holding_period_unit": "trading_days",
+    "exit_timing": "T+20_market_close",
+    "exit_execution": "T+21_market_open",
+    "rebalance_frequency": "monthly"
+  },
+  "costs": {
+    "commission_bps": 14.25,
+    "sell_tax_bps": 30.0,
+    "slippage_bps": 5.0,
+    "min_commission_ntd": 20
+  },
+  "universe": {
+    "benchmark": "TAIEX",
+    "market": ["TWSE", "TPEx"],
+    "survivorship_bias_protection": true,
+    "min_market_cap_billions": 5.0,
+    "min_20d_avg_volume_shares": 500000,
+    "exclude_suspended_trading": true,
+    "exclude_full_cash_delivery": true
+  },
+  "corporate_actions": {
+    "price_field": "adjusted_close",
+    "return_method": "total_return",
+    "dividend_reinvestment": true
+  },
+  "portfolio": {
+    "initial_capital_ntd": 10000000,
+    "max_positions": 20,
+    "position_weighting": "equal",
+    "max_single_position_weight": 0.05,
+    "cash_buffer_weight": 0.02,
+    "max_sector_exposure_weight": 0.30
+  }
+}
