@@ -4,6 +4,7 @@ import { subscribeWatchlist, saveWatchlistToCloud, loadWatchlistFromCloud } from
 import { getCachedStocks, subscribeStocks, StockEntry } from "../utils/stocks";
 import { invoke } from "../utils/platform";
 import twseFundamentals from "../utils/twse_mops_fundamentals.json";
+import { evaluateAIAlpha, fmtFixed } from "../utils/aiAlphaModel";
 
 /** 原始交易紀錄 */
 export interface TradeRecord {
@@ -763,6 +764,257 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
 
   const { totals, unrealizedHoldings, observingStocks, realizedTrades } = ledger;
 
+  const exportObservingPdf = () => {
+    if (observingStocks.length === 0) return;
+
+    const reportDate = new Date().toLocaleString("zh-TW", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false
+    });
+
+    const rows = observingStocks.map((s, idx) => {
+      const coId = s.symbol.split(".")[0];
+      const fund = (twseFundamentals as Record<string, any>)[coId] || {};
+      
+      const pe = fund.pe != null ? fmtFixed(fund.pe, 1) : "-";
+      const pb = fund.pb != null ? fmtFixed(fund.pb, 1) : "-";
+      const roe = fund.roe != null ? `${fmtFixed(Number(fund.roe) * 100, 1)}%` : "-";
+      const roeNum = fund.roe != null ? Number(fund.roe) : null;
+      const roeColor = roeNum != null && roeNum < 0 ? "#dc2626" : roeNum != null && roeNum >= 0.15 ? "#16a34a" : "#1e293b";
+      
+      const revGrowth = fund.revenue_growth != null ? `${fmtFixed(Number(fund.revenue_growth) * 100, 1)}%` : "-";
+      const revNum = fund.revenue_growth != null ? Number(fund.revenue_growth) : null;
+      const revColor = revNum != null && revNum < 0 ? "#dc2626" : revNum != null && revNum >= 0.15 ? "#16a34a" : "#1e293b";
+
+      const curPrice = s.curPrice > 0 ? `$${s.curPrice.toFixed(2)}` : "-";
+      const cashDiv = s.cashDividend > 0 ? `${s.cashDividend.toFixed(2)} 元` : (fund.cash_dividend ? `${Number(fund.cash_dividend).toFixed(2)} 元` : "無配息");
+      const exDate = s.exDate || fund.ex_dividend_date || "尚待公告";
+      const yieldPct = fund.yield_pct != null ? `${fmtFixed(fund.yield_pct, 2)}%` : (s.curPrice > 0 && s.cashDividend > 0 ? `${((s.cashDividend / s.curPrice) * 100).toFixed(2)}%` : "-");
+
+      const stockInfoFull = {
+        symbol: s.symbol,
+        name: s.name,
+        current_price: s.curPrice,
+        previous_close: s.curPrice,
+        pe: fund.pe,
+        pb: fund.pb,
+        dividend_yield: fund.yield_pct,
+        eps: fund.eps,
+        roe: fund.roe,
+        revenue_growth: fund.revenue_growth,
+        earnings_growth: fund.earnings_growth,
+        operating_margins: fund.operating_margin,
+        profit_margins: fund.profit_margin,
+        debt_to_equity: fund.debt_to_equity,
+        current_ratio: fund.current_ratio,
+        quick_ratio: fund.quick_ratio,
+      };
+      const aiAlpha = evaluateAIAlpha(stockInfoFull, s.curPrice || 100, s.curPrice || 100);
+      const isAiBull = aiAlpha.winRatePct >= 70;
+      const isAiRisk = aiAlpha.winRatePct <= 40 || aiAlpha.convictionTier.includes("偏空");
+      const aiColor = isAiBull ? "#0284c7" : isAiRisk ? "#dc2626" : "#475569";
+
+      return `
+        <tr>
+          <td style="text-align:center; font-weight:bold; color:#64748b;">${idx + 1}</td>
+          <td><b style="color:#0284c7; font-size:1.02rem;">${coId}</b></td>
+          <td><b style="font-size:1.02rem;">${s.name}</b></td>
+          <td style="text-align:right;"><b style="font-size:1.05rem;">${curPrice}</b></td>
+          <td style="text-align:center;">PE: <b>${pe}</b> / PB: <b>${pb}</b></td>
+          <td style="text-align:right;">
+            <b style="color:#b45309;">${yieldPct}</b>
+            <div style="font-size:0.75rem; color:#64748b;">${cashDiv} (${exDate})</div>
+          </td>
+          <td style="text-align:right;">
+            <div style="color:${roeColor}; font-weight:700;">ROE: ${roe}</div>
+            <div style="color:${revColor}; font-size:0.75rem;">營收YoY: ${revGrowth}</div>
+          </td>
+          <td style="text-align:center;">
+            <span style="display:inline-block; padding:2px 8px; border-radius:4px; font-weight:bold; background:${isAiBull ? '#e0f2fe' : isAiRisk ? '#fee2e2' : '#f1f5f9'}; color:${aiColor}; border:1px solid ${isAiBull ? '#bae6fd' : isAiRisk ? '#fca5a5' : '#cbd5e1'};">
+              ${aiAlpha.winRatePct.toFixed(1)}% (${aiAlpha.convictionTier})
+            </span>
+          </td>
+          <td style="font-size:0.80rem; color:#475569;">
+            ${s.note || (aiAlpha.positiveDrivers[0] || aiAlpha.riskDrivers[0] || "-")}
+          </td>
+        </tr>
+      `;
+    }).join("");
+
+    const htmlContent = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>StockT 自選觀察名單市場報告 (${activeList})</title>
+  <style>
+    @page {
+      size: A4 landscape;
+      margin: 12mm 15mm;
+    }
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .no-print { display: none !important; }
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Microsoft JhengHei", Roboto, sans-serif;
+      margin: 0;
+      padding: 20px;
+      color: #1e293b;
+      background: #ffffff;
+      line-height: 1.4;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      border-bottom: 2px solid #0284c7;
+      padding-bottom: 12px;
+      margin-bottom: 16px;
+    }
+    .title-area h1 {
+      margin: 0 0 4px 0;
+      font-size: 1.55rem;
+      color: #0369a1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .meta-badge {
+      font-size: 0.82rem;
+      color: #64748b;
+    }
+    .notice {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-left: 4px solid #0284c7;
+      padding: 8px 14px;
+      border-radius: 4px;
+      font-size: 0.80rem;
+      color: #475569;
+      margin-bottom: 16px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.86rem;
+    }
+    th {
+      background: #f1f5f9;
+      color: #334155;
+      padding: 9px 10px;
+      text-align: left;
+      font-weight: 700;
+      border: 1px solid #cbd5e1;
+    }
+    td {
+      padding: 8px 10px;
+      border: 1px solid #e2e8f0;
+      vertical-align: middle;
+    }
+    tr:nth-child(even) {
+      background: #f8fafc;
+    }
+    .footer {
+      margin-top: 20px;
+      border-top: 1px solid #e2e8f0;
+      padding-top: 8px;
+      font-size: 0.75rem;
+      color: #94a3b8;
+      display: flex;
+      justify-content: space-between;
+    }
+    .action-bar {
+      margin-bottom: 16px;
+      display: flex;
+      gap: 12px;
+    }
+    .btn-print {
+      background: #0284c7;
+      color: white;
+      border: none;
+      padding: 8px 18px;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 0.92rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+  </style>
+</head>
+<body>
+  <div class="no-print action-bar">
+    <button class="btn-print" onclick="window.print()">🖨️ 列印 / 另存為 PDF</button>
+  </div>
+
+  <div class="header">
+    <div class="title-area">
+      <h1>⭐ StockT 自選觀察名單市場報告 — ${activeList}</h1>
+      <div class="meta-badge">匯出時間：${reportDate} ｜ 觀察標的：共 ${observingStocks.length} 檔</div>
+    </div>
+    <div style="text-align: right; font-size: 0.80rem; color: #64748b;">
+      <div>StockT 股市分析終端機</div>
+      <div style="font-weight: bold; color: #0284c7;">公開市場基本面與 AI 多因子綜合評估</div>
+    </div>
+  </div>
+
+  <div class="notice">
+    🔒 <b>隱私與中立聲明：</b> 本報告僅呈現公開市場行情、基本面財務指標與 AI 多因子模型推論數據，<b>嚴格不包含任何個人持股數量、進場均價、買賣交易紀錄或投資成本損益</b>。
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 32px; text-align: center;">#</th>
+        <th style="width: 75px;">代碼</th>
+        <th style="width: 100px;">股票名稱</th>
+        <th style="width: 85px; text-align: right;">即時市價</th>
+        <th style="width: 125px; text-align: center;">估值 (PE / PB)</th>
+        <th style="width: 135px; text-align: right;">殖利率 / 股利</th>
+        <th style="width: 130px; text-align: right;">基本面獲利</th>
+        <th style="width: 160px; text-align: center;">AI 20日勝率與評級</th>
+        <th>觀察重點 / 備註</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rows}
+    </tbody>
+  </table>
+
+  <div class="footer">
+    <div>資料來源：臺灣證券交易所 (TWSE)、公開資訊觀測站 (MOPS) 及 StockT 內建 AI 引擎</div>
+    <div>StockT Terminal &copy; 2026. All market data for analytical reference only.</div>
+  </div>
+
+  <script>
+    window.onload = function() {
+      setTimeout(function() {
+        window.print();
+      }, 400);
+    };
+  </script>
+</body>
+</html>`;
+
+    const printWin = window.open("", "_blank");
+    if (printWin) {
+      printWin.document.open();
+      printWin.document.write(htmlContent);
+      printWin.document.close();
+    } else {
+      const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `StockT_自選觀察名單_${activeList}_${new Date().toISOString().slice(0, 10)}.html`;
+      a.click();
+    }
+  };
+
   return (
     <div className="watchlist-container" style={{ display: "flex", height: "100%", width: "100%", overflow: "hidden", background: "#0b0e17" }}>
       {/* ─── 左側：分類名單選單 ────────────────────────────────────── */}
@@ -1316,19 +1568,34 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
           {/* 2. 自選觀察名單 (純收藏・無持倉部位) */}
           {viewTab === "observing" && (
             <div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", flexWrap: "wrap", gap: "8px" }}>
                 <div style={{ fontSize: "0.88rem", color: "#94a3b8", fontWeight: 600 }}>
                   ⭐ 共 {observingStocks.length} 檔自選觀察股
                 </div>
-                <button
-                  onClick={() => openTradeModal("BUY")}
-                  style={{
-                    padding: "5px 12px", background: "#2563eb", border: "none",
-                    borderRadius: "6px", color: "#ffffff", fontSize: "0.80rem", cursor: "pointer", fontWeight: 700
-                  }}
-                >
-                  ➕ 新增自選交易
-                </button>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  {observingStocks.length > 0 && (
+                    <button
+                      onClick={exportObservingPdf}
+                      title="匯出純觀察報告（不含任何個人買賣與持倉損益）"
+                      style={{
+                        padding: "5px 12px", background: "rgba(168, 85, 247, 0.2)", border: "1px solid rgba(192, 132, 252, 0.4)",
+                        borderRadius: "6px", color: "#d8b4fe", fontSize: "0.80rem", cursor: "pointer", fontWeight: 700,
+                        display: "flex", alignItems: "center", gap: "5px"
+                      }}
+                    >
+                      📄 匯出純觀察報告 (PDF)
+                    </button>
+                  )}
+                  <button
+                    onClick={() => openTradeModal("BUY")}
+                    style={{
+                      padding: "5px 12px", background: "#2563eb", border: "none",
+                      borderRadius: "6px", color: "#ffffff", fontSize: "0.80rem", cursor: "pointer", fontWeight: 700
+                    }}
+                  >
+                    ➕ 新增自選交易
+                  </button>
+                </div>
               </div>
 
               {observingStocks.length === 0 ? (
