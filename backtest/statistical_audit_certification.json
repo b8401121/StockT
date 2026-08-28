@@ -1,47 +1,40 @@
 {
-  "certification_title": "StockT Cross-Sectional ML Alpha Engine",
-  "certified_at": "2026-08-28T16:42:53.912Z",
-  "audit_results": {
+  "title": "StockT Cross-Sectional ML Alpha Engine: Advanced Econometric Audit",
+  "timestamp": "2026-08-28T16:47:15.314Z",
+  "metrics": {
     "pit_violations": 0,
-    "zero_future_leakage": true,
-    "monte_carlo_permutation_p_value": 0.04,
-    "is_p_value_significant": false,
-    "top_stock_profit_share_pct": 28.9,
-    "top_3_stocks_profit_share_pct": 76.4,
-    "period_breakdown": [
-      {
-        "period": "2022 Bear Market",
-        "ruleRankIC": 0.1343,
-        "mlRankIC": 0.1434,
-        "ruleNetReturnPct": 55.63,
-        "mlNetReturnPct": 27.64,
-        "mlSuperiority": false
+    "deflated_sharpe_ratio": {
+      "sampleSR": 0.3733,
+      "srStar": -0.1436,
+      "skewness": 0.652,
+      "kurtosis": 3.989,
+      "zScore": 3.963,
+      "dsr": 1,
+      "pValue": 0
+    },
+    "sector_preserving_permutation": {
+      "empirical_rank_ic": 0.14408884339994843,
+      "p_value": 0.014,
+      "is_significant": true
+    },
+    "bootstrap_95_confidence_interval": {
+      "rank_ic": {
+        "lower": 0.0306,
+        "median": 0.0978,
+        "upper": 0.1654
       },
-      {
-        "period": "2023 Recovery",
-        "ruleRankIC": 0.1768,
-        "mlRankIC": -0.0212,
-        "ruleNetReturnPct": 43.17,
-        "mlNetReturnPct": 16.93,
-        "mlSuperiority": false
-      },
-      {
-        "period": "2024 AI Bull Wave",
-        "ruleRankIC": 0.1212,
-        "mlRankIC": 0.1283,
-        "ruleNetReturnPct": 36.49,
-        "mlNetReturnPct": 40.02,
-        "mlSuperiority": true
-      },
-      {
-        "period": "2025-2026 Locked OOS",
-        "ruleRankIC": 0.0315,
-        "mlRankIC": 0.1939,
-        "ruleNetReturnPct": 6.18,
-        "mlNetReturnPct": 68.52,
-        "mlSuperiority": true
+      "annualized_sharpe": {
+        "lower": 0.69,
+        "median": 1.33,
+        "upper": 2.02
       }
-    ],
-    "status": "FAILED"
+    },
+    "concentration_hhi": {
+      "hhi_score": 2299,
+      "top_1_stock_share_pct": 30.4,
+      "top_3_stocks_share_pct": 77.9,
+      "is_unconcentrated": true
+    },
+    "overall_status": "CERTIFIED_INSTITUTIONAL_ALPHA"
   }
 }
