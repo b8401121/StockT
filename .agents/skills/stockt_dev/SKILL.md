@@ -53,17 +53,33 @@ The app uses `src/utils/platform.ts` with `isTauri()` to dynamically switch betw
 - **RED (🔴 漲 / 多頭 / 獲利)**: `var(--accent-red)` / `#ff5252` (Price rise `▲`, positive YoY growth, Bullish advice, capital profit).
 - **GREEN (🟢 跌 / 空頭 / 虧損)**: `var(--accent-green)` / `#4caf50` (Price drop `▼`, negative growth, Bearish advice, capital loss).
 
-### Null Safety & JS Type Quirk Rules
+### Null Safety & Defensive Data Parsing Rules
 > [!IMPORTANT]
-> In JavaScript, `isNaN(null)` evaluates to `false` and `null < 30` evaluates to `true` (`0 < 30`).
-> **NEVER** call `.toFixed()` directly on numeric values without strict null verification.
+> In JavaScript, `isNaN(null)` evaluates to `false`, `null < 30` evaluates to `true` (`0 < 30`), and strings like `"Infinity"` or `"NaN"` from JSON will evaluate to truthy but lack `.toFixed()`.
+> **NEVER** call `.toFixed()` directly on raw objects or unverified numbers.
 
-Always use a strict validation helper:
+Always use strict number conversion and formatting utilities (`toSafeNum` / `fmtFixed`):
 ```typescript
-const isValidNum = (v: any): v is number =>
-  v !== null && v !== undefined && typeof v === "number" && !isNaN(v);
+export function fmtFixed(v: any, digits = 1, fallback = "-"): string {
+  if (v == null || v === "" || v === "Infinity" || v === "-Infinity" || v === "NaN") return fallback;
+  const num = Number(v);
+  if (isNaN(num) || !isFinite(num)) return fallback;
+  return num.toFixed(digits);
+}
+
+export function toSafeNum(v: any, fallback: number): number;
+export function toSafeNum(v: any, fallback?: number | null): number | null;
+export function toSafeNum(v: any, fallback: number | null = null): number | null {
+  if (v == null || v === "" || v === "Infinity" || v === "-Infinity" || v === "NaN") return fallback;
+  const num = Number(v);
+  return isNaN(num) || !isFinite(num) ? fallback : num;
+}
 ```
-Ensure all indicator sequences in `src/utils/indicators.ts` and `src/utils/analysis.ts` sanitize input arrays converting `null` / `undefined` into `NaN`.
+
+### Chart UX & Interactive HUD (TradingView Style)
+- **Top-Left Pinned HUD (`ChartHUDView`)**: Interactive K-line charts (including main chart and full-screen zoom modal) pin the information card at `left: 70px; top: 8px` (avoiding the left price scale).
+- **Never Obstruct Cursor/Candles**: Never render floating tooltips directly tracking underneath mouse cursor. Use pinned HUD overlay that reacts to `subscribeCrosshairMove`.
+- **Default Display**: When cursor leaves the chart area, default to displaying the latest trading day's metrics (OHLCV, Change ▲/▼, Volume in 張/股, MA5/10/20).
 
 ---
 
