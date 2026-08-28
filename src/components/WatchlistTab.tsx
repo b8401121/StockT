@@ -5,6 +5,7 @@ import { getCachedStocks, subscribeStocks, StockEntry } from "../utils/stocks";
 import { stockService } from "../services";
 import twseFundamentals from "../utils/twse_mops_fundamentals.json";
 import { evaluateAIAlpha, fmtFixed } from "../utils/aiAlphaModel";
+import { mkMops, mkYahoo } from "../utils/platform";
 
 /** 原始交易紀錄 */
 export interface TradeRecord {
@@ -196,7 +197,7 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
         try {
           const d = await stockService.getStockData(sym, "1mo");
           if (d?.info?.symbol && d?.info?.current_price) {
-            return { symbol: d.info.symbol, rawSym: sym, price: Number(d.info.current_price) };
+            return { symbol: d.info.symbol, rawSym: sym, price: Number(d.info.current_price?.value) };
           }
         } catch {}
         return null;
@@ -636,7 +637,7 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
       try {
         const data = await stockService.getStockData(stock.symbol, "1mo");
         if (data?.info?.current_price) {
-          curP = Number(data.info.current_price);
+          curP = Number(data.info.current_price?.value);
           setPrices((prev) => ({ ...prev, [stock.symbol]: curP }));
         }
       } catch {}
@@ -796,23 +797,24 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
       const exDate = s.exDate || fund.ex_dividend_date || "尚待公告";
       const yieldPct = fund.yield_pct != null ? `${fmtFixed(fund.yield_pct, 2)}%` : (s.curPrice > 0 && s.cashDividend > 0 ? `${((s.cashDividend / s.curPrice) * 100).toFixed(2)}%` : "-");
 
+      const _wm = (v: number | null | undefined) => v != null ? mkMops(v) : null;
       const stockInfoFull = {
         symbol: s.symbol,
         name: s.name,
-        current_price: s.curPrice,
-        previous_close: s.curPrice,
-        pe: fund.pe,
-        pb: fund.pb,
-        dividend_yield: fund.yield_pct,
-        eps: fund.eps,
-        roe: fund.roe,
-        revenue_growth: fund.revenue_growth,
-        earnings_growth: fund.earnings_growth,
-        operating_margins: fund.operating_margin,
-        profit_margins: fund.profit_margin,
-        debt_to_equity: fund.debt_to_equity,
-        current_ratio: fund.current_ratio,
-        quick_ratio: fund.quick_ratio,
+        current_price: s.curPrice ? mkYahoo(s.curPrice) : null,
+        previous_close: s.curPrice ? mkYahoo(s.curPrice) : null,
+        pe: _wm(fund.pe),
+        pb: _wm(fund.pb),
+        dividend_yield: _wm(fund.yield_pct),
+        eps: _wm(fund.eps),
+        roe: _wm(fund.roe),
+        revenue_growth: _wm(fund.revenue_growth),
+        earnings_growth: _wm(fund.earnings_growth),
+        operating_margins: _wm(fund.operating_margin),
+        profit_margins: _wm(fund.profit_margin),
+        debt_to_equity: _wm(fund.debt_to_equity),
+        current_ratio: _wm(fund.current_ratio),
+        quick_ratio: _wm(fund.quick_ratio),
       };
       const aiAlpha = evaluateAIAlpha(stockInfoFull, s.curPrice || 100, s.curPrice || 100);
       const isAiBull = aiAlpha.winRatePct >= 70;

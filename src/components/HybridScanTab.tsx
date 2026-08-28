@@ -128,8 +128,8 @@ export const HybridScanTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({
           const fsGrade = getFsGrade(fs.score);
 
           // 2. 技術面動能評分
-          const curP = info.current_price || 0;
-          const prevP = info.previous_close || curP;
+          const curP = info.current_price?.value || 0;
+          const prevP = info.previous_close?.value || curP;
           let techScore = 0;
           if (ohlcv && ohlcv.close.length >= 20) {
             const ind = calculateAllIndicators(ohlcv);
@@ -157,7 +157,7 @@ export const HybridScanTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({
           // 2. 獲利體質：ROE 必須 >= 10.0% (優秀獲利能力)
           // 3. 技術趨勢：排除空頭破線股 (techScore >= 0.0，必須為中性整理、偏多起漲或多方優勢)
           // 4. 綜合推薦指數：hybridScore 必須 >= 4.5 (四星 ★★★★☆ 以上高分菁英標的)
-          const roeVal = info.roe ?? 0.12;
+          const roeVal = info.roe?.value ?? 0.12;
           if (fs.score >= 7 && roeVal >= 0.10 && techScore >= 0.0 && hybridScore >= 4.5) {
             scanResults.push({
               symbol: info.symbol,
@@ -170,8 +170,8 @@ export const HybridScanTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({
               aiWinRate: aiAlpha.winRatePct,
               aiConviction: aiAlpha.convictionTier,
               aiDrivers: aiAlpha.positiveDrivers,
-              pe: info.tw_pe ?? info.pe ? (info.tw_pe ?? info.pe)!.toFixed(1) : "N/A",
-              roe: info.roe ? `${(info.roe * 100).toFixed(1)}%` : "N/A",
+              pe: info.tw_pe?.value ?? info.pe?.value ? (info.tw_pe?.value ?? info.pe?.value)!.toFixed(1) : "N/A",
+              roe: info.roe?.value ? `${(info.roe?.value * 100).toFixed(1)}%` : "N/A",
             });
           }
         }

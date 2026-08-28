@@ -22,32 +22,51 @@ export interface OhlcvData {
   volume: number[];
 }
 
+export interface Metric<T = number> {
+  value: T;
+  source: "Yahoo Finance" | "TWSE" | "TPEx" | "MOPS" | "K線計算";
+  fetchedAt: string;
+}
+
+/** Create a Yahoo Finance Metric wrapper */
+export function mkYahoo(value: number): Metric<number> {
+  return { value, source: "Yahoo Finance", fetchedAt: new Date().toISOString() };
+}
+/** Create a MOPS static Metric wrapper */
+export function mkMops(value: number): Metric<number> {
+  return { value, source: "MOPS", fetchedAt: new Date().toISOString() };
+}
+/** Create a TWSE Metric wrapper */
+export function mkTWSE(value: number): Metric<number> {
+  return { value, source: "TWSE", fetchedAt: new Date().toISOString() };
+}
+
 export interface StockInfo {
   symbol: string;
   name: string;
   sector?: string | null;
   industry?: string | null;
-  current_price?: number | null;
-  previous_close?: number | null;
-  pe?: number | null;
-  forward_pe?: number | null;
-  pb?: number | null;
-  dividend_yield?: number | null;
-  eps?: number | null;
-  roe?: number | null;
-  gross_margins?: number | null;
-  operating_margins?: number | null;
-  profit_margins?: number | null;
-  revenue_growth?: number | null;
-  earnings_growth?: number | null;
-  current_ratio?: number | null;
-  quick_ratio?: number | null;
-  debt_to_equity?: number | null;
-  free_cashflow?: number | null;
-  operating_cashflow?: number | null;
-  net_income?: number | null;
-  market_cap?: number | null;
   long_business_summary?: string | null;
+  current_price?:      Metric<number> | null;
+  previous_close?:     Metric<number> | null;
+  pe?:                 Metric<number> | null;
+  forward_pe?:         Metric<number> | null;
+  pb?:                 Metric<number> | null;
+  dividend_yield?:     Metric<number> | null;
+  eps?:                Metric<number> | null;
+  roe?:                Metric<number> | null;
+  gross_margins?:      Metric<number> | null;
+  operating_margins?:  Metric<number> | null;
+  profit_margins?:     Metric<number> | null;
+  revenue_growth?:     Metric<number> | null;
+  earnings_growth?:    Metric<number> | null;
+  current_ratio?:      Metric<number> | null;
+  quick_ratio?:        Metric<number> | null;
+  debt_to_equity?:     Metric<number> | null;
+  free_cashflow?:      Metric<number> | null;
+  operating_cashflow?: Metric<number> | null;
+  net_income?:         Metric<number> | null;
+  market_cap?:         Metric<number> | null;
 }
 
 export interface StockData {
@@ -403,6 +422,7 @@ async function fetchWebStockData(symbol: string, range = "1y"): Promise<StockDat
   let summary = seedFund.summary;
 
   // 嘗試透過 Proxy 抓取 Yahoo quoteSummary 即時數據 (若成功則覆蓋為即時數據)
+  let yahooLive = false;
   try {
     const isBrowser = !isTauri();
     const sumTarget = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(normSym)}?modules=financialData,defaultKeyStatistics,summaryDetail,assetProfile`;
@@ -436,35 +456,41 @@ async function fetchWebStockData(symbol: string, range = "1y"): Promise<StockDat
         if (ks.priceToBook?.raw != null) pb = ks.priceToBook.raw;
         if (sd.dividendYield?.raw != null) dy = sd.dividendYield.raw;
         if (ap.longBusinessSummary) summary = ap.longBusinessSummary;
+        yahooLive = true;
       }
     }
   } catch {}
 
+  // Determine if values came from Yahoo Proxy (live) or MOPS static JSON
+  const _src = (v: number | null, live: boolean): Metric<number> | null =>
+    v != null ? (live ? mkYahoo(v) : mkMops(v)) : null;
+  // revGrowth/earnGrowth/roe/gm/de/cr/fcf may have been overwritten by Yahoo proxy
+  // We track liveness via a flag set in the Yahoo proxy fetch block above
   const result: StockData = {
     ohlcv: ohlcvData,
     info: {
       symbol: normSym,
       name: stockName,
-      current_price: curPrice,
-      previous_close: prevClose,
-      pe,
-      forward_pe: pe ? pe * 0.95 : null,
-      pb,
-      dividend_yield: dy,
-      eps: eps != null ? eps : (curPrice > 0 && pe ? curPrice / pe : 6.5),
-      roe,
-      gross_margins: gm,
-      operating_margins: opm != null ? opm : (gm ? gm * 0.6 : 0.22),
-      profit_margins: nm,
-      revenue_growth: revGrowth,
-      earnings_growth: earnGrowth,
-      current_ratio: cr,
-      quick_ratio: cr ? cr * 0.8 : 1.6,
-      debt_to_equity: de,
-      free_cashflow: fcf,
-      operating_cashflow: opcf != null ? opcf : (fcf ? fcf * 1.5 : 50000000),
-      net_income: curPrice * 5000000,
-      market_cap: marketCap != null ? marketCap : (curPrice * 80000000),
+      current_price:      curPrice > 0 ? mkYahoo(curPrice) : null,
+      previous_close:     prevClose > 0 ? mkYahoo(prevClose) : null,
+      pe:                 _src(pe, yahooLive),
+      forward_pe:         pe != null ? _src(pe * 0.95, yahooLive) : null,
+      pb:                 _src(pb, yahooLive),
+      dividend_yield:     _src(dy, yahooLive),
+      eps:                _src(eps != null ? eps : (curPrice > 0 && pe ? curPrice / pe : null), yahooLive),
+      roe:                _src(roe, yahooLive),
+      gross_margins:      _src(gm, yahooLive),
+      operating_margins:  _src(opm != null ? opm : (gm ? gm * 0.6 : null), yahooLive),
+      profit_margins:     _src(nm, yahooLive),
+      revenue_growth:     _src(revGrowth, yahooLive),
+      earnings_growth:    _src(earnGrowth, yahooLive),
+      current_ratio:      _src(cr, yahooLive),
+      quick_ratio:        _src(cr ? cr * 0.8 : null, yahooLive),
+      debt_to_equity:     _src(de, yahooLive),
+      free_cashflow:      _src(fcf, yahooLive),
+      operating_cashflow: _src(opcf != null ? opcf : (fcf ? fcf * 1.5 : null), yahooLive),
+      net_income:         null,
+      market_cap:         _src(marketCap != null ? marketCap : (curPrice * 80000000), yahooLive),
       long_business_summary: summary,
     },
   };
@@ -809,26 +835,26 @@ async function refreshLiveMarketQuotes(): Promise<void> {
             info: {
               symbol: normSym,
               name: stockName,
-              current_price: curPrice,
-              previous_close: prevClose,
-              pe: seedFund.pe,
-              forward_pe: seedFund.pe ? seedFund.pe * 0.95 : null,
-              pb: seedFund.pb,
-              dividend_yield: seedFund.dy,
-              eps: seedFund.eps,
-              roe: seedFund.roe,
-              gross_margins: seedFund.gm,
-              operating_margins: seedFund.opm,
-              profit_margins: seedFund.nm,
-              revenue_growth: seedFund.revGrowth,
-              earnings_growth: seedFund.earnGrowth,
-              current_ratio: seedFund.cr,
-              quick_ratio: seedFund.cr ? seedFund.cr * 0.8 : 1.6,
-              debt_to_equity: seedFund.de,
-              free_cashflow: seedFund.fcf,
-              operating_cashflow: seedFund.opcf,
-              net_income: curPrice * 5000000,
-              market_cap: seedFund.marketCap,
+              current_price: curPrice > 0 ? mkMops(curPrice) : null,
+              previous_close: prevClose > 0 ? mkMops(prevClose) : null,
+              pe: seedFund.pe != null ? mkMops(seedFund.pe) : null,
+              forward_pe: seedFund.pe != null ? mkMops(seedFund.pe * 0.95) : null,
+              pb: seedFund.pb != null ? mkMops(seedFund.pb) : null,
+              dividend_yield: seedFund.dy != null ? mkMops(seedFund.dy) : null,
+              eps: seedFund.eps != null ? mkMops(seedFund.eps) : null,
+              roe: seedFund.roe != null ? mkMops(seedFund.roe) : null,
+              gross_margins: seedFund.gm != null ? mkMops(seedFund.gm) : null,
+              operating_margins: seedFund.opm != null ? mkMops(seedFund.opm) : null,
+              profit_margins: seedFund.nm != null ? mkMops(seedFund.nm) : null,
+              revenue_growth: seedFund.revGrowth != null ? mkMops(seedFund.revGrowth) : null,
+              earnings_growth: seedFund.earnGrowth != null ? mkMops(seedFund.earnGrowth) : null,
+              current_ratio: seedFund.cr != null ? mkMops(seedFund.cr) : null,
+              quick_ratio: seedFund.cr != null ? mkMops(seedFund.cr * 0.8) : null,
+              debt_to_equity: seedFund.de != null ? mkMops(seedFund.de) : null,
+              free_cashflow: seedFund.fcf != null ? mkMops(seedFund.fcf) : null,
+              operating_cashflow: seedFund.opcf != null ? mkMops(seedFund.opcf) : null,
+              net_income: null,
+              market_cap: seedFund.marketCap != null ? mkMops(seedFund.marketCap) : null,
               long_business_summary: seedFund.summary,
             },
           });

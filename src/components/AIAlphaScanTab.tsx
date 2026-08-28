@@ -1,3 +1,4 @@
+import { mkMops, mkYahoo } from "../utils/platform";
 import React, { useState, useRef, useEffect } from "react";
 import { StockInfoFull } from "../utils/analysis";
 import { evaluateAIAlpha, AIAlphaResult, fmtFixed } from "../utils/aiAlphaModel";
@@ -74,9 +75,9 @@ function filterSymbolsByMarket(allKeys: string[], fundamentalsMap: Record<string
 const STRATEGIES = [
   { id: "strong_bull", label: "⭐⭐⭐⭐⭐ 極致多頭 (勝率 ≥ 78%)", filterFn: (s: AIAlphaResult) => s.winRatePct >= 78 },
   { id: "solid_bull", label: "⭐⭐⭐⭐ 穩健多頭 (勝率 ≥ 60%)", filterFn: (s: AIAlphaResult) => s.winRatePct >= 60 },
-  { id: "finlab_momentum", label: "🚀 FinLab 波段飆股 (120日動能 + 站上年線)", filterFn: (s: AIAlphaResult, info: StockInfoFull) => (s.winRatePct >= 60 && (info.roe ?? 0) >= 0.10 && (info.eps ?? 0) > 0) },
-  { id: "value_alpha", label: "💎 價值高勝率 (高ROE ≥ 15% + 低PE ≤ 20)", filterFn: (s: AIAlphaResult, info: StockInfoFull) => (s.winRatePct >= 60 && (info.roe ?? 0) >= 0.15 && (info.tw_pe ?? info.pe ?? 30) <= 20) },
-  { id: "growth_alpha", label: "📈 雙重擴張成長 (營收YoY ≥ 15% + 勝率 ≥ 65%)", filterFn: (s: AIAlphaResult, info: StockInfoFull) => (s.winRatePct >= 65 && (info.revenue_growth ?? 0) >= 0.15) },
+  { id: "finlab_momentum", label: "🚀 FinLab 波段飆股 (120日動能 + 站上年線)", filterFn: (s: AIAlphaResult, info: StockInfoFull) => (s.winRatePct >= 60 && (info.roe?.value ?? 0) >= 0.10 && (info.eps?.value ?? 0) > 0) },
+  { id: "value_alpha", label: "💎 價值高勝率 (高ROE ≥ 15% + 低PE ≤ 20)", filterFn: (s: AIAlphaResult, info: StockInfoFull) => (s.winRatePct >= 60 && (info.roe?.value ?? 0) >= 0.15 && (info.tw_pe?.value ?? info.pe?.value ?? 30) <= 20) },
+  { id: "growth_alpha", label: "📈 雙重擴張成長 (營收YoY ≥ 15% + 勝率 ≥ 65%)", filterFn: (s: AIAlphaResult, info: StockInfoFull) => (s.winRatePct >= 65 && (info.revenue_growth?.value ?? 0) >= 0.15) },
   { id: "landmine_risk", label: "⚠️ 偏空避險名單 (勝率 ≤ 35% / 虧損地雷)", filterFn: (s: AIAlphaResult) => s.winRatePct <= 35 },
 ];
 
@@ -131,25 +132,25 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
         const info: StockInfoFull = {
           symbol,
           name: p.name || p.n || key,
-          current_price: safeNum(curP) || 0,
-          previous_close: safeNum(prevP) || 0,
-          pe: safeNum(p.pe),
-          tw_pe: safeNum(p.tw_pe ?? p.pe),
-          pb: safeNum(p.pb),
-          dividend_yield: safeNum(p.dividend_yield) ?? (safeNum(p.dividend_yield_pct) ? safeNum(p.dividend_yield_pct)! / 100 : undefined),
-          eps: safeNum(p.eps),
-          roe: safeNum(p.roe),
-          profit_margins: safeNum(p.profit_margins),
-          gross_margins: safeNum(p.gross_margins),
-          operating_margins: safeNum(p.operating_margins),
-          revenue_growth: safeNum(p.revenue_growth),
-          earnings_growth: safeNum(p.earnings_growth),
-          debt_to_equity: safeNum(p.debt_to_equity),
-          current_ratio: safeNum(p.current_ratio),
-          quick_ratio: safeNum(p.quick_ratio),
-          free_cashflow: safeNum(p.free_cashflow),
-          operating_cashflow: safeNum(p.operating_cashflow),
-          market_cap: safeNum(p.market_cap),
+          current_price: mkYahoo(safeNum(curP) || 0),
+          previous_close: mkYahoo(safeNum(prevP) || 0),
+          pe: (safeNum(p.pe)) != null ? mkMops((safeNum(p.pe))!) : undefined,
+          tw_pe: (safeNum(p.tw_pe ?? p.pe)) != null ? mkMops((safeNum(p.tw_pe ?? p.pe))!) : undefined,
+          pb: (safeNum(p.pb)) != null ? mkMops((safeNum(p.pb))!) : undefined,
+          dividend_yield: (() => { const v = safeNum(p.dividend_yield) ?? (safeNum(p.dividend_yield_pct) != null ? safeNum(p.dividend_yield_pct)! / 100 : null); return v != null ? mkMops(v) : undefined; })(),
+          eps: (safeNum(p.eps)) != null ? mkMops((safeNum(p.eps))!) : undefined,
+          roe: (safeNum(p.roe)) != null ? mkMops((safeNum(p.roe))!) : undefined,
+          profit_margins: (safeNum(p.profit_margins)) != null ? mkMops((safeNum(p.profit_margins))!) : undefined,
+          gross_margins: (safeNum(p.gross_margins)) != null ? mkMops((safeNum(p.gross_margins))!) : undefined,
+          operating_margins: (safeNum(p.operating_margins)) != null ? mkMops((safeNum(p.operating_margins))!) : undefined,
+          revenue_growth: (safeNum(p.revenue_growth)) != null ? mkMops((safeNum(p.revenue_growth))!) : undefined,
+          earnings_growth: (safeNum(p.earnings_growth)) != null ? mkMops((safeNum(p.earnings_growth))!) : undefined,
+          debt_to_equity: (safeNum(p.debt_to_equity)) != null ? mkMops((safeNum(p.debt_to_equity))!) : undefined,
+          current_ratio: (safeNum(p.current_ratio)) != null ? mkMops((safeNum(p.current_ratio))!) : undefined,
+          quick_ratio: (safeNum(p.quick_ratio)) != null ? mkMops((safeNum(p.quick_ratio))!) : undefined,
+          free_cashflow: (safeNum(p.free_cashflow)) != null ? mkMops((safeNum(p.free_cashflow))!) : undefined,
+          operating_cashflow: (safeNum(p.operating_cashflow)) != null ? mkMops((safeNum(p.operating_cashflow))!) : undefined,
+          market_cap: (safeNum(p.market_cap)) != null ? mkMops((safeNum(p.market_cap))!) : undefined,
         };
 
         const aiResult = evaluateAIAlpha(info, curP, prevP);
@@ -233,7 +234,7 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
           <td><span class="badge-win">${fmtFixed(r.winRatePct, 1)}%</span></td>
           <td style="color:#38bdf8; font-weight:bold;">${r.expectedAlphaPct >= 0 ? '+' : ''}${fmtFixed(r.expectedAlphaPct, 1)}%</td>
           <td><span class="badge-tier">${r.convictionTier}</span></td>
-          <td>PE: ${fmtFixed(r.info.tw_pe ?? r.info.pe, 1, "-")} | ROE: ${r.info.roe != null ? fmtFixed(r.info.roe * 100, 1) + "%" : "-"}</td>
+          <td>PE: ${fmtFixed(r.info.tw_pe?.value ?? r.info.pe?.value, 1, "-")} | ROE: ${r.info.roe?.value != null ? fmtFixed(r.info.roe?.value * 100, 1) + "%" : "-"}</td>
           <td>${r.positiveDrivers.join("、") || r.riskDrivers.join("、")}</td>
         </tr>
       `).join("")}
@@ -372,8 +373,8 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
                       )}
                     </td>
                     <td style={{ fontSize: "0.78rem", color: "var(--text-muted)" }}>
-                      <div>PE: <b style={{ color: "var(--text-primary)" }}>{fmtFixed(r.info.tw_pe ?? r.info.pe, 1, "-")}</b></div>
-                      <div>ROE: <b style={{ color: (r.info.roe ?? 0) < 0 ? "#ff5252" : (r.info.roe ?? 0) >= 0.15 ? "#4ade80" : "var(--text-primary)" }}>{r.info.roe != null ? fmtFixed(r.info.roe * 100, 1) + "%" : "-"}</b></div>
+                      <div>PE: <b style={{ color: "var(--text-primary)" }}>{fmtFixed(r.info.tw_pe?.value ?? r.info.pe?.value, 1, "-")}</b></div>
+                      <div>ROE: <b style={{ color: (r.info.roe?.value ?? 0) < 0 ? "#ff5252" : (r.info.roe?.value ?? 0) >= 0.15 ? "#4ade80" : "var(--text-primary)" }}>{r.info.roe?.value != null ? fmtFixed(r.info.roe?.value * 100, 1) + "%" : "-"}</b></div>
                     </td>
                     <td>
                       <button

@@ -119,7 +119,7 @@ export const FundamentalScanTab: React.FC<{ onAnalyze?: (sym: string) => void }>
           const reasons: string[] = [];
           const warnings: string[] = [];
 
-          const roe = info.roe;
+          const roe = info.roe?.value;
           if (roe != null) {
             if (roe < minRoe / 100) continue;
             reasons.push(`ROE ${(roe * 100).toFixed(1)}%✓`);
@@ -128,7 +128,7 @@ export const FundamentalScanTab: React.FC<{ onAnalyze?: (sym: string) => void }>
             warnings.push("ROE (無數據)");
           }
 
-          const gm = info.gross_margins;
+          const gm = info.gross_margins?.value;
           if (gm != null) {
             if (gm < minGm / 100) continue;
             reasons.push(`毛利率 ${(gm * 100).toFixed(1)}%✓`);
@@ -137,7 +137,7 @@ export const FundamentalScanTab: React.FC<{ onAnalyze?: (sym: string) => void }>
             warnings.push("毛利率 (無數據)");
           }
 
-          const nm = info.profit_margins;
+          const nm = info.profit_margins?.value;
           if (nm != null) {
             if (nm < minNm / 100) continue;
             reasons.push(`淨利率 ${(nm * 100).toFixed(1)}%✓`);
@@ -146,7 +146,7 @@ export const FundamentalScanTab: React.FC<{ onAnalyze?: (sym: string) => void }>
             warnings.push("淨利率 (無數據)");
           }
 
-          const rg = info.revenue_growth;
+          const rg = info.revenue_growth?.value;
           if (rg != null) {
             if (rg < -0.05) continue;
             reasons.push(`營收YoY ${(rg * 100).toFixed(1)}%✓`);
@@ -155,14 +155,14 @@ export const FundamentalScanTab: React.FC<{ onAnalyze?: (sym: string) => void }>
             warnings.push("營收YoY (無數據)");
           }
 
-          const eg = info.earnings_growth;
+          const eg = info.earnings_growth?.value;
           if (eg != null) {
             if (eg <= 0) continue;
             reasons.push(`盈餘成長 ${(eg * 100).toFixed(1)}%✓`);
             score += 1;
           }
 
-          const eps = info.eps;
+          const eps = info.eps?.value;
           if (eps != null) {
             if (eps <= 0) continue;
             reasons.push(`EPS ${eps.toFixed(2)}✓`);
@@ -171,7 +171,7 @@ export const FundamentalScanTab: React.FC<{ onAnalyze?: (sym: string) => void }>
             warnings.push("EPS (無數據)");
           }
 
-          const pe = info.tw_pe ?? info.pe;
+          const pe = info.tw_pe?.value ?? info.pe?.value;
           if (pe != null && pe > 0) {
             if (pe > maxPe) continue;
             reasons.push(`PE ${pe.toFixed(1)}✓`);
@@ -180,7 +180,7 @@ export const FundamentalScanTab: React.FC<{ onAnalyze?: (sym: string) => void }>
             warnings.push("PE (無數據)");
           }
 
-          const pb = info.tw_pb ?? info.pb;
+          const pb = info.tw_pb?.value ?? info.pb?.value;
           if (pb != null) {
             if (pb > maxPb || pb < 0) continue;
             reasons.push(`PB ${pb.toFixed(2)}✓`);
@@ -189,14 +189,14 @@ export const FundamentalScanTab: React.FC<{ onAnalyze?: (sym: string) => void }>
             warnings.push("PB (無數據)");
           }
 
-          const dy = info.tw_yield ?? info.dividend_yield ?? 0;
+          const dy = info.tw_yield?.value ?? info.dividend_yield?.value ?? 0;
           if (dy < minDy / 100) continue;
           if (dy > 0) {
             reasons.push(`殖利率 ${(dy * 100).toFixed(1)}%✓`);
             score += (dy >= 0.04) ? 1 : 0;
           }
 
-          const cr = info.current_ratio;
+          const cr = info.current_ratio?.value;
           if (cr != null) {
             if (cr < minCr) continue;
             reasons.push(`流動比率 ${cr.toFixed(2)}✓`);
@@ -205,7 +205,7 @@ export const FundamentalScanTab: React.FC<{ onAnalyze?: (sym: string) => void }>
             warnings.push("流動比 (無數據)");
           }
 
-          const de = info.debt_to_equity;
+          const de = info.debt_to_equity?.value;
           if (de != null) {
             if (de > maxDe) continue;
             reasons.push(`負債比 ${de.toFixed(0)}%✓`);
@@ -214,7 +214,7 @@ export const FundamentalScanTab: React.FC<{ onAnalyze?: (sym: string) => void }>
             warnings.push("負債比 (無數據)");
           }
 
-          const fcf = info.free_cashflow;
+          const fcf = info.free_cashflow?.value;
           if (fcf != null) {
             if (fcfPositive && fcf <= 0) continue;
             if (fcf > 0) {

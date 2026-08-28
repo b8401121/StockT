@@ -1,4 +1,5 @@
 import { StockInfoFull } from "./analysis";
+import type { Metric } from "./platform";
 import { HardwareTier, getCachedHardwareInfo } from "./hardwareDetector";
 import { OhlcvData } from "./indicators";
 
@@ -19,14 +20,6 @@ export interface FactorResult {
   asOf?: string;       // 資料時效 (最新日 / 最新季)
   status: "positive" | "negative" | "neutral" | "missing";
   explanation: string;
-}
-
-export interface Metric<T = number> {
-  value: T | null;
-  source: "Yahoo Finance" | "TWSE" | "TPEx" | "MOPS" | "K線計算";
-  period?: string;
-  publishedAt?: string;
-  fetchedAt?: string;
 }
 
 /** 舊版相容性介面 */
@@ -103,6 +96,21 @@ export interface AIAlphaResult {
 
 // ─── 輔助函數 ─────────────────────────────────────────────────────────────────
 
+/** Extract numeric value from a Metric<number> field (null-safe) */
+export function metricVal(m: Metric<number> | null | undefined): number | null {
+  return m?.value ?? null;
+}
+
+/** Extract source label from a Metric<number> field */
+export function metricSource(m: Metric<number> | null | undefined, fallback = "Unknown"): string {
+  return m?.source ?? fallback;
+}
+
+/** Extract fetchedAt from a Metric<number> field */
+export function metricTs(m: Metric<number> | null | undefined): string | undefined {
+  return m?.fetchedAt;
+}
+
 export function fmtFixed(v: any, digits = 1, fallback = "-"): string {
   if (v == null || v === "" || v === "Infinity" || v === "-Infinity" || v === "NaN") return fallback;
   const num = Number(v);
@@ -142,7 +150,7 @@ export function evaluateAIAlpha(
   const symbol = info.symbol || "";
   const name = info.name || symbol;
   const hwInfo = getCachedHardwareInfo();
-  const curP = currentPrice > 0 ? currentPrice : toSafeNum(info.current_price, 0);
+  const curP = currentPrice > 0 ? currentPrice : toSafeNum(info.current_price?.value, 0);
 
   const factors: FactorResult[] = [];
 
@@ -450,7 +458,7 @@ export function evaluateAIAlpha(
   // ═══════════════════════════════════════════════════════════════════════════
 
   // 2.1 ROE
-  const roeVal = toSafeNum(info.roe, null);
+  const roeVal = metricVal(info.roe);
   if (roeVal !== null) {
     const roePct = roeVal * 100;
     const score = roePct >= 20 ? 3.0 : roePct >= 15 ? 2.0 : roePct >= 10 ? 1.0 : roePct >= 5 ? 0.0 : -2.0;
@@ -463,7 +471,7 @@ export function evaluateAIAlpha(
       score,
       weight: 0.15,
       available: true,
-      source: "Yahoo Finance (財報)",
+      source: metricSource(info.roe),
       asOf: "最新季報",
       status: roePct >= 10 ? "positive" : roePct < 5 ? "negative" : "neutral",
       explanation: roePct >= 15 ? "股東資本回報率卓越 (>15%)" : roePct >= 10 ? "獲利資本報酬良好" : "資本報酬率偏低",
@@ -478,14 +486,14 @@ export function evaluateAIAlpha(
       score: 0,
       weight: 0.15,
       available: false,
-      source: "Yahoo Finance (財報)",
+      source: metricSource(info.roe),
       status: "missing",
       explanation: "未揭露最新 ROE 數據",
     });
   }
 
   // 2.2 Revenue Growth (營收成長率)
-  const revGrowth = toSafeNum(info.revenue_growth, null);
+  const revGrowth = metricVal(info.revenue_growth);
   if (revGrowth !== null) {
     const revPct = revGrowth * 100;
     const score = revPct >= 25 ? 2.8 : revPct >= 10 ? 1.8 : revPct >= 0 ? 0.5 : revPct >= -10 ? -1.0 : -2.5;
@@ -498,7 +506,7 @@ export function evaluateAIAlpha(
       score,
       weight: 0.12,
       available: true,
-      source: "Yahoo Finance (營收成長)",
+      source: metricSource(info.revenue_growth),
       asOf: "最新月份",
       status: revPct >= 10 ? "positive" : revPct < 0 ? "negative" : "neutral",
       explanation: revPct >= 15 ? "營收高速擴張期" : revPct >= 0 ? "營收穩定增長" : "營收年減衰退",
@@ -513,14 +521,14 @@ export function evaluateAIAlpha(
       score: 0,
       weight: 0.12,
       available: false,
-      source: "Yahoo Finance (營收成長)",
+      source: metricSource(info.revenue_growth),
       status: "missing",
       explanation: "未揭露最新營收年增率",
     });
   }
 
   // 2.3 Earnings Growth (獲利/EPS成長率)
-  const earnGrowth = toSafeNum(info.earnings_growth, null);
+  const earnGrowth = metricVal(info.earnings_growth);
   if (earnGrowth !== null) {
     const earnPct = earnGrowth * 100;
     const score = earnPct >= 30 ? 2.8 : earnPct >= 15 ? 1.8 : earnPct >= 0 ? 0.5 : -2.0;
@@ -533,7 +541,7 @@ export function evaluateAIAlpha(
       score,
       weight: 0.12,
       available: true,
-      source: "Yahoo Finance (獲利成長)",
+      source: metricSource(info.earnings_growth),
       asOf: "最新季報",
       status: earnPct >= 15 ? "positive" : earnPct < 0 ? "negative" : "neutral",
       explanation: earnPct >= 15 ? "本業獲利大幅成長" : earnPct >= 0 ? "獲利維持增長" : "獲利同比衰退",
@@ -548,15 +556,15 @@ export function evaluateAIAlpha(
       score: 0,
       weight: 0.12,
       available: false,
-      source: "Yahoo Finance (獲利成長)",
+      source: metricSource(info.earnings_growth),
       status: "missing",
       explanation: "未揭露最新獲利成長率",
     });
   }
 
   // 2.4 Margin (毛利率與營業利益率)
-  const grossM = toSafeNum(info.gross_margins, null);
-  const operM = toSafeNum(info.operating_margins, null);
+  const grossM = metricVal(info.gross_margins);
+  const operM = metricVal(info.operating_margins);
   if (grossM !== null) {
     const gmPct = grossM * 100;
     const opPct = operM !== null ? operM * 100 : null;
@@ -570,7 +578,7 @@ export function evaluateAIAlpha(
       score,
       weight: 0.10,
       available: true,
-      source: "Yahoo Finance (財報)",
+      source: metricSource(info.roe),
       asOf: "最新季報",
       status: gmPct >= 25 ? "positive" : gmPct < 10 ? "negative" : "neutral",
       explanation: gmPct >= 30 ? "具備高定價權與護城河" : "利潤率一般",
@@ -585,14 +593,14 @@ export function evaluateAIAlpha(
       score: 0,
       weight: 0.10,
       available: false,
-      source: "Yahoo Finance (財報)",
+      source: metricSource(info.roe),
       status: "missing",
       explanation: "未揭露毛利率數據",
     });
   }
 
   // 2.5 Debt (負債比率 / 財務槓桿)
-  const debtVal = toSafeNum(info.debt_to_equity, null);
+  const debtVal = metricVal(info.debt_to_equity);
   if (debtVal !== null) {
     const dScore = debtVal <= 50 ? 2.2 : debtVal <= 100 ? 1.0 : debtVal <= 200 ? -0.5 : -2.5;
     factors.push({
@@ -604,7 +612,7 @@ export function evaluateAIAlpha(
       score: dScore,
       weight: 0.08,
       available: true,
-      source: "Yahoo Finance (財報)",
+      source: metricSource(info.roe),
       asOf: "最新季報",
       status: debtVal <= 80 ? "positive" : debtVal > 150 ? "negative" : "neutral",
       explanation: debtVal <= 80 ? "負債比低，財務體質極其健康" : debtVal > 150 ? "財務槓桿偏高注意利息負擔" : "負債結構中規中矩",
@@ -619,14 +627,14 @@ export function evaluateAIAlpha(
       score: 0,
       weight: 0.08,
       available: false,
-      source: "Yahoo Finance (財報)",
+      source: metricSource(info.roe),
       status: "missing",
       explanation: "未揭露負債比數據",
     });
   }
 
   // 2.6 FCF (自由現金流)
-  const fcfVal = toSafeNum(info.free_cashflow, null);
+  const fcfVal = metricVal(info.free_cashflow);
   if (fcfVal !== null) {
     const fcfBillions = fcfVal / 1e8;
     const score = fcfVal > 1e9 ? 2.5 : fcfVal > 0 ? 1.5 : -2.0;
@@ -639,7 +647,7 @@ export function evaluateAIAlpha(
       score,
       weight: 0.08,
       available: true,
-      source: "Yahoo Finance (現金流)",
+      source: metricSource(info.free_cashflow),
       asOf: "最新季報",
       status: fcfVal > 0 ? "positive" : "negative",
       explanation: fcfVal > 0 ? "本業持續產生充沛真金白銀" : "現金流呈現流出需留意營運資金",
@@ -654,16 +662,20 @@ export function evaluateAIAlpha(
       score: 0,
       weight: 0.08,
       available: false,
-      source: "Yahoo Finance (現金流)",
+      source: metricSource(info.free_cashflow),
       status: "missing",
       explanation: "未揭露自由現金流數據",
     });
   }
 
   // 2.7 官方估值性價比 (PE / PB / 殖利率)
-  const peVal = toSafeNum(info.tw_pe ?? info.pe, null);
-  const pbVal = toSafeNum(info.tw_pb ?? info.pb, null);
-  const dyVal = toSafeNum(info.tw_yield ?? info.dividend_yield, null);
+  // Prefer TWSE/TPEx official data over Yahoo Finance
+  const peMet = info.tw_pe ?? info.pe;
+  const pbMet = info.tw_pb ?? info.pb;
+  const dyMet = info.tw_yield ?? info.dividend_yield;
+  const peVal = metricVal(peMet);
+  const pbVal = metricVal(pbMet);
+  const dyVal = metricVal(dyMet);
 
   if (peVal !== null) {
     const score = peVal <= 12 && peVal > 0 ? 2.5 : peVal <= 18 && peVal > 0 ? 1.5 : peVal <= 25 ? 0.2 : peVal > 40 ? -2.0 : -1.0;
@@ -676,7 +688,7 @@ export function evaluateAIAlpha(
       score,
       weight: 0.08,
       available: true,
-      source: "TWSE/TPEx (官方)",
+      source: metricSource(peMet),
       asOf: "今日收盤",
       status: peVal <= 16 ? "positive" : peVal > 30 ? "negative" : "neutral",
       explanation: peVal <= 15 ? "本益比位階具安全邊際" : peVal > 30 ? "估值偏高需高成長支撐" : "估值合理",
@@ -694,7 +706,7 @@ export function evaluateAIAlpha(
       score,
       weight: 0.06,
       available: true,
-      source: "TWSE/TPEx (官方)",
+      source: metricSource(peMet),
       asOf: "今日收盤",
       status: pbVal <= 1.5 ? "positive" : pbVal > 3.5 ? "negative" : "neutral",
       explanation: pbVal <= 1.5 ? "股價淨值比處於低檔價值區" : pbVal > 3.5 ? "淨值比偏高需高 ROE 支撐" : "淨值比合理",
@@ -713,7 +725,7 @@ export function evaluateAIAlpha(
       score,
       weight: 0.06,
       available: true,
-      source: "TWSE/TPEx (官方)",
+      source: metricSource(peMet),
       asOf: "最新公告",
       status: dyPct >= 4 ? "positive" : "neutral",
       explanation: dyPct >= 5 ? "高殖利率具下檔防禦優勢" : "殖利率一般",

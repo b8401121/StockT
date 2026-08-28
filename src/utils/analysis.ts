@@ -3,6 +3,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { Indicators } from "./indicators";
+import { Metric } from "./platform";
 
 export interface Signal {
   title: string;
@@ -15,31 +16,31 @@ export interface StockInfoFull {
   name: string;
   sector?: string;
   industry?: string;
-  current_price?: number;
-  previous_close?: number;
-  pe?: number;
-  forward_pe?: number;
-  pb?: number;
-  dividend_yield?: number;
-  eps?: number;
-  roe?: number;
-  gross_margins?: number;
-  operating_margins?: number;
-  profit_margins?: number;
-  revenue_growth?: number;
-  earnings_growth?: number;
-  current_ratio?: number;
-  quick_ratio?: number;
-  debt_to_equity?: number;
-  free_cashflow?: number;
-  operating_cashflow?: number;
-  net_income?: number;
-  market_cap?: number;
   long_business_summary?: string;
-  // TWSE 補充
-  tw_pe?: number;
-  tw_pb?: number;
-  tw_yield?: number;
+  current_price?:      Metric<number> | null;
+  previous_close?:     Metric<number> | null;
+  pe?:                 Metric<number> | null;
+  forward_pe?:         Metric<number> | null;
+  pb?:                 Metric<number> | null;
+  dividend_yield?:     Metric<number> | null;
+  eps?:                Metric<number> | null;
+  roe?:                Metric<number> | null;
+  gross_margins?:      Metric<number> | null;
+  operating_margins?:  Metric<number> | null;
+  profit_margins?:     Metric<number> | null;
+  revenue_growth?:     Metric<number> | null;
+  earnings_growth?:    Metric<number> | null;
+  current_ratio?:      Metric<number> | null;
+  quick_ratio?:        Metric<number> | null;
+  debt_to_equity?:     Metric<number> | null;
+  free_cashflow?:      Metric<number> | null;
+  operating_cashflow?: Metric<number> | null;
+  net_income?:         Metric<number> | null;
+  market_cap?:         Metric<number> | null;
+  // TWSE 補充 (optional override; if present, source will be TWSE/TPEx)
+  tw_pe?:    Metric<number> | null;
+  tw_pb?:    Metric<number> | null;
+  tw_yield?: Metric<number> | null;
 }
 
 // ─── 技術分析建議 ─────────────────────────────────────────────────────────────
@@ -251,44 +252,44 @@ export function checkLandmineRisks(ind: Indicators, info: StockInfoFull, n: numb
 
   // ── 財務基本面地雷 ────────────────────────────────────────────────
   // 虧損
-  if (isValid(info.net_income) && info.net_income < 0) {
+  if (isValid(info.net_income?.value) && info.net_income?.value < 0) {
     risks.push("💸 公司目前財報呈現淨損（虧損中）");
   }
   // EPS 為負
-  if (isValid(info.eps) && info.eps < 0) {
-    risks.push(`📛 EPS 為負 (${info.eps.toFixed(2)})，每股虧損`);
+  if (isValid(info.eps?.value) && info.eps?.value < 0) {
+    risks.push(`📛 EPS 為負 (${info.eps?.value.toFixed(2)})，每股虧損`);
   }
   // ROE 為負（淨值縮水）
-  if (isValid(info.roe) && info.roe < 0) {
-    risks.push(`🔴 ROE 為負 (${(info.roe * 100).toFixed(1)}%)，股東權益遭侵蝕`);
+  if (isValid(info.roe?.value) && info.roe?.value < 0) {
+    risks.push(`🔴 ROE 為負 (${(info.roe?.value * 100).toFixed(1)}%)，股東權益遭侵蝕`);
   }
   // 毛利率偏低
-  if (isValid(info.gross_margins) && info.gross_margins < 0.10) {
-    risks.push(`📉 毛利率極低 (${(info.gross_margins * 100).toFixed(1)}%)，獲利能力堪憂`);
+  if (isValid(info.gross_margins?.value) && info.gross_margins?.value < 0.10) {
+    risks.push(`📉 毛利率極低 (${(info.gross_margins?.value * 100).toFixed(1)}%)，獲利能力堪憂`);
   }
   // 淨利率為負
-  if (isValid(info.profit_margins) && info.profit_margins < 0) {
-    risks.push(`🩸 淨利率為負 (${(info.profit_margins * 100).toFixed(1)}%)，本業虧損`);
+  if (isValid(info.profit_margins?.value) && info.profit_margins?.value < 0) {
+    risks.push(`🩸 淨利率為負 (${(info.profit_margins?.value * 100).toFixed(1)}%)，本業虧損`);
   }
   // 負自由現金流
-  if (isValid(info.free_cashflow) && info.free_cashflow < 0) {
-    risks.push(`💧 自由現金流為負 (${(info.free_cashflow / 1e8).toFixed(2)}億)，燒錢警示`);
+  if (isValid(info.free_cashflow?.value) && info.free_cashflow?.value < 0) {
+    risks.push(`💧 自由現金流為負 (${(info.free_cashflow?.value / 1e8).toFixed(2)}億)，燒錢警示`);
   }
   // 高負債
-  if (isValid(info.debt_to_equity) && info.debt_to_equity > 200) {
-    risks.push(`🏗️ 負債比率偏高 (${info.debt_to_equity.toFixed(1)}%)，財務槓桿過大`);
+  if (isValid(info.debt_to_equity?.value) && info.debt_to_equity?.value > 200) {
+    risks.push(`🏗️ 負債比率偏高 (${info.debt_to_equity?.value.toFixed(1)}%)，財務槓桿過大`);
   }
   // 流動比率過低
-  if (isValid(info.current_ratio) && info.current_ratio < 1) {
-    risks.push(`💦 流動比率偏低 (${info.current_ratio.toFixed(2)})，短期償債壓力大`);
+  if (isValid(info.current_ratio?.value) && info.current_ratio?.value < 1) {
+    risks.push(`💦 流動比率偏低 (${info.current_ratio?.value.toFixed(2)})，短期償債壓力大`);
   }
   // 盈餘衰退
-  if (isValid(info.earnings_growth) && info.earnings_growth < -0.20) {
-    risks.push(`📊 盈餘大幅衰退 (YoY: ${(info.earnings_growth * 100).toFixed(1)}%)`);
+  if (isValid(info.earnings_growth?.value) && info.earnings_growth?.value < -0.20) {
+    risks.push(`📊 盈餘大幅衰退 (YoY: ${(info.earnings_growth?.value * 100).toFixed(1)}%)`);
   }
   // 營收衰退
-  if (isValid(info.revenue_growth) && info.revenue_growth < -0.10) {
-    risks.push(`📊 營收明顯衰退 (YoY: ${(info.revenue_growth * 100).toFixed(1)}%)`);
+  if (isValid(info.revenue_growth?.value) && info.revenue_growth?.value < -0.10) {
+    risks.push(`📊 營收明顯衰退 (YoY: ${(info.revenue_growth?.value * 100).toFixed(1)}%)`);
   }
 
   return risks;
@@ -313,8 +314,8 @@ export function computeFundamentalScore(info: StockInfoFull): FundamentalScoreRe
   const def = (v: number | undefined | null) => v !== undefined && v !== null && !isNaN(v);
 
   // 1. ROE
-  if (def(info.roe)) {
-    const roe = info.roe!;
+  if (def(info.roe?.value)) {
+    const roe = info.roe?.value!;
     if (roe >= 0.15) { passed.push(["ROE", `${(roe * 100).toFixed(1)}% ✓（優秀≥15%）`]); score += 2; }
     else if (roe >= 0.10) { passed.push(["ROE", `${(roe * 100).toFixed(1)}% ✓（良好≥10%）`]); score += 1; }
     else if (roe >= 0) { failed.push(["ROE", `${(roe * 100).toFixed(1)}% ✗（偏低<10%）`]); }
@@ -322,16 +323,16 @@ export function computeFundamentalScore(info: StockInfoFull): FundamentalScoreRe
   } else na.push("ROE");
 
   // 2. 毛利率
-  if (def(info.gross_margins)) {
-    const gm = info.gross_margins!;
+  if (def(info.gross_margins?.value)) {
+    const gm = info.gross_margins?.value!;
     if (gm >= 0.30) { passed.push(["毛利率", `${(gm * 100).toFixed(1)}% ✓（優秀≥30%）`]); score += 1; }
     else if (gm >= 0.20) { passed.push(["毛利率", `${(gm * 100).toFixed(1)}% ✓（合格≥20%）`]); }
     else { failed.push(["毛利率", `${(gm * 100).toFixed(1)}% ✗（偏低<20%）`]); score -= 1; }
   } else na.push("毛利率");
 
   // 3. 淨利率
-  if (def(info.profit_margins)) {
-    const nm = info.profit_margins!;
+  if (def(info.profit_margins?.value)) {
+    const nm = info.profit_margins?.value!;
     if (nm >= 0.10) { passed.push(["淨利率", `${(nm * 100).toFixed(1)}% ✓（優秀≥10%）`]); score += 1; }
     else if (nm >= 0.05) { passed.push(["淨利率", `${(nm * 100).toFixed(1)}% ✓（合格≥5%）`]); }
     else if (nm >= 0) { failed.push(["淨利率", `${(nm * 100).toFixed(1)}% ✗（偏低<5%）`]); }
@@ -339,14 +340,14 @@ export function computeFundamentalScore(info: StockInfoFull): FundamentalScoreRe
   } else na.push("淨利率");
 
   // 4. EPS
-  if (def(info.eps)) {
-    const eps = info.eps!;
+  if (def(info.eps?.value)) {
+    const eps = info.eps?.value!;
     if (eps > 0) { passed.push(["EPS", `${eps.toFixed(2)} ✓（獲利）`]); score += 1; }
     else { failed.push(["EPS", `${eps.toFixed(2)} ✗（虧損）`]); score -= 2; }
   } else na.push("EPS");
 
   // 5. 營收YoY
-  const revG = info.revenue_growth;
+  const revG = info.revenue_growth?.value;
   if (def(revG)) {
     const rg = revG!;
     if (rg >= 0.10) { passed.push(["營收YoY", `${(rg * 100).toFixed(1)}% ✓（成長≥10%）`]); score += 1; }
@@ -355,7 +356,7 @@ export function computeFundamentalScore(info: StockInfoFull): FundamentalScoreRe
   } else na.push("營收YoY");
 
   // 6. 盈餘YoY
-  const eg = info.earnings_growth;
+  const eg = info.earnings_growth?.value;
   if (def(eg)) {
     const earn = eg!;
     if (earn > 0.10) { passed.push(["盈餘YoY", `${(earn * 100).toFixed(1)}% ✓（成長≥10%）`]); score += 1; }
@@ -364,7 +365,7 @@ export function computeFundamentalScore(info: StockInfoFull): FundamentalScoreRe
   } else na.push("盈餘YoY");
 
   // 7. PE
-  const pe = info.tw_pe ?? info.pe ?? info.forward_pe;
+  const pe = info.tw_pe?.value ?? info.pe?.value ?? info.forward_pe?.value;
   if (def(pe) && pe! > 0) {
     const p = pe!;
     if (p > 5 && p <= 20) { passed.push(["PE", `${p.toFixed(1)} ✓（合理 5~20）`]); score += 1; }
@@ -373,7 +374,7 @@ export function computeFundamentalScore(info: StockInfoFull): FundamentalScoreRe
   } else na.push("PE");
 
   // 8. PB
-  const pb = info.tw_pb ?? info.pb;
+  const pb = info.tw_pb?.value ?? info.pb?.value;
   if (def(pb)) {
     const p = pb!;
     if (p > 0 && p <= 2) { passed.push(["PB", `${p.toFixed(2)} ✓（偏低≤2）`]); score += 1; }
@@ -383,7 +384,7 @@ export function computeFundamentalScore(info: StockInfoFull): FundamentalScoreRe
   } else na.push("PB");
 
   // 9. 殖利率
-  const dy = info.tw_yield ?? info.dividend_yield;
+  const dy = info.tw_yield?.value ?? info.dividend_yield?.value;
   if (def(dy) && dy! > 0) {
     const y = dy!;
     if (y >= 0.04) { passed.push(["殖利率", `${(y * 100).toFixed(1)}% ✓（高息≥4%）`]); score += 1; }
@@ -392,8 +393,8 @@ export function computeFundamentalScore(info: StockInfoFull): FundamentalScoreRe
   } else na.push("殖利率");
 
   // 10. 流動比率
-  if (def(info.current_ratio)) {
-    const cr = info.current_ratio!;
+  if (def(info.current_ratio?.value)) {
+    const cr = info.current_ratio?.value!;
     if (cr >= 2.0) { passed.push(["流動比率", `${cr.toFixed(2)} ✓（充裕≥2）`]); score += 1; }
     else if (cr >= 1.5) { passed.push(["流動比率", `${cr.toFixed(2)} ✓（良好≥1.5）`]); score += 1; }
     else if (cr >= 1.0) { passed.push(["流動比率", `${cr.toFixed(2)} ✓（尚可≥1）`]); }
@@ -401,8 +402,8 @@ export function computeFundamentalScore(info: StockInfoFull): FundamentalScoreRe
   } else na.push("流動比率");
 
   // 11. 負債/權益比
-  if (def(info.debt_to_equity)) {
-    const de = info.debt_to_equity!;
+  if (def(info.debt_to_equity?.value)) {
+    const de = info.debt_to_equity?.value!;
     if (de <= 50) { passed.push(["負債/權益比", `${de.toFixed(0)}% ✓（低負債≤50%）`]); score += 1; }
     else if (de <= 150) { passed.push(["負債/權益比", `${de.toFixed(0)}% ✓（合理≤150%）`]); }
     else if (de <= 300) { failed.push(["負債/權益比", `${de.toFixed(0)}% ✗（偏高150~300%）`]); }
@@ -410,8 +411,8 @@ export function computeFundamentalScore(info: StockInfoFull): FundamentalScoreRe
   } else na.push("負債/權益比");
 
   // 12. 自由現金流
-  if (def(info.free_cashflow)) {
-    const fcf = info.free_cashflow!;
+  if (def(info.free_cashflow?.value)) {
+    const fcf = info.free_cashflow?.value!;
     if (fcf > 0) { passed.push(["自由現金流", `正 ✓（${(fcf / 1e8).toFixed(2)}億）`]); score += 2; }
     else { failed.push(["自由現金流", `負 ✗（${(fcf / 1e8).toFixed(2)}億，燒錢中）`]); score -= 1; }
   } else na.push("自由現金流");

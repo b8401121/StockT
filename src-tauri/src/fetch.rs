@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::OnceLock;
 use serde_json::Value;
 
-pub use crate::models::{NewsItem, OhlcvData, StockData, StockInfo, TwFundamental};
+pub use crate::models::{MetricF64, NewsItem, OhlcvData, StockData, StockInfo, TwFundamental};
 use crate::providers::{
     extract_f64, extract_i64, make_client, opt_f64, opt_str,
     news::fetch_google_news,
@@ -13,6 +13,46 @@ use crate::providers::{
         get_yahoo_session,
     },
 };
+
+/// 取得目前 UTC 時間的 ISO-8601 字串 (用於 MetricF64.fetched_at)
+fn now_utc() -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let secs = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    // 簡易格式化 YYYY-MM-DDTHH:MM:SSZ
+    let s = secs;
+    let (year, mon, day, hh, mm, ss) = {
+        let mut rem = s;
+        let ss = rem % 60; rem /= 60;
+        let mm = rem % 60; rem /= 60;
+        let hh = rem % 24; rem /= 24;
+        // 計算日期 (以 1970-01-01 為基準)
+        let mut y: u64 = 1970;
+        let mut d = rem;
+        loop {
+            let days_in_year = if y % 4 == 0 && (y % 100 != 0 || y % 400 == 0) { 366 } else { 365 };
+            if d < days_in_year { break; }
+            d -= days_in_year;
+            y += 1;
+        }
+        let leap = y % 4 == 0 && (y % 100 != 0 || y % 400 == 0);
+        let months = if leap {
+            [31u64,29,31,30,31,30,31,31,30,31,30,31]
+        } else {
+            [31u64,28,31,30,31,30,31,31,30,31,30,31]
+        };
+        let mut month: u64 = 1;
+        for m in &months {
+            if d < *m { break; }
+            d -= m;
+            month += 1;
+        }
+        (y, month, d + 1, hh, mm, ss)
+    };
+    format!("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z", year, mon, day, hh, mm, ss)
+}
 
 // ─── 台股代號中文名稱對照表 ───────────────────────────────────────────────────
 
@@ -148,8 +188,8 @@ pub async fn fetch_stock_data(symbol: String, range: String) -> Result<StockData
         name: long_name,
         sector: None,
         industry: None,
-        current_price,
-        previous_close,
+        current_price: current_price.map(|v| MetricF64::yahoo(v, &now_utc())),
+        previous_close: previous_close.map(|v| MetricF64::yahoo(v, &now_utc())),
         pe: None,
         forward_pe: None,
         pb: None,
@@ -178,32 +218,33 @@ pub async fn fetch_stock_data(symbol: String, range: String) -> Result<StockData
             let fd = &qs["financialData"];
             let ks = &qs["defaultKeyStatistics"];
             let sd = &qs["summaryDetail"];
+            let ts = now_utc();
 
             info.sector = opt_str(&ap["sector"]);
             info.industry = opt_str(&ap["industry"]);
             info.long_business_summary = opt_str(&ap["longBusinessSummary"]);
 
-            info.pe = opt_f64(&sd["trailingPE"]["raw"]);
-            info.forward_pe = opt_f64(&ks["forwardPE"]["raw"]);
-            info.pb = opt_f64(&ks["priceToBook"]["raw"]);
-            info.dividend_yield = opt_f64(&sd["dividendYield"]["raw"]);
-            info.eps = opt_f64(&ks["trailingEps"]["raw"]);
-            info.market_cap = opt_f64(&sd["marketCap"]["raw"]);
+            info.pe             = opt_f64(&sd["trailingPE"]["raw"]).map(|v| MetricF64::yahoo(v, &ts));
+            info.forward_pe     = opt_f64(&ks["forwardPE"]["raw"]).map(|v| MetricF64::yahoo(v, &ts));
+            info.pb             = opt_f64(&ks["priceToBook"]["raw"]).map(|v| MetricF64::yahoo(v, &ts));
+            info.dividend_yield = opt_f64(&sd["dividendYield"]["raw"]).map(|v| MetricF64::yahoo(v, &ts));
+            info.eps            = opt_f64(&ks["trailingEps"]["raw"]).map(|v| MetricF64::yahoo(v, &ts));
+            info.market_cap     = opt_f64(&sd["marketCap"]["raw"]).map(|v| MetricF64::yahoo(v, &ts));
 
-            info.roe = opt_f64(&fd["returnOnEquity"]["raw"]);
-            info.gross_margins = opt_f64(&fd["grossMargins"]["raw"]);
-            info.operating_margins = opt_f64(&fd["operatingMargins"]["raw"]);
-            info.profit_margins = opt_f64(&fd["profitMargins"]["raw"]);
-            info.revenue_growth = opt_f64(&fd["revenueGrowth"]["raw"]);
-            info.earnings_growth = opt_f64(&fd["earningsGrowth"]["raw"]);
-            info.current_ratio = opt_f64(&fd["currentRatio"]["raw"]);
-            info.quick_ratio = opt_f64(&fd["quickRatio"]["raw"]);
-            info.debt_to_equity = opt_f64(&fd["debtToEquity"]["raw"]);
-            info.free_cashflow = opt_f64(&fd["freeCashflow"]["raw"]);
-            info.operating_cashflow = opt_f64(&fd["operatingCashflow"]["raw"]);
+            info.roe               = opt_f64(&fd["returnOnEquity"]["raw"]).map(|v| MetricF64::yahoo(v, &ts));
+            info.gross_margins     = opt_f64(&fd["grossMargins"]["raw"]).map(|v| MetricF64::yahoo(v, &ts));
+            info.operating_margins = opt_f64(&fd["operatingMargins"]["raw"]).map(|v| MetricF64::yahoo(v, &ts));
+            info.profit_margins    = opt_f64(&fd["profitMargins"]["raw"]).map(|v| MetricF64::yahoo(v, &ts));
+            info.revenue_growth    = opt_f64(&fd["revenueGrowth"]["raw"]).map(|v| MetricF64::yahoo(v, &ts));
+            info.earnings_growth   = opt_f64(&fd["earningsGrowth"]["raw"]).map(|v| MetricF64::yahoo(v, &ts));
+            info.current_ratio     = opt_f64(&fd["currentRatio"]["raw"]).map(|v| MetricF64::yahoo(v, &ts));
+            info.quick_ratio       = opt_f64(&fd["quickRatio"]["raw"]).map(|v| MetricF64::yahoo(v, &ts));
+            info.debt_to_equity    = opt_f64(&fd["debtToEquity"]["raw"]).map(|v| MetricF64::yahoo(v, &ts));
+            info.free_cashflow     = opt_f64(&fd["freeCashflow"]["raw"]).map(|v| MetricF64::yahoo(v, &ts));
+            info.operating_cashflow= opt_f64(&fd["operatingCashflow"]["raw"]).map(|v| MetricF64::yahoo(v, &ts));
 
             if info.current_price.is_none() {
-                info.current_price = opt_f64(&fd["currentPrice"]["raw"]);
+                info.current_price = opt_f64(&fd["currentPrice"]["raw"]).map(|v| MetricF64::yahoo(v, &ts));
             }
         }
     }
@@ -217,14 +258,22 @@ pub async fn fetch_stock_data(symbol: String, range: String) -> Result<StockData
         }
         if let Ok(tw_data) = fetch_tw_fundamentals().await {
             if let Some(fund) = tw_data.get(co_id) {
+                let ts = now_utc();
+                // 判斷上市/上櫃決定 source
+                let tw_src = if symbol_upper.ends_with(".TWO") { "TPEx" } else { "TWSE" };
+                let make_tw_metric = |v: f64| MetricF64 {
+                    value: v,
+                    source: tw_src.to_string(),
+                    fetched_at: ts.clone(),
+                };
                 if info.pe.is_none() {
-                    info.pe = fund.pe;
+                    info.pe = fund.pe.map(&make_tw_metric);
                 }
                 if info.pb.is_none() {
-                    info.pb = fund.pb;
+                    info.pb = fund.pb.map(&make_tw_metric);
                 }
                 if info.dividend_yield.is_none() {
-                    info.dividend_yield = fund.yield_rate;
+                    info.dividend_yield = fund.yield_rate.map(&make_tw_metric);
                 }
             }
         }
@@ -262,40 +311,44 @@ pub async fn fetch_stock_info(symbol: String) -> Result<StockInfo, String> {
         name = zh_name;
     }
 
+    let ts = now_utc();
     let mut info = StockInfo {
         symbol: symbol.clone(),
         name,
         sector: opt_str(&ap["sector"]),
         industry: opt_str(&ap["industry"]),
-        current_price: opt_f64(&fd["currentPrice"]["raw"]),
-        previous_close: opt_f64(&sd["previousClose"]["raw"]),
-        pe: opt_f64(&sd["trailingPE"]["raw"]),
-        forward_pe: opt_f64(&ks["forwardPE"]["raw"]),
-        pb: opt_f64(&ks["priceToBook"]["raw"]),
-        dividend_yield: opt_f64(&sd["dividendYield"]["raw"]),
-        eps: opt_f64(&ks["trailingEps"]["raw"]),
-        roe: opt_f64(&fd["returnOnEquity"]["raw"]),
-        gross_margins: opt_f64(&fd["grossMargins"]["raw"]),
-        operating_margins: opt_f64(&fd["operatingMargins"]["raw"]),
-        profit_margins: opt_f64(&fd["profitMargins"]["raw"]),
-        revenue_growth: opt_f64(&fd["revenueGrowth"]["raw"]),
-        earnings_growth: opt_f64(&fd["earningsGrowth"]["raw"]),
-        current_ratio: opt_f64(&fd["currentRatio"]["raw"]),
-        quick_ratio: opt_f64(&fd["quickRatio"]["raw"]),
-        debt_to_equity: opt_f64(&fd["debtToEquity"]["raw"]),
-        free_cashflow: opt_f64(&fd["freeCashflow"]["raw"]),
-        operating_cashflow: opt_f64(&fd["operatingCashflow"]["raw"]),
-        net_income: None,
-        market_cap: opt_f64(&sd["marketCap"]["raw"]),
+        current_price:      opt_f64(&fd["currentPrice"]["raw"]).map(|v| MetricF64::yahoo(v, &ts)),
+        previous_close:     opt_f64(&sd["previousClose"]["raw"]).map(|v| MetricF64::yahoo(v, &ts)),
+        pe:                 opt_f64(&sd["trailingPE"]["raw"]).map(|v| MetricF64::yahoo(v, &ts)),
+        forward_pe:         opt_f64(&ks["forwardPE"]["raw"]).map(|v| MetricF64::yahoo(v, &ts)),
+        pb:                 opt_f64(&ks["priceToBook"]["raw"]).map(|v| MetricF64::yahoo(v, &ts)),
+        dividend_yield:     opt_f64(&sd["dividendYield"]["raw"]).map(|v| MetricF64::yahoo(v, &ts)),
+        eps:                opt_f64(&ks["trailingEps"]["raw"]).map(|v| MetricF64::yahoo(v, &ts)),
+        roe:                opt_f64(&fd["returnOnEquity"]["raw"]).map(|v| MetricF64::yahoo(v, &ts)),
+        gross_margins:      opt_f64(&fd["grossMargins"]["raw"]).map(|v| MetricF64::yahoo(v, &ts)),
+        operating_margins:  opt_f64(&fd["operatingMargins"]["raw"]).map(|v| MetricF64::yahoo(v, &ts)),
+        profit_margins:     opt_f64(&fd["profitMargins"]["raw"]).map(|v| MetricF64::yahoo(v, &ts)),
+        revenue_growth:     opt_f64(&fd["revenueGrowth"]["raw"]).map(|v| MetricF64::yahoo(v, &ts)),
+        earnings_growth:    opt_f64(&fd["earningsGrowth"]["raw"]).map(|v| MetricF64::yahoo(v, &ts)),
+        current_ratio:      opt_f64(&fd["currentRatio"]["raw"]).map(|v| MetricF64::yahoo(v, &ts)),
+        quick_ratio:        opt_f64(&fd["quickRatio"]["raw"]).map(|v| MetricF64::yahoo(v, &ts)),
+        debt_to_equity:     opt_f64(&fd["debtToEquity"]["raw"]).map(|v| MetricF64::yahoo(v, &ts)),
+        free_cashflow:      opt_f64(&fd["freeCashflow"]["raw"]).map(|v| MetricF64::yahoo(v, &ts)),
+        operating_cashflow: opt_f64(&fd["operatingCashflow"]["raw"]).map(|v| MetricF64::yahoo(v, &ts)),
+        net_income:         None,
+        market_cap:         opt_f64(&sd["marketCap"]["raw"]).map(|v| MetricF64::yahoo(v, &ts)),
         long_business_summary: opt_str(&ap["longBusinessSummary"]),
     };
 
     if let Ok(tw_map) = fetch_tw_fundamentals().await {
         let co_id = symbol.split('.').next().unwrap_or(&symbol);
         if let Some(fund) = tw_map.get(co_id) {
-            if fund.pe.is_some() { info.pe = fund.pe; }
-            if fund.pb.is_some() { info.pb = fund.pb; }
-            if fund.yield_rate.is_some() { info.dividend_yield = fund.yield_rate; }
+            let ts2 = now_utc();
+            let tw_src = if symbol.to_uppercase().ends_with(".TWO") { "TPEx" } else { "TWSE" };
+            let make_tw = |v: f64| MetricF64 { value: v, source: tw_src.to_string(), fetched_at: ts2.clone() };
+            if fund.pe.is_some()         { info.pe             = fund.pe.map(&make_tw); }
+            if fund.pb.is_some()         { info.pb             = fund.pb.map(&make_tw); }
+            if fund.yield_rate.is_some() { info.dividend_yield = fund.yield_rate.map(&make_tw); }
         }
     }
 
@@ -400,27 +453,13 @@ async fn fetch_single_stock_data_limited(client: &reqwest::Client, symbol: &str)
                 name: long_name,
                 sector: None,
                 industry: None,
-                current_price,
-                previous_close: prev,
-                pe: None,
-                forward_pe: None,
-                pb: None,
-                dividend_yield: None,
-                eps: None,
-                roe: None,
-                gross_margins: None,
-                operating_margins: None,
-                profit_margins: None,
-                revenue_growth: None,
-                earnings_growth: None,
-                current_ratio: None,
-                quick_ratio: None,
-                debt_to_equity: None,
-                free_cashflow: None,
-                operating_cashflow: None,
-                net_income: None,
-                market_cap: None,
-                long_business_summary: None,
+                current_price:      current_price.map(|v| MetricF64::yahoo(v, &now_utc())),
+                previous_close:     prev.map(|v| MetricF64::yahoo(v, &now_utc())),
+                pe: None, forward_pe: None, pb: None, dividend_yield: None, eps: None,
+                roe: None, gross_margins: None, operating_margins: None, profit_margins: None,
+                revenue_growth: None, earnings_growth: None, current_ratio: None, quick_ratio: None,
+                debt_to_equity: None, free_cashflow: None, operating_cashflow: None,
+                net_income: None, market_cap: None, long_business_summary: None,
             };
 
             return Some(StockData { ohlcv, info });
