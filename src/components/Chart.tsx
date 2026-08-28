@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createChart, ColorType, IChartApi, UTCTimestamp } from "lightweight-charts";
 import { OhlcvData, Indicators } from "../utils/indicators";
+import { useAppTheme } from "../utils/theme";
 
 interface ChartPanelProps {
   ohlcv: OhlcvData;
@@ -13,16 +14,22 @@ interface ChartPanelProps {
 
 export type SubChartType = "kd" | "macd" | "rsi" | "obv" | "wr" | "atr";
 
-const CHART_OPTS = {
-  layout: { background: { type: ColorType.Solid, color: "transparent" }, textColor: "rgba(200,210,230,0.8)" },
-  grid: { vertLines: { color: "rgba(255,255,255,0.03)" }, horzLines: { color: "rgba(255,255,255,0.03)" } },
+const getChartOptions = (isWarm: boolean) => ({
+  layout: {
+    background: { type: ColorType.Solid, color: "transparent" },
+    textColor: isWarm ? "#44403c" : "rgba(200,210,230,0.8)",
+  },
+  grid: {
+    vertLines: { color: isWarm ? "rgba(140, 110, 80, 0.12)" : "rgba(255,255,255,0.03)" },
+    horzLines: { color: isWarm ? "rgba(140, 110, 80, 0.12)" : "rgba(255,255,255,0.03)" },
+  },
   crosshair: { mode: 1 },
-  leftPriceScale: { visible: true, borderColor: "rgba(255,255,255,0.1)" },
+  leftPriceScale: { visible: true, borderColor: isWarm ? "rgba(140, 110, 80, 0.2)" : "rgba(255,255,255,0.1)" },
   rightPriceScale: { visible: false },
-  timeScale: { borderColor: "rgba(255,255,255,0.1)", timeVisible: true },
+  timeScale: { borderColor: isWarm ? "rgba(140, 110, 80, 0.2)" : "rgba(255,255,255,0.1)", timeVisible: true },
   handleScroll: { mouseWheel: true, pressedMouseMove: true },
   handleScale: { axisPressedMouseMove: true, mouseWheel: true },
-};
+});
 
 interface TooltipData {
   date: string;
@@ -38,10 +45,10 @@ interface TooltipData {
   sma20?: number;
 }
 
-const ChartHUDView: React.FC<{ data: TooltipData }> = ({ data }) => {
+const ChartHUDView: React.FC<{ data: TooltipData; isWarm?: boolean }> = ({ data, isWarm }) => {
   const isUp = data.change > 0;
   const isDown = data.change < 0;
-  const changeColor = isUp ? "#ff5252" : isDown ? "#4caf50" : "#94a3b8";
+  const changeColor = isUp ? (isWarm ? "#dc2626" : "#ff5252") : isDown ? (isWarm ? "#15803d" : "#4caf50") : (isWarm ? "#71717a" : "#94a3b8");
   const changeSign = isUp ? "▲ +" : isDown ? "▼ " : "━ ";
 
   const volDisplay = data.volume >= 1000
@@ -56,13 +63,13 @@ const ChartHUDView: React.FC<{ data: TooltipData }> = ({ data }) => {
         top: "8px",
         pointerEvents: "none",
         zIndex: 50,
-        backgroundColor: "rgba(15, 23, 42, 0.90)",
-        border: "1px solid rgba(139, 92, 246, 0.4)",
+        backgroundColor: isWarm ? "rgba(255, 252, 245, 0.95)" : "rgba(15, 23, 42, 0.90)",
+        border: `1px solid ${isWarm ? "rgba(217, 119, 6, 0.4)" : "rgba(139, 92, 246, 0.4)"}`,
         borderRadius: "6px",
         padding: "5px 12px",
-        boxShadow: "0 4px 16px rgba(0, 0, 0, 0.6)",
+        boxShadow: isWarm ? "0 4px 16px rgba(90, 60, 30, 0.12)" : "0 4px 16px rgba(0, 0, 0, 0.6)",
         fontSize: "0.78rem",
-        color: "#f8fafc",
+        color: isWarm ? "#18181b" : "#f8fafc",
         backdropFilter: "blur(8px)",
         lineHeight: "1.45",
         display: "flex",
@@ -71,26 +78,26 @@ const ChartHUDView: React.FC<{ data: TooltipData }> = ({ data }) => {
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-        <span style={{ fontWeight: 700, color: "#cbd5e1" }}>📅 {data.date}</span>
+        <span style={{ fontWeight: 700, color: isWarm ? "#57534e" : "#cbd5e1" }}>📅 {data.date}</span>
         <span>開: <b>{data.open.toFixed(2)}</b></span>
-        <span>高: <b style={{ color: "#ff5252" }}>{data.high.toFixed(2)}</b></span>
-        <span>低: <b style={{ color: "#4caf50" }}>{data.low.toFixed(2)}</b></span>
+        <span>高: <b style={{ color: isWarm ? "#dc2626" : "#ff5252" }}>{data.high.toFixed(2)}</b></span>
+        <span>低: <b style={{ color: isWarm ? "#15803d" : "#4caf50" }}>{data.low.toFixed(2)}</b></span>
         <span>收: <b style={{ color: changeColor, fontSize: "0.85rem" }}>{data.close.toFixed(2)}</b></span>
         <span style={{ fontWeight: 800, color: changeColor }}>
           {changeSign}{Math.abs(data.change).toFixed(2)} ({data.changePct >= 0 ? "+" : ""}{data.changePct.toFixed(2)}%)
         </span>
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: "12px", fontSize: "0.74rem", color: "rgba(255,255,255,0.7)", flexWrap: "wrap" }}>
-        <span>📊 成交量: <b style={{ color: "#38bdf8" }}>{volDisplay}</b></span>
+      <div style={{ display: "flex", alignItems: "center", gap: "12px", fontSize: "0.74rem", color: isWarm ? "#57534e" : "rgba(255,255,255,0.7)", flexWrap: "wrap" }}>
+        <span>📊 成交量: <b style={{ color: isWarm ? "#1d4ed8" : "#38bdf8" }}>{volDisplay}</b></span>
         {data.sma5 != null && !isNaN(data.sma5) && (
-          <span><span style={{ color: "#ff9800" }}>● MA5:</span> {data.sma5.toFixed(2)}</span>
+          <span><span style={{ color: isWarm ? "#ea580c" : "#ff9800" }}>● MA5:</span> {data.sma5.toFixed(2)}</span>
         )}
         {data.sma10 != null && !isNaN(data.sma10) && (
-          <span><span style={{ color: "#03a9f4" }}>● MA10:</span> {data.sma10.toFixed(2)}</span>
+          <span><span style={{ color: isWarm ? "#0284c7" : "#03a9f4" }}>● MA10:</span> {data.sma10.toFixed(2)}</span>
         )}
         {data.sma20 != null && !isNaN(data.sma20) && (
-          <span><span style={{ color: "#ffea00" }}>● MA20:</span> {data.sma20.toFixed(2)}</span>
+          <span><span style={{ color: isWarm ? "#d97706" : "#ffea00" }}>● MA20:</span> {data.sma20.toFixed(2)}</span>
         )}
       </div>
     </div>
@@ -108,6 +115,8 @@ export interface ZoomModalProps {
 }
 
 export const ZoomChartModal: React.FC<ZoomModalProps> = ({ type, ohlcv, ind, symbol, name, onClose }) => {
+  const [theme] = useAppTheme();
+  const isWarm = theme === "warm";
   const mainContainerRef = useRef<HTMLDivElement>(null);
   const subContainerRef = useRef<HTMLDivElement>(null);
   const mainChartRef = useRef<IChartApi | null>(null);
@@ -173,7 +182,7 @@ export const ZoomChartModal: React.FC<ZoomModalProps> = ({ type, ohlcv, ind, sym
     const mainHeight = mainContainerRef.current.clientHeight || (isDual ? 320 : 540);
 
     const mainChart = createChart(mainContainerRef.current, {
-      ...CHART_OPTS,
+      ...getChartOptions(isWarm),
       width: mainWidth,
       height: mainHeight,
     });
@@ -181,9 +190,9 @@ export const ZoomChartModal: React.FC<ZoomModalProps> = ({ type, ohlcv, ind, sym
 
     // 蠟燭線
     const candleSeries = mainChart.addCandlestickSeries({
-      upColor: "#ff5252", downColor: "#4caf50",
-      borderUpColor: "#ff5252", borderDownColor: "#4caf50",
-      wickUpColor: "#ff5252", wickDownColor: "#4caf50",
+      upColor: isWarm ? "#dc2626" : "#ff5252", downColor: isWarm ? "#16a34a" : "#4caf50",
+      borderUpColor: isWarm ? "#dc2626" : "#ff5252", borderDownColor: isWarm ? "#16a34a" : "#4caf50",
+      wickUpColor: isWarm ? "#dc2626" : "#ff5252", wickDownColor: isWarm ? "#16a34a" : "#4caf50",
       priceLineVisible: false,
       lastValueVisible: false,
     });
@@ -212,17 +221,17 @@ export const ZoomChartModal: React.FC<ZoomModalProps> = ({ type, ohlcv, ind, sym
       return {
         time: t,
         value: ohlcv.volume[i] ?? 0,
-        color: isUp ? "rgba(255, 82, 82, 0.65)" : "rgba(76, 175, 80, 0.65)",
+        color: isUp ? (isWarm ? "rgba(220, 38, 38, 0.65)" : "rgba(255, 82, 82, 0.65)") : (isWarm ? "rgba(22, 163, 74, 0.65)" : "rgba(76, 175, 80, 0.65)"),
       };
     }).filter((d) => d.value > 0);
     volumeSeries.setData(volData);
 
     // 均線與布林
-    const sma5s = mainChart.addLineSeries({ color: "#ff9800", lineWidth: 1, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
-    const sma10s = mainChart.addLineSeries({ color: "#03a9f4", lineWidth: 1, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
-    const sma20s = mainChart.addLineSeries({ color: "#ffea00", lineWidth: 2, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
-    const bbUpS = mainChart.addLineSeries({ color: "rgba(179, 157, 219, 0.8)", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
-    const bbLoS = mainChart.addLineSeries({ color: "rgba(179, 157, 219, 0.8)", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
+    const sma5s = mainChart.addLineSeries({ color: isWarm ? "#ea580c" : "#ff9800", lineWidth: 1, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
+    const sma10s = mainChart.addLineSeries({ color: isWarm ? "#0284c7" : "#03a9f4", lineWidth: 1, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
+    const sma20s = mainChart.addLineSeries({ color: isWarm ? "#d97706" : "#ffea00", lineWidth: 2, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
+    const bbUpS = mainChart.addLineSeries({ color: isWarm ? "rgba(126, 34, 206, 0.8)" : "rgba(179, 157, 219, 0.8)", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
+    const bbLoS = mainChart.addLineSeries({ color: isWarm ? "rgba(126, 34, 206, 0.8)" : "rgba(179, 157, 219, 0.8)", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
 
     sma5s.setData(toLineData(ind.sma5));
     sma10s.setData(toLineData(ind.sma10));
@@ -285,56 +294,56 @@ export const ZoomChartModal: React.FC<ZoomModalProps> = ({ type, ohlcv, ind, sym
       const subWidth = subContainerRef.current.clientWidth;
       const subHeight = subContainerRef.current.clientHeight || 240;
       subChart = createChart(subContainerRef.current, {
-        ...CHART_OPTS,
+        ...getChartOptions(isWarm),
         width: subWidth,
         height: subHeight,
       });
       subChartRef.current = subChart;
 
       if (type === "kd") {
-        const kS = subChart.addLineSeries({ color: "#00bcd4", lineWidth: 2, title: "K" });
-        const dS = subChart.addLineSeries({ color: "#ffc107", lineWidth: 2, title: "D" });
-        const ob = subChart.addLineSeries({ color: "rgba(255,82,82,0.5)", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false });
-        const os = subChart.addLineSeries({ color: "rgba(76,175,80,0.5)", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false });
+        const kS = subChart.addLineSeries({ color: isWarm ? "#0284c7" : "#00bcd4", lineWidth: 2, title: "K" });
+        const dS = subChart.addLineSeries({ color: isWarm ? "#d97706" : "#ffc107", lineWidth: 2, title: "D" });
+        const ob = subChart.addLineSeries({ color: isWarm ? "rgba(220,38,38,0.5)" : "rgba(255,82,82,0.5)", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false });
+        const os = subChart.addLineSeries({ color: isWarm ? "rgba(22,163,74,0.5)" : "rgba(76,175,80,0.5)", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false });
         kS.setData(toLineData(ind.k));
         dS.setData(toLineData(ind.d));
         ob.setData(times.map((t) => ({ time: t, value: 80 })));
         os.setData(times.map((t) => ({ time: t, value: 20 })));
       } else if (type === "macd") {
-        const macdS = subChart.addLineSeries({ color: "#ffffff", lineWidth: 2, title: "DIF" });
-        const sigS = subChart.addLineSeries({ color: "#03a9f4", lineWidth: 2, title: "DEA" });
-        const histS = subChart.addHistogramSeries({ color: "#4caf50", title: "OSC 柱狀圖" });
-        const zero = subChart.addLineSeries({ color: "rgba(255,255,255,0.2)", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false });
+        const macdS = subChart.addLineSeries({ color: isWarm ? "#1e293b" : "#ffffff", lineWidth: 2, title: "DIF" });
+        const sigS = subChart.addLineSeries({ color: isWarm ? "#0284c7" : "#03a9f4", lineWidth: 2, title: "DEA" });
+        const histS = subChart.addHistogramSeries({ color: isWarm ? "#15803d" : "#4caf50", title: "OSC 柱狀圖" });
+        const zero = subChart.addLineSeries({ color: isWarm ? "rgba(140,110,80,0.3)" : "rgba(255,255,255,0.2)", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false });
         macdS.setData(toLineData(ind.macd));
         sigS.setData(toLineData(ind.signal));
         zero.setData(times.map((t) => ({ time: t, value: 0 })));
         histS.setData(times.map((t, i) => ({
           time: t, value: ind.hist[i],
-          color: (ind.hist[i] ?? 0) >= 0 ? "rgba(255,82,82,0.75)" : "rgba(76,175,80,0.75)",
+          color: (ind.hist[i] ?? 0) >= 0 ? (isWarm ? "rgba(220,38,38,0.8)" : "rgba(255,82,82,0.75)") : (isWarm ? "rgba(22,163,74,0.8)" : "rgba(76,175,80,0.75)"),
         })).filter((d) => !isNaN(d.value)));
       } else if (type === "rsi") {
-        const rsiS = subChart.addLineSeries({ color: "#f06292", lineWidth: 2, title: "RSI" });
-        const ob = subChart.addLineSeries({ color: "rgba(255,82,82,0.5)", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false });
-        const os = subChart.addLineSeries({ color: "rgba(76,175,80,0.5)", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false });
-        const mid = subChart.addLineSeries({ color: "rgba(255,255,255,0.2)", lineWidth: 1, lineStyle: 3, lastValueVisible: false, priceLineVisible: false });
+        const rsiS = subChart.addLineSeries({ color: isWarm ? "#db2777" : "#f06292", lineWidth: 2, title: "RSI" });
+        const ob = subChart.addLineSeries({ color: isWarm ? "rgba(220,38,38,0.5)" : "rgba(255,82,82,0.5)", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false });
+        const os = subChart.addLineSeries({ color: isWarm ? "rgba(22,163,74,0.5)" : "rgba(76,175,80,0.5)", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false });
+        const mid = subChart.addLineSeries({ color: isWarm ? "rgba(140,110,80,0.3)" : "rgba(255,255,255,0.2)", lineWidth: 1, lineStyle: 3, lastValueVisible: false, priceLineVisible: false });
         rsiS.setData(toLineData(ind.rsi));
         ob.setData(times.map((t) => ({ time: t, value: 70 })));
         os.setData(times.map((t) => ({ time: t, value: 30 })));
         mid.setData(times.map((t) => ({ time: t, value: 50 })));
       } else if (type === "obv") {
-        const obvS = subChart.addLineSeries({ color: "#c084fc", lineWidth: 2, title: "OBV" });
-        const obvMaS = subChart.addLineSeries({ color: "#ff9800", lineWidth: 1, lineStyle: 2, title: "OBV 10MA" });
+        const obvS = subChart.addLineSeries({ color: isWarm ? "#9333ea" : "#c084fc", lineWidth: 2, title: "OBV" });
+        const obvMaS = subChart.addLineSeries({ color: isWarm ? "#ea580c" : "#ff9800", lineWidth: 1, lineStyle: 2, title: "OBV 10MA" });
         obvS.setData(toLineData(ind.obv));
         obvMaS.setData(toLineData(ind.obvMa10));
       } else if (type === "wr") {
-        const wrS = subChart.addLineSeries({ color: "#fb923c", lineWidth: 2, title: "Wm%R" });
-        const wob = subChart.addLineSeries({ color: "rgba(255,82,82,0.5)", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false });
-        const wos = subChart.addLineSeries({ color: "rgba(76,175,80,0.5)", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false });
+        const wrS = subChart.addLineSeries({ color: isWarm ? "#ea580c" : "#fb923c", lineWidth: 2, title: "Wm%R" });
+        const wob = subChart.addLineSeries({ color: isWarm ? "rgba(220,38,38,0.5)" : "rgba(255,82,82,0.5)", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false });
+        const wos = subChart.addLineSeries({ color: isWarm ? "rgba(22,163,74,0.5)" : "rgba(76,175,80,0.5)", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false });
         wrS.setData(toLineData(ind.williamsR));
         wob.setData(times.map((t) => ({ time: t, value: -20 })));
         wos.setData(times.map((t) => ({ time: t, value: -80 })));
       } else if (type === "atr") {
-        const atrS = subChart.addLineSeries({ color: "#2dd4bf", lineWidth: 2, title: "ATR" });
+        const atrS = subChart.addLineSeries({ color: isWarm ? "#0d9488" : "#2dd4bf", lineWidth: 2, title: "ATR" });
         atrS.setData(toLineData(ind.atr));
       }
 
@@ -373,7 +382,7 @@ export const ZoomChartModal: React.FC<ZoomModalProps> = ({ type, ohlcv, ind, sym
       mainChart.remove();
       if (subChart) subChart.remove();
     };
-  }, [type, ohlcv, ind]);
+  }, [type, ohlcv, ind, isWarm]);
 
   const getTitle = () => {
     if (type === "main") return "K線與均線全景 (含成交量)";
@@ -388,9 +397,9 @@ export const ZoomChartModal: React.FC<ZoomModalProps> = ({ type, ohlcv, ind, sym
   return (
     <div style={{
       position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-      zIndex: 50000, background: "rgba(10, 10, 18, 0.98)",
+      zIndex: 50000, background: isWarm ? "rgba(246, 241, 232, 0.98)" : "rgba(10, 10, 18, 0.98)",
       backdropFilter: "blur(20px)", display: "flex", flexDirection: "column",
-      padding: "20px 24px", color: "#f0f2f5"
+      padding: "20px 24px", color: isWarm ? "#18181b" : "#f0f2f5"
     }}>
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
@@ -398,26 +407,27 @@ export const ZoomChartModal: React.FC<ZoomModalProps> = ({ type, ohlcv, ind, sym
           <h3 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 700, color: "var(--accent-blue)" }}>
             {name} ({symbol}) — {getTitle()}
           </h3>
-          <div style={{ fontSize: "0.8rem", color: "rgba(255,255,255,0.6)", marginTop: "4px", display: "flex", gap: "12px", flexWrap: "wrap" }}>
-            <span><span style={{ color: "#ff9800" }}>●</span> MA5 (橘)</span>
-            <span><span style={{ color: "#03a9f4" }}>●</span> MA10 (藍)</span>
-            <span><span style={{ color: "#ffea00" }}>●</span> MA20 (黃)</span>
-            <span><span style={{ color: "rgba(179, 157, 219, 0.9)" }}>- -</span> 布林通道 (紫)</span>
+          <div style={{ fontSize: "0.8rem", color: isWarm ? "#57534e" : "rgba(255,255,255,0.6)", marginTop: "4px", display: "flex", gap: "12px", flexWrap: "wrap" }}>
+            <span><span style={{ color: isWarm ? "#ea580c" : "#ff9800" }}>●</span> MA5 (橘)</span>
+            <span><span style={{ color: isWarm ? "#0284c7" : "#03a9f4" }}>●</span> MA10 (藍)</span>
+            <span><span style={{ color: isWarm ? "#d97706" : "#ffea00" }}>●</span> MA20 (黃)</span>
+            <span><span style={{ color: isWarm ? "rgba(126, 34, 206, 0.9)" : "rgba(179, 157, 219, 0.9)" }}>- -</span> 布林通道 (紫)</span>
             <span><span style={{ color: "#26a69a" }}>■</span> 成交量 (紅/綠柱)</span>
-            {type === "kd" && <span><span style={{ color: "#00bcd4" }}>●</span> K線 <span style={{ color: "#ffc107" }}>●</span> D線 <span style={{ color: "rgba(255,82,82,0.8)" }}>- -</span> 80超買 <span style={{ color: "rgba(76,175,80,0.8)" }}>- -</span> 20超賣</span>}
-            {type === "macd" && <span><span style={{ color: "#ffffff" }}>●</span> DIF快線 <span style={{ color: "#03a9f4" }}>●</span> DEA慢線 <span style={{ color: "#4caf50" }}>■</span> OSC柱狀圖</span>}
-            {type === "rsi" && <span><span style={{ color: "#f06292" }}>●</span> RSI(14) <span style={{ color: "rgba(255,82,82,0.8)" }}>- -</span> 70超買 <span style={{ color: "rgba(76,175,80,0.8)" }}>- -</span> 30超賣</span>}
-            {type === "obv" && <span><span style={{ color: "#c084fc" }}>●</span> OBV能量潮 <span style={{ color: "#ff9800" }}>- -</span> 10日均線</span>}
-            {type === "wr" && <span><span style={{ color: "#fb923c" }}>●</span> Williams %R <span style={{ color: "rgba(255,82,82,0.8)" }}>- -</span> -20超買 <span style={{ color: "rgba(76,175,80,0.8)" }}>- -</span> -80超賣</span>}
-            {type === "atr" && <span><span style={{ color: "#2dd4bf" }}>●</span> ATR(14) 真實波動幅度</span>}
+            {type === "kd" && <span><span style={{ color: isWarm ? "#0284c7" : "#00bcd4" }}>●</span> K線 <span style={{ color: isWarm ? "#d97706" : "#ffc107" }}>●</span> D線 <span style={{ color: isWarm ? "rgba(220,38,38,0.8)" : "rgba(255,82,82,0.8)" }}>- -</span> 80超買 <span style={{ color: isWarm ? "rgba(22,163,74,0.8)" : "rgba(76,175,80,0.8)" }}>- -</span> 20超賣</span>}
+            {type === "macd" && <span><span style={{ color: isWarm ? "#1e293b" : "#ffffff" }}>●</span> DIF快線 <span style={{ color: isWarm ? "#0284c7" : "#03a9f4" }}>●</span> DEA慢線 <span style={{ color: isWarm ? "#15803d" : "#4caf50" }}>■</span> OSC柱狀圖</span>}
+            {type === "rsi" && <span><span style={{ color: isWarm ? "#db2777" : "#f06292" }}>●</span> RSI(14) <span style={{ color: isWarm ? "rgba(220,38,38,0.8)" : "rgba(255,82,82,0.8)" }}>- -</span> 70超買 <span style={{ color: isWarm ? "rgba(22,163,74,0.8)" : "rgba(76,175,80,0.8)" }}>- -</span> 30超賣</span>}
+            {type === "obv" && <span><span style={{ color: isWarm ? "#9333ea" : "#c084fc" }}>●</span> OBV能量潮 <span style={{ color: isWarm ? "#ea580c" : "#ff9800" }}>- -</span> 10日均線</span>}
+            {type === "wr" && <span><span style={{ color: isWarm ? "#ea580c" : "#fb923c" }}>●</span> Williams %R <span style={{ color: isWarm ? "rgba(220,38,38,0.8)" : "rgba(255,82,82,0.8)" }}>- -</span> -20超買 <span style={{ color: isWarm ? "rgba(22,163,74,0.8)" : "rgba(76,175,80,0.8)" }}>- -</span> -80超賣</span>}
+            {type === "atr" && <span><span style={{ color: isWarm ? "#0d9488" : "#2dd4bf" }}>●</span> ATR(14) 真實波動幅度</span>}
           </div>
         </div>
         <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
           <button 
             onClick={resetZoom}
             style={{
-              background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.1)",
-              borderRadius: "6px", padding: "6px 14px", color: "#fff",
+              background: isWarm ? "rgba(140, 110, 80, 0.1)" : "rgba(255,255,255,0.08)",
+              border: `1px solid ${isWarm ? "rgba(140, 110, 80, 0.25)" : "rgba(255,255,255,0.1)"}`,
+              borderRadius: "6px", padding: "6px 14px", color: isWarm ? "#18181b" : "#fff",
               cursor: "pointer", fontSize: "0.85rem", transition: "all 0.2s"
             }}
           >
@@ -426,8 +436,9 @@ export const ZoomChartModal: React.FC<ZoomModalProps> = ({ type, ohlcv, ind, sym
           <button 
             onClick={onClose}
             style={{
-              background: "rgba(255,82,82,0.15)", border: "1px solid rgba(255,82,82,0.4)",
-              borderRadius: "50%", width: "36px", height: "36px", color: "#fca5a5",
+              background: isWarm ? "rgba(220,38,38,0.12)" : "rgba(255,82,82,0.15)",
+              border: `1px solid ${isWarm ? "rgba(220,38,38,0.3)" : "rgba(255,82,82,0.4)"}`,
+              borderRadius: "50%", width: "36px", height: "36px", color: isWarm ? "#dc2626" : "#fca5a5",
               cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
               fontSize: "1.1rem", transition: "all 0.2s"
             }}
@@ -444,14 +455,14 @@ export const ZoomChartModal: React.FC<ZoomModalProps> = ({ type, ohlcv, ind, sym
         <div style={{ position: "relative", width: "100%", flex: type === "main" ? 1 : 0.58, minHeight: 0 }}>
           <div ref={mainContainerRef} style={{ width: "100%", height: "100%" }} />
           {displayData && (
-            <ChartHUDView data={displayData} />
+            <ChartHUDView data={displayData} isWarm={isWarm} />
           )}
         </div>
 
         {/* Sub-chart if type !== 'main' */}
         {type !== "main" && (
-          <div style={{ position: "relative", width: "100%", flex: 0.42, minHeight: 0, borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: "4px" }}>
-            <div style={{ position: "absolute", top: "6px", left: "10px", zIndex: 10, fontSize: "0.75rem", fontWeight: 700, color: "#38bdf8", background: "rgba(15,23,42,0.8)", padding: "2px 8px", borderRadius: "4px", border: "1px solid rgba(56,189,248,0.3)" }}>
+          <div style={{ position: "relative", width: "100%", flex: 0.42, minHeight: 0, borderTop: isWarm ? "1px solid rgba(140, 110, 80, 0.18)" : "1px solid rgba(255,255,255,0.08)", paddingTop: "4px" }}>
+            <div style={{ position: "absolute", top: "6px", left: "10px", zIndex: 10, fontSize: "0.75rem", fontWeight: 700, color: isWarm ? "#57534e" : "rgba(255,255,255,0.6)" }}>
               📊 {getTitle()}
             </div>
             <div ref={subContainerRef} style={{ width: "100%", height: "100%" }} />
@@ -464,6 +475,8 @@ export const ZoomChartModal: React.FC<ZoomModalProps> = ({ type, ohlcv, ind, sym
 
 // ─── 主元件 ───────────────────────────────────────────────────────────────────
 export const ChartPanel: React.FC<ChartPanelProps> = ({ ohlcv, ind, symbol, name, sidebarCollapsed, onToggleSidebar }) => {
+  const [theme] = useAppTheme();
+  const isWarm = theme === "warm";
   const mainRef = useRef<HTMLDivElement>(null);
   const chartsRef = useRef<IChartApi[]>([]);
   const [zoomChart, setZoomChart] = useState<"main" | SubChartType | null>(null);
@@ -537,7 +550,7 @@ export const ChartPanel: React.FC<ChartPanelProps> = ({ ohlcv, ind, symbol, name
     // ── 1. 主圖 K線 + 內嵌成交量 + 均線 + 布林 ──────────────────────────────────────────
     const mainHeight = Math.max(540, (mainRef.current?.clientHeight ?? 0) || 560);
     const mainChart = createChart(mainRef.current!, {
-      ...CHART_OPTS,
+      ...getChartOptions(isWarm),
       width: mainRef.current!.clientWidth,
       height: mainHeight,
     });
@@ -545,9 +558,9 @@ export const ChartPanel: React.FC<ChartPanelProps> = ({ ohlcv, ind, symbol, name
 
     // 蠟燭線 (無橫向虛線與刻度盒)
     const candleSeries = mainChart.addCandlestickSeries({
-      upColor: "#ff5252", downColor: "#4caf50",
-      borderUpColor: "#ff5252", borderDownColor: "#4caf50",
-      wickUpColor: "#ff5252", wickDownColor: "#4caf50",
+      upColor: isWarm ? "#dc2626" : "#ff5252", downColor: isWarm ? "#16a34a" : "#4caf50",
+      borderUpColor: isWarm ? "#dc2626" : "#ff5252", borderDownColor: isWarm ? "#16a34a" : "#4caf50",
+      wickUpColor: isWarm ? "#dc2626" : "#ff5252", wickDownColor: isWarm ? "#16a34a" : "#4caf50",
       priceLineVisible: false,
       lastValueVisible: false,
     });
@@ -580,17 +593,17 @@ export const ChartPanel: React.FC<ChartPanelProps> = ({ ohlcv, ind, symbol, name
       return {
         time: t,
         value: ohlcv.volume[i] ?? 0,
-        color: isUp ? "rgba(255, 82, 82, 0.65)" : "rgba(76, 175, 80, 0.65)",
+        color: isUp ? (isWarm ? "rgba(220, 38, 38, 0.65)" : "rgba(255, 82, 82, 0.65)") : (isWarm ? "rgba(22, 163, 74, 0.65)" : "rgba(76, 175, 80, 0.65)"),
       };
     }).filter((d) => d.value > 0);
     volumeSeries.setData(volData);
 
     // 均線與布林通道 (不設 title、關閉價格線與軸標籤)
-    const sma5s = mainChart.addLineSeries({ color: "#ff9800", lineWidth: 1, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
-    const sma10s = mainChart.addLineSeries({ color: "#03a9f4", lineWidth: 1, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
-    const sma20s = mainChart.addLineSeries({ color: "#ffea00", lineWidth: 2, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
-    const bbUpS = mainChart.addLineSeries({ color: "rgba(179, 157, 219, 0.8)", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
-    const bbLoS = mainChart.addLineSeries({ color: "rgba(179, 157, 219, 0.8)", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
+    const sma5s = mainChart.addLineSeries({ color: isWarm ? "#ea580c" : "#ff9800", lineWidth: 1, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
+    const sma10s = mainChart.addLineSeries({ color: isWarm ? "#0284c7" : "#03a9f4", lineWidth: 1, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
+    const sma20s = mainChart.addLineSeries({ color: isWarm ? "#d97706" : "#ffea00", lineWidth: 2, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
+    const bbUpS = mainChart.addLineSeries({ color: isWarm ? "rgba(126, 34, 206, 0.8)" : "rgba(179, 157, 219, 0.8)", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
+    const bbLoS = mainChart.addLineSeries({ color: isWarm ? "rgba(126, 34, 206, 0.8)" : "rgba(179, 157, 219, 0.8)", lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
 
     sma5s.setData(toLineData(ind.sma5));
     sma10s.setData(toLineData(ind.sma10));
@@ -665,19 +678,19 @@ export const ChartPanel: React.FC<ChartPanelProps> = ({ ohlcv, ind, symbol, name
       chartsRef.current.forEach((c) => { try { c.remove(); } catch {} });
       chartsRef.current = [];
     };
-  }, [ohlcv, ind]);
+  }, [ohlcv, ind, isWarm]);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden", background: "#0a0a12", position: "relative" }}>
-      <div style={{ padding: "8px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(255,255,255,0.02)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden", background: isWarm ? "#fdfbf7" : "#0a0a12", position: "relative" }}>
+      <div style={{ padding: "8px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", background: isWarm ? "rgba(246, 241, 232, 0.95)" : "rgba(255,255,255,0.02)", borderBottom: isWarm ? "1px solid rgba(140, 110, 80, 0.18)" : "1px solid rgba(255,255,255,0.05)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
           {onToggleSidebar && (
             <button
               onClick={onToggleSidebar}
               style={{
-                background: sidebarCollapsed ? "rgba(56, 189, 248, 0.15)" : "rgba(255, 255, 255, 0.06)",
-                border: `1px solid ${sidebarCollapsed ? "rgba(56, 189, 248, 0.4)" : "rgba(255, 255, 255, 0.15)"}`,
-                color: sidebarCollapsed ? "#38bdf8" : "rgba(255, 255, 255, 0.8)",
+                background: sidebarCollapsed ? (isWarm ? "rgba(217, 119, 6, 0.12)" : "rgba(56, 189, 248, 0.15)") : (isWarm ? "rgba(140, 110, 80, 0.08)" : "rgba(255, 255, 255, 0.06)"),
+                border: `1px solid ${sidebarCollapsed ? (isWarm ? "rgba(217, 119, 6, 0.4)" : "rgba(56, 189, 248, 0.4)") : (isWarm ? "rgba(140, 110, 80, 0.25)" : "rgba(255, 255, 255, 0.15)")}`,
+                color: sidebarCollapsed ? (isWarm ? "#b45309" : "#38bdf8") : (isWarm ? "#44403c" : "rgba(255, 255, 255, 0.8)"),
                 borderRadius: "6px",
                 padding: "3px 9px",
                 fontSize: "0.75rem",
@@ -696,11 +709,11 @@ export const ChartPanel: React.FC<ChartPanelProps> = ({ ohlcv, ind, symbol, name
           <span style={{ fontSize: "0.95rem", fontWeight: 700, color: "var(--accent-blue)" }}>
             {name} ({symbol}) — K線主圖
           </span>
-          <div style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.6)", display: "flex", gap: "10px" }}>
-            <span><span style={{ color: "#ff9800" }}>●</span> MA5 (橘)</span>
-            <span><span style={{ color: "#03a9f4" }}>●</span> MA10 (藍)</span>
-            <span><span style={{ color: "#ffea00" }}>●</span> MA20 (黃)</span>
-            <span><span style={{ color: "rgba(179, 157, 219, 0.9)" }}>- -</span> 布林通道 (紫)</span>
+          <div style={{ fontSize: "0.75rem", color: isWarm ? "#57534e" : "rgba(255,255,255,0.6)", display: "flex", gap: "10px" }}>
+            <span><span style={{ color: isWarm ? "#ea580c" : "#ff9800" }}>●</span> MA5 (橘)</span>
+            <span><span style={{ color: isWarm ? "#0284c7" : "#03a9f4" }}>●</span> MA10 (藍)</span>
+            <span><span style={{ color: isWarm ? "#d97706" : "#ffea00" }}>●</span> MA20 (黃)</span>
+            <span><span style={{ color: isWarm ? "rgba(126, 34, 206, 0.9)" : "rgba(179, 157, 219, 0.9)" }}>- -</span> 布林通道 (紫)</span>
             <span><span style={{ color: "#26a69a" }}>■</span> 成交量 (紅/綠柱)</span>
           </div>
         </div>
@@ -710,9 +723,9 @@ export const ChartPanel: React.FC<ChartPanelProps> = ({ ohlcv, ind, symbol, name
             style={{ 
               padding: "4px 10px", 
               fontSize: "0.75rem", 
-              background: "rgba(255, 255, 255, 0.05)", 
-              color: "rgba(255, 255, 255, 0.8)", 
-              border: "1px solid rgba(255, 255, 255, 0.15)",
+              background: isWarm ? "rgba(140, 110, 80, 0.08)" : "rgba(255, 255, 255, 0.05)", 
+              color: isWarm ? "#44403c" : "rgba(255, 255, 255, 0.8)", 
+              border: `1px solid ${isWarm ? "rgba(140, 110, 80, 0.25)" : "rgba(255, 255, 255, 0.15)"}`,
               borderRadius: "4px",
               cursor: "pointer",
               transition: "all 0.2s"

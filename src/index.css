@@ -35,6 +35,126 @@
   --transition: 0.18s ease;
 }
 
+[data-theme="warm"] {
+  --bg-deep: #f6f1e8;
+  --bg-surface: #ebe3d5;
+  --bg-card: rgba(255, 255, 255, 0.96);
+  --bg-card-hover: rgba(250, 246, 238, 0.98);
+  --border-subtle: rgba(140, 110, 80, 0.18);
+  --border-active: rgba(217, 119, 6, 0.5);
+
+  --accent-blue: #1d4ed8;
+  --accent-blue-light: #2563eb;
+  --accent-green: #15803d;
+  --accent-red: #dc2626;
+  --accent-amber: #b45309;
+  --accent-purple: #7e22ce;
+  --accent-cyan: #0284c7;
+
+  --text-primary: #18181b;
+  --text-secondary: #4b5563;
+  --text-muted: #71717a;
+
+  --shadow-glow: 0 0 20px rgba(217, 119, 6, 0.15);
+  --shadow-card: 0 4px 20px rgba(90, 60, 30, 0.08);
+}
+
+[data-theme="warm"] .app-header {
+  background: rgba(246, 241, 232, 0.95);
+  border-bottom: 1px solid rgba(140, 110, 80, 0.18);
+}
+
+[data-theme="warm"] .app-title {
+  background: linear-gradient(90deg, #b45309, #d97706);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+[data-theme="warm"] .tab-btn {
+  color: #57534e;
+}
+
+[data-theme="warm"] .tab-btn:hover {
+  background: rgba(180, 120, 60, 0.08);
+  color: #1c1917;
+}
+
+[data-theme="warm"] .tab-btn.active {
+  background: rgba(217, 119, 6, 0.12);
+  color: #b45309;
+  box-shadow: inset 0 -2px 0 #d97706;
+}
+
+[data-theme="warm"] .analysis-chart-area {
+  background: #fdfbf7;
+}
+
+[data-theme="warm"] .input-field {
+  background: #ffffff;
+  border: 1px solid rgba(140, 110, 80, 0.25);
+  color: #18181b;
+}
+
+[data-theme="warm"] .input-field:focus {
+  border-color: #d97706;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.15);
+}
+
+[data-theme="warm"] .select-field {
+  background-color: #ffffff;
+  border: 1px solid rgba(140, 110, 80, 0.25);
+  color: #18181b;
+  background-image: url("data:image/svg+xml;utf8,<svg fill='%2357534e' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/><path d='M0 0h24v24H0z' fill='none'/></svg>");
+}
+
+[data-theme="warm"] .select-field option {
+  background-color: #ffffff;
+  color: #18181b;
+}
+
+[data-theme="warm"] .info-section-header {
+  background: rgba(217, 119, 6, 0.08);
+  color: #b45309;
+  border-bottom: 1px solid rgba(140, 110, 80, 0.15);
+}
+
+[data-theme="warm"] .signal-card {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="warm"] .data-table thead th {
+  background: rgba(217, 119, 6, 0.06);
+  color: #57534e;
+  border-bottom: 1px solid rgba(140, 110, 80, 0.18);
+}
+
+[data-theme="warm"] .data-table tbody tr {
+  border-bottom: 1px solid rgba(140, 110, 80, 0.08);
+}
+
+[data-theme="warm"] .data-table tbody tr:hover {
+  background: rgba(217, 119, 6, 0.04);
+}
+
+[data-theme="warm"] .btn-outline {
+  border: 1px solid rgba(140, 110, 80, 0.3);
+  color: #44403c;
+}
+
+[data-theme="warm"] .btn-outline:hover {
+  border-color: #d97706;
+  color: #b45309;
+}
+
+[data-theme="warm"] ::-webkit-scrollbar-thumb {
+  background: rgba(140, 110, 80, 0.25);
+}
+
+[data-theme="warm"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(140, 110, 80, 0.4);
+}
+
 html, body, #root {
   height: 100%;
   width: 100%;

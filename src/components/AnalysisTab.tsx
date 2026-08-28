@@ -12,6 +12,7 @@ import {
 } from "../utils/analysis";
 import { evaluateAIAlpha } from "../utils/aiAlphaModel";
 import { HardwareBadge } from "./HardwareBadge";
+import { useAppTheme } from "../utils/theme";
 
 import { getCachedStocks, subscribeStocks, StockEntry } from "../utils/stocks";
 import { getCompanyBusinessSummary } from "../utils/companyProfiles";
@@ -221,7 +222,9 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
   const [autocomplete, setAutocomplete] = useState<typeof STOCK_DB>([]);
   const [searchModalItems, setSearchModalItems] = useState<StockEntry[]>([]);
   
-  // 基本面 Modal
+  // 主題與 Modal 狀態
+  const [theme] = useAppTheme();
+  const isWarm = theme === "warm";
   const [showFundModal, setShowFundModal] = useState(false);
   const [showAIModal, setShowAIModal] = useState(false);
   const [showFsModal, setShowFsModal] = useState(false);
@@ -873,29 +876,30 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
       {searchModalItems.length > 0 && (
         <div style={{
           position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-          background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)",
+          background: isWarm ? "rgba(40, 30, 20, 0.4)" : "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)",
           zIndex: 9999, display: "flex", justifyContent: "center", alignItems: "center"
         }} onClick={() => setSearchModalItems([])}>
           <div style={{
-            background: "#1a1a24", borderRadius: "12px", width: "400px", maxWidth: "90%",
-            maxHeight: "80vh", display: "flex", flexDirection: "column", border: "1px solid rgba(255,255,255,0.1)"
+            background: isWarm ? "rgba(255, 252, 245, 0.98)" : "#1a1a24", borderRadius: "12px", width: "400px", maxWidth: "90%",
+            maxHeight: "80vh", display: "flex", flexDirection: "column", border: isWarm ? "1px solid rgba(140, 110, 80, 0.25)" : "1px solid rgba(255,255,255,0.1)",
+            color: isWarm ? "#18181b" : "#ffffff", boxShadow: isWarm ? "0 20px 40px rgba(90,60,30,0.15)" : "0 20px 40px rgba(0,0,0,0.5)"
           }} onClick={e => e.stopPropagation()}>
-            <div style={{ padding: "16px", borderBottom: "1px solid rgba(255,255,255,0.1)", display: "flex", justifyContent: "space-between" }}>
-              <h3 style={{ margin: 0 }}>請選擇標的 ({searchModalItems.length} 筆相符)</h3>
+            <div style={{ padding: "16px", borderBottom: isWarm ? "1px solid rgba(140, 110, 80, 0.15)" : "1px solid rgba(255,255,255,0.1)", display: "flex", justifyContent: "space-between" }}>
+              <h3 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 700, color: isWarm ? "#18181b" : "#ffffff" }}>請選擇標的 ({searchModalItems.length} 筆相符)</h3>
               <button className="btn btn-outline btn-sm" onClick={() => setSearchModalItems([])}>✕</button>
             </div>
             <div style={{ overflowY: "auto", padding: "8px" }}>
               {searchModalItems.map(s => (
                 <div key={s.symbol} onClick={() => { setQuery(s.symbol.split(".")[0]); doAnalysis(s.symbol); }}
                   style={{
-                    padding: "12px", cursor: "pointer", borderBottom: "1px solid rgba(255,255,255,0.05)",
+                    padding: "12px", cursor: "pointer", borderBottom: isWarm ? "1px solid rgba(140, 110, 80, 0.08)" : "1px solid rgba(255,255,255,0.05)",
                     display: "flex", justifyContent: "space-between", alignItems: "center"
                   }}
-                  onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.05)"}
+                  onMouseEnter={e => e.currentTarget.style.background = isWarm ? "rgba(217, 119, 6, 0.08)" : "rgba(255,255,255,0.05)"}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                 >
-                  <span style={{ fontWeight: "bold" }}>{s.name}</span>
-                  <span style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.9rem" }}>{s.symbol}</span>
+                  <span style={{ fontWeight: "bold", color: isWarm ? "#18181b" : "#ffffff" }}>{s.name}</span>
+                  <span style={{ color: isWarm ? "#57534e" : "rgba(255,255,255,0.5)", fontSize: "0.9rem" }}>{s.symbol}</span>
                 </div>
               ))}
             </div>
@@ -1172,7 +1176,7 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
               {/* Header */}
               <div style={{ 
                 padding: "16px 20px", 
-                borderBottom: "1px solid rgba(255,255,255,0.1)", 
+                borderBottom: isWarm ? "1px solid rgba(140, 110, 80, 0.15)" : "1px solid rgba(255,255,255,0.1)", 
                 display: "flex", 
                 justifyContent: "space-between",
                 alignItems: "center"
@@ -1180,8 +1184,8 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                 <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                   <span style={{ fontSize: "1.3rem" }}>📊</span>
                   <div>
-                    <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 600 }}>詳細基本面 - {info?.name}</h3>
-                    <span style={{ fontSize: "0.75rem", color: "#94a3b8" }}>{info?.symbol}</span>
+                    <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700, color: isWarm ? "#18181b" : "#ffffff" }}>詳細基本面 - {info?.name}</h3>
+                    <span style={{ fontSize: "0.75rem", color: isWarm ? "#57534e" : "#94a3b8" }}>{info?.symbol}</span>
                   </div>
                 </div>
                 <button className="btn btn-outline btn-sm" onClick={() => setShowFundModal(false)} style={{ minWidth: "32px", padding: 0, height: "32px", borderRadius: "50%" }}>✕</button>
@@ -1190,13 +1194,13 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
               {/* Sub-header / Tabs */}
               <div style={{ 
                 padding: "12px 20px", 
-                borderBottom: "1px solid rgba(255,255,255,0.06)", 
+                borderBottom: isWarm ? "1px solid rgba(140, 110, 80, 0.12)" : "1px solid rgba(255,255,255,0.06)", 
                 display: "flex", 
                 justifyContent: "space-between",
                 alignItems: "center",
                 flexWrap: "wrap",
                 gap: "12px",
-                background: "rgba(255,255,255,0.01)"
+                background: isWarm ? "rgba(245, 238, 225, 0.4)" : "rgba(255,255,255,0.01)"
               }}>
                 {/* Statement Tabs */}
                 <div style={{ display: "flex", gap: "6px" }}>
@@ -1215,12 +1219,12 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                 </div>
 
                 {/* Frequency Toggle */}
-                <div style={{ display: "flex", gap: "6px", background: "rgba(255,255,255,0.05)", padding: "3px", borderRadius: "8px" }}>
+                <div style={{ display: "flex", gap: "6px", background: isWarm ? "rgba(140, 110, 80, 0.1)" : "rgba(255,255,255,0.05)", padding: "3px", borderRadius: "8px" }}>
                   <button 
                     onClick={() => setFundFreq("annual")}
                     style={{
                       border: "none",
-                      background: fundFreq === "annual" ? "var(--btn-primary-bg, #4d94ff)" : "transparent",
+                      background: fundFreq === "annual" ? (isWarm ? "#d97706" : "var(--btn-primary-bg, #4d94ff)") : "transparent",
                       color: "#fff",
                       fontSize: "0.78rem",
                       padding: "5px 12px",
@@ -1234,7 +1238,7 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                     onClick={() => setFundFreq("quarterly")}
                     style={{
                       border: "none",
-                      background: fundFreq === "quarterly" ? "var(--btn-primary-bg, #4d94ff)" : "transparent",
+                      background: fundFreq === "quarterly" ? (isWarm ? "#d97706" : "var(--btn-primary-bg, #4d94ff)") : "transparent",
                       color: "#fff",
                       fontSize: "0.78rem",
                       padding: "5px 12px",
@@ -1248,24 +1252,24 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
               </div>
 
               {/* Table Content */}
-              <div style={{ flex: 1, overflowY: "auto", padding: "20px", background: "#13131e" }}>
+              <div style={{ flex: 1, overflowY: "auto", padding: "20px", background: isWarm ? "transparent" : "#13131e" }}>
                 {fundLoading ? (
                   <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", height: "100%", gap: "12px" }}>
                     <span className="loading-spinner" style={{ width: "36px", height: "36px" }}></span>
-                    <span style={{ color: "#94a3b8", fontSize: "0.85rem" }}>正在從 Yahoo Finance 獲取財報資料...</span>
+                    <span style={{ color: isWarm ? "#57534e" : "#94a3b8", fontSize: "0.85rem" }}>正在從 Yahoo Finance 獲取財報資料...</span>
                   </div>
                 ) : fundData?.error ? (
                   <div style={{ color: "#ff5252", padding: "20px", background: "rgba(255,82,82,0.05)", border: "1px solid rgba(255,82,82,0.2)", borderRadius: "8px" }}>
                     ⚠️ 載入失敗: {fundData.error}
                   </div>
                 ) : statements.length > 0 ? (
-                  <div style={{ overflowX: "auto", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.08)" }}>
+                  <div style={{ overflowX: "auto", borderRadius: "8px", border: isWarm ? "1px solid rgba(140, 110, 80, 0.15)" : "1px solid rgba(255,255,255,0.08)" }}>
                     <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem", textAlign: "left" }}>
                       <thead>
-                        <tr style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-                          <th style={{ padding: "12px 16px", color: "#94a3b8", fontWeight: 600, minWidth: "220px", position: "sticky", left: 0, background: "#161622", zIndex: 2 }}>會計項目</th>
+                        <tr style={{ background: isWarm ? "rgba(140, 110, 80, 0.05)" : "rgba(255,255,255,0.03)", borderBottom: isWarm ? "1px solid rgba(140, 110, 80, 0.15)" : "1px solid rgba(255,255,255,0.08)" }}>
+                          <th style={{ padding: "12px 16px", color: isWarm ? "#57534e" : "#94a3b8", fontWeight: 600, minWidth: "220px", position: "sticky", left: 0, background: isWarm ? "#fafaf9" : "#161622", zIndex: 2 }}>會計項目</th>
                           {dates.map((date: string, idx: number) => (
-                            <th key={idx} style={{ padding: "12px 16px", color: "var(--text-primary)", fontWeight: 600, textAlign: "right" }}>{date}</th>
+                            <th key={idx} style={{ padding: "12px 16px", color: isWarm ? "#18181b" : "var(--text-primary)", fontWeight: 600, textAlign: "right" }}>{date}</th>
                           ))}
                         </tr>
                       </thead>
@@ -1274,21 +1278,21 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                           <tr 
                             key={row.keys[0]} 
                             style={{ 
-                              borderBottom: "1px solid rgba(255,255,255,0.04)",
+                              borderBottom: isWarm ? "1px solid rgba(140, 110, 80, 0.08)" : "1px solid rgba(255,255,255,0.04)",
                               transition: "background 0.15s"
                             }}
-                            onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.02)"}
+                            onMouseEnter={e => e.currentTarget.style.background = isWarm ? "rgba(140, 110, 80, 0.04)" : "rgba(255,255,255,0.02)"}
                             onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                           >
                             <td style={{ 
                               padding: "10px 16px", 
-                              color: "rgba(255,255,255,0.9)", 
+                              color: isWarm ? "#18181b" : "rgba(255,255,255,0.9)", 
                               fontWeight: row.keys.includes("netIncome") || row.keys.includes("totalRevenue") || row.keys.includes("totalAssets") || row.keys.includes("freeCashFlow") ? 700 : 400,
                               position: "sticky", 
                               left: 0, 
-                              background: "#13131e",
+                              background: isWarm ? "rgba(255, 252, 245, 0.98)" : "#13131e",
                               zIndex: 1,
-                              borderRight: "1px solid rgba(255,255,255,0.02)"
+                              borderRight: isWarm ? "1px solid rgba(140, 110, 80, 0.05)" : "1px solid rgba(255,255,255,0.02)"
                             }}>
                               {row.label}
                             </td>
@@ -1602,26 +1606,27 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
       {showFsModal && fs && (
         <div style={{
           position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-          background: "rgba(3, 7, 18, 0.85)", backdropFilter: "blur(12px)",
+          background: isWarm ? "rgba(40, 30, 20, 0.45)" : "rgba(3, 7, 18, 0.85)", backdropFilter: "blur(12px)",
           zIndex: 25000, display: "flex", justifyContent: "center", alignItems: "center",
           padding: "20px"
         }} onClick={() => setShowFsModal(false)}>
           <div style={{
-            background: "linear-gradient(145deg, #111827, #0f172a)",
+            background: isWarm ? "rgba(255, 252, 245, 0.98)" : "linear-gradient(145deg, #111827, #0f172a)",
             borderRadius: "16px", width: "760px", maxWidth: "98vw", maxHeight: "90vh",
             padding: "24px", border: `1px solid ${fsGrade.border}`,
-            boxShadow: "0 25px 60px rgba(0, 0, 0, 0.8)",
+            color: isWarm ? "#18181b" : "#ffffff",
+            boxShadow: isWarm ? "0 25px 60px rgba(90, 60, 30, 0.2)" : "0 25px 60px rgba(0, 0, 0, 0.8)",
             display: "flex", flexDirection: "column", gap: "16px", overflow: "hidden"
           }} onClick={e => e.stopPropagation()}>
             
             {/* Header */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: "12px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: isWarm ? "1px solid rgba(140, 110, 80, 0.18)" : "1px solid rgba(255,255,255,0.1)", paddingBottom: "12px" }}>
               <div>
                 <h3 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 800, color: fsGrade.color }}>
                   📊 基本面評分全景診斷
                 </h3>
-                <div style={{ fontSize: "0.85rem", color: "#94a3b8", marginTop: "3px" }}>
-                  標的：<b style={{ color: "#ffffff" }}>{info?.name || info?.symbol} ({info?.symbol})</b> ｜ 評級：<b style={{ color: fsGrade.color }}>{fsGrade.label}</b> ｜ 總分：<b style={{ color: fsGrade.color }}>{fsScore > 0 ? "+" : ""}{fsScore}</b>
+                <div style={{ fontSize: "0.85rem", color: isWarm ? "#57534e" : "#94a3b8", marginTop: "3px" }}>
+                  標的：<b style={{ color: isWarm ? "#18181b" : "#ffffff" }}>{info?.name || info?.symbol} ({info?.symbol})</b> ｜ 評級：<b style={{ color: fsGrade.color }}>{fsGrade.label}</b> ｜ 總分：<b style={{ color: fsGrade.color }}>{fsScore > 0 ? "+" : ""}{fsScore}</b>
                 </div>
               </div>
               <button className="btn btn-outline btn-sm" onClick={() => setShowFsModal(false)} style={{ borderRadius: "50%", width: "32px", height: "32px", padding: 0, fontSize: "1rem" }}>✕</button>
@@ -1631,25 +1636,25 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
             <div style={{ overflowY: "auto", display: "flex", flexDirection: "column", gap: "14px", paddingRight: "4px" }}>
               
               {/* Summary Badges */}
-              <div style={{ display: "flex", gap: "16px", background: "rgba(0,0,0,0.3)", padding: "12px 16px", borderRadius: "10px" }}>
+              <div style={{ display: "flex", gap: "16px", background: isWarm ? "rgba(245, 238, 225, 0.8)" : "rgba(0,0,0,0.3)", padding: "12px 16px", borderRadius: "10px", border: isWarm ? "1px solid rgba(140, 110, 80, 0.15)" : "none" }}>
                 <div>
-                  <span style={{ fontSize: "0.76rem", color: "#94a3b8" }}>良好達標指標</span>
-                  <div style={{ fontSize: "1.3rem", fontWeight: 800, color: "#4ade80" }}>✅ {fs.passed.length} 項</div>
+                  <span style={{ fontSize: "0.76rem", color: isWarm ? "#57534e" : "#94a3b8" }}>良好達標指標</span>
+                  <div style={{ fontSize: "1.3rem", fontWeight: 800, color: isWarm ? "#15803d" : "#4ade80" }}>✅ {fs.passed.length} 項</div>
                 </div>
-                <div style={{ borderLeft: "1px solid rgba(255,255,255,0.1)", paddingLeft: "16px" }}>
-                  <span style={{ fontSize: "0.76rem", color: "#94a3b8" }}>待改善/未達標指標</span>
-                  <div style={{ fontSize: "1.3rem", fontWeight: 800, color: "#f87171" }}>❌ {fs.failed.length} 項</div>
+                <div style={{ borderLeft: isWarm ? "1px solid rgba(140, 110, 80, 0.2)" : "1px solid rgba(255,255,255,0.1)", paddingLeft: "16px" }}>
+                  <span style={{ fontSize: "0.76rem", color: isWarm ? "#57534e" : "#94a3b8" }}>待改善/未達標指標</span>
+                  <div style={{ fontSize: "1.3rem", fontWeight: 800, color: isWarm ? "#dc2626" : "#f87171" }}>❌ {fs.failed.length} 項</div>
                 </div>
-                <div style={{ borderLeft: "1px solid rgba(255,255,255,0.1)", paddingLeft: "16px" }}>
-                  <span style={{ fontSize: "0.76rem", color: "#94a3b8" }}>無資料/不適用</span>
-                  <div style={{ fontSize: "1.3rem", fontWeight: 800, color: "#94a3b8" }}>⬜ {fs.na.length} 項</div>
+                <div style={{ borderLeft: isWarm ? "1px solid rgba(140, 110, 80, 0.2)" : "1px solid rgba(255,255,255,0.1)", paddingLeft: "16px" }}>
+                  <span style={{ fontSize: "0.76rem", color: isWarm ? "#57534e" : "#94a3b8" }}>無資料/不適用</span>
+                  <div style={{ fontSize: "1.3rem", fontWeight: 800, color: isWarm ? "#71717a" : "#94a3b8" }}>⬜ {fs.na.length} 項</div>
                 </div>
               </div>
 
               {/* Passed Metrics */}
               {fs.passed.length > 0 && (
                 <div>
-                  <div style={{ fontWeight: 700, color: "#4ade80", fontSize: "0.88rem", marginBottom: "8px" }}>
+                  <div style={{ fontWeight: 700, color: isWarm ? "#15803d" : "#4ade80", fontSize: "0.88rem", marginBottom: "8px" }}>
                     ✅ 良好達標項目 ({fs.passed.length} 項)：
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: "10px" }}>
@@ -1660,22 +1665,20 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                           key={l}
                           onClick={() => showMetricExplanation(l)}
                           style={{
-                            background: "rgba(34, 197, 94, 0.08)", border: "1px solid rgba(34, 197, 94, 0.3)",
+                            background: isWarm ? "rgba(22, 163, 74, 0.08)" : "rgba(34, 197, 94, 0.08)", border: `1px solid ${isWarm ? "rgba(22, 163, 74, 0.3)" : "rgba(34, 197, 94, 0.3)"}`,
                             borderRadius: "10px", padding: "10px 14px", cursor: "pointer",
                             display: "flex", flexDirection: "column", gap: "4px",
                             transition: "all 0.15s ease"
                           }}
+                          title={`點擊查看 ${l} 深度解說`}
                         >
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <div style={{ fontWeight: 700, color: "#86efac", fontSize: "0.88rem" }}>
-                              ✓ {exp.label || l}
-                            </div>
-                            <div style={{ fontWeight: 800, color: "#4ade80", fontSize: "0.88rem" }}>
-                              {d}
-                            </div>
+                            <span style={{ fontWeight: 700, color: isWarm ? "#15803d" : "#86efac", fontSize: "0.88rem" }}>✓ {l}</span>
+                            <span style={{ fontSize: "0.72rem", color: isWarm ? "#b45309" : "#fef08a", background: isWarm ? "rgba(217, 119, 6, 0.15)" : "rgba(255,255,255,0.08)", padding: "1px 6px", borderRadius: "4px" }}>點擊看說明 💡</span>
                           </div>
-                          <div style={{ fontSize: "0.76rem", color: "#cbd5e1", lineHeight: 1.45, marginTop: "2px" }}>
-                            {exp.explanation}
+                          <div style={{ fontSize: "0.82rem", color: isWarm ? "#18181b" : "#f0fdf4", fontWeight: 600 }}>{d}</div>
+                          <div style={{ fontSize: "0.74rem", color: isWarm ? "#57534e" : "#94a3b8", lineHeight: 1.4, borderTop: isWarm ? "1px solid rgba(140, 110, 80, 0.12)" : "1px solid rgba(255,255,255,0.06)", paddingTop: "4px" }}>
+                            {exp.explanation.substring(0, 50)}...
                           </div>
                         </div>
                       );
@@ -1687,7 +1690,7 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
               {/* Failed Metrics */}
               {fs.failed.length > 0 && (
                 <div>
-                  <div style={{ fontWeight: 700, color: "#f87171", fontSize: "0.88rem", marginBottom: "8px" }}>
+                  <div style={{ fontWeight: 700, color: isWarm ? "#dc2626" : "#f87171", fontSize: "0.88rem", marginBottom: "8px" }}>
                     ❌ 待改善/未達標項目 ({fs.failed.length} 項)：
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: "10px" }}>
@@ -1698,22 +1701,20 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                           key={l}
                           onClick={() => showMetricExplanation(l)}
                           style={{
-                            background: "rgba(239, 68, 68, 0.08)", border: "1px solid rgba(239, 68, 68, 0.3)",
+                            background: isWarm ? "rgba(220, 38, 38, 0.08)" : "rgba(239, 68, 68, 0.08)", border: `1px solid ${isWarm ? "rgba(220, 38, 38, 0.3)" : "rgba(239, 68, 68, 0.3)"}`,
                             borderRadius: "10px", padding: "10px 14px", cursor: "pointer",
                             display: "flex", flexDirection: "column", gap: "4px",
                             transition: "all 0.15s ease"
                           }}
+                          title={`點擊查看 ${l} 深度解說`}
                         >
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <div style={{ fontWeight: 700, color: "#fca5a5", fontSize: "0.88rem" }}>
-                              ✗ {exp.label || l}
-                            </div>
-                            <div style={{ fontWeight: 800, color: "#f87171", fontSize: "0.88rem" }}>
-                              {d}
-                            </div>
+                            <span style={{ fontWeight: 700, color: isWarm ? "#dc2626" : "#fca5a5", fontSize: "0.88rem" }}>✗ {l}</span>
+                            <span style={{ fontSize: "0.72rem", color: isWarm ? "#b45309" : "#fef08a", background: isWarm ? "rgba(217, 119, 6, 0.15)" : "rgba(255,255,255,0.08)", padding: "1px 6px", borderRadius: "4px" }}>點擊看說明 💡</span>
                           </div>
-                          <div style={{ fontSize: "0.76rem", color: "#cbd5e1", lineHeight: 1.45, marginTop: "2px" }}>
-                            {exp.explanation}
+                          <div style={{ fontSize: "0.82rem", color: isWarm ? "#18181b" : "#fef2f2", fontWeight: 600 }}>{d}</div>
+                          <div style={{ fontSize: "0.74rem", color: isWarm ? "#57534e" : "#94a3b8", lineHeight: 1.4, borderTop: isWarm ? "1px solid rgba(140, 110, 80, 0.12)" : "1px solid rgba(255,255,255,0.06)", paddingTop: "4px" }}>
+                            {exp.explanation.substring(0, 50)}...
                           </div>
                         </div>
                       );
@@ -1725,36 +1726,27 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
               {/* NA Metrics */}
               {fs.na.length > 0 && (
                 <div>
-                  <div style={{ fontWeight: 700, color: "#94a3b8", fontSize: "0.88rem", marginBottom: "8px" }}>
-                    ⬜ 無資料/不適用項目 ({fs.na.length} 項)：
+                  <div style={{ fontWeight: 700, color: isWarm ? "#71717a" : "#94a3b8", fontSize: "0.88rem", marginBottom: "8px" }}>
+                    ⬜ 無數據/不適用項目 ({fs.na.length} 項)：
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: "10px" }}>
-                    {fs.na.map((l) => {
-                      const exp = METRIC_EXPLANATIONS[l] || { label: l, explanation: "目前尚無此指標之歷史公告資料。" };
-                      return (
-                        <div
-                          key={l}
-                          onClick={() => showMetricExplanation(l)}
-                          style={{
-                            background: "rgba(148, 163, 184, 0.06)", border: "1px solid rgba(148, 163, 184, 0.2)",
-                            borderRadius: "10px", padding: "10px 14px", cursor: "pointer",
-                            display: "flex", flexDirection: "column", gap: "4px"
-                          }}
-                        >
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <div style={{ fontWeight: 700, color: "#cbd5e1", fontSize: "0.85rem" }}>
-                              - {exp.label || l}
-                            </div>
-                            <div style={{ fontWeight: 700, color: "#94a3b8", fontSize: "0.82rem" }}>
-                              資料暫缺 / 不適用
-                            </div>
-                          </div>
-                          <div style={{ fontSize: "0.76rem", color: "#94a3b8", lineHeight: 1.4, marginTop: "2px" }}>
-                            {exp.explanation}
-                          </div>
+                    {fs.na.map(([l, d]) => (
+                      <div
+                        key={l}
+                        onClick={() => showMetricExplanation(l)}
+                        style={{
+                          background: isWarm ? "rgba(140, 110, 80, 0.05)" : "rgba(255, 255, 255, 0.03)", border: isWarm ? "1px solid rgba(140, 110, 80, 0.15)" : "1px solid rgba(255, 255, 255, 0.06)",
+                          borderRadius: "10px", padding: "10px 14px", cursor: "pointer",
+                          display: "flex", flexDirection: "column", gap: "4px"
+                        }}
+                      >
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <span style={{ fontWeight: 600, color: isWarm ? "#57534e" : "#cbd5e1", fontSize: "0.88rem" }}>- {l}</span>
+                          <span style={{ fontSize: "0.72rem", color: isWarm ? "#71717a" : "#94a3b8" }}>點擊看說明 💡</span>
                         </div>
-                      );
-                    })}
+                        <div style={{ fontSize: "0.82rem", color: isWarm ? "#71717a" : "#94a3b8" }}>{d}</div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
@@ -1762,9 +1754,9 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
             </div>
 
             {/* Footer */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: "12px" }}>
-              <span style={{ fontSize: "0.75rem", color: "#64748b" }}>
-                點擊個別項目可查看財務指標詳細定義與健康門檻
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: isWarm ? "1px solid rgba(140, 110, 80, 0.18)" : "1px solid rgba(255,255,255,0.1)", paddingTop: "12px" }}>
+              <span style={{ fontSize: "0.75rem", color: isWarm ? "#57534e" : "#64748b" }}>
+                以 12 大指標加權打分（滿分+12） ｜ 點擊任一項目可檢視量化定義與評判標準
               </span>
               <button className="btn btn-primary btn-sm" onClick={() => setShowFsModal(false)}>
                 確定關閉
@@ -1779,26 +1771,27 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
       {showTechModal && (
         <div style={{
           position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-          background: "rgba(3, 7, 18, 0.85)", backdropFilter: "blur(12px)",
+          background: isWarm ? "rgba(40, 30, 20, 0.45)" : "rgba(3, 7, 18, 0.85)", backdropFilter: "blur(12px)",
           zIndex: 25000, display: "flex", justifyContent: "center", alignItems: "center",
           padding: "20px"
         }} onClick={() => setShowTechModal(false)}>
           <div style={{
-            background: "linear-gradient(145deg, #111827, #0f172a)",
+            background: isWarm ? "rgba(255, 252, 245, 0.98)" : "linear-gradient(145deg, #111827, #0f172a)",
             borderRadius: "16px", width: "840px", maxWidth: "98vw", maxHeight: "90vh",
             padding: "24px", border: `1px solid ${advice.border}`,
-            boxShadow: "0 25px 60px rgba(0, 0, 0, 0.8)",
+            color: isWarm ? "#18181b" : "#ffffff",
+            boxShadow: isWarm ? "0 25px 60px rgba(90, 60, 30, 0.2)" : "0 25px 60px rgba(0, 0, 0, 0.8)",
             display: "flex", flexDirection: "column", gap: "16px", overflow: "hidden"
           }} onClick={e => e.stopPropagation()}>
             
             {/* Header */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: "12px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: isWarm ? "1px solid rgba(140, 110, 80, 0.18)" : "1px solid rgba(255,255,255,0.1)", paddingBottom: "12px" }}>
               <div>
                 <h3 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 800, color: advice.color }}>
                   📡 技術面指標與操作建議全景診斷
                 </h3>
-                <div style={{ fontSize: "0.85rem", color: "#94a3b8", marginTop: "3px" }}>
-                  標的：<b style={{ color: "#ffffff" }}>{info?.name || info?.symbol} ({info?.symbol})</b> ｜ 操作建議：<b style={{ color: advice.color }}>{advice.title}</b> ｜ 綜合評分：<b style={{ color: advice.color }}>{(finalScore ?? 0) > 0 ? "+" : ""}{finalScore != null && !isNaN(finalScore) ? finalScore.toFixed(1) : "0.0"} 分</b>
+                <div style={{ fontSize: "0.85rem", color: isWarm ? "#57534e" : "#94a3b8", marginTop: "3px" }}>
+                  標的：<b style={{ color: isWarm ? "#18181b" : "#ffffff" }}>{info?.name || info?.symbol} ({info?.symbol})</b> ｜ 操作建議：<b style={{ color: advice.color }}>{advice.title}</b> ｜ 綜合評分：<b style={{ color: advice.color }}>{(finalScore ?? 0) > 0 ? "+" : ""}{finalScore != null && !isNaN(finalScore) ? finalScore.toFixed(1) : "0.0"} 分</b>
                 </div>
               </div>
               <button className="btn btn-outline btn-sm" onClick={() => setShowTechModal(false)} style={{ borderRadius: "50%", width: "32px", height: "32px", padding: 0, fontSize: "1rem" }}>✕</button>
@@ -1809,23 +1802,23 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
               
               {/* Scoring Summary Banner */}
               <div style={{
-                background: "rgba(0,0,0,0.35)", padding: "14px 16px", borderRadius: "10px",
-                border: "1px solid rgba(255,255,255,0.06)", display: "flex", justifyContent: "space-between",
+                background: isWarm ? "rgba(245, 238, 225, 0.8)" : "rgba(0,0,0,0.35)", padding: "14px 16px", borderRadius: "10px",
+                border: isWarm ? "1px solid rgba(140, 110, 80, 0.15)" : "1px solid rgba(255,255,255,0.06)", display: "flex", justifyContent: "space-between",
                 alignItems: "center", flexWrap: "wrap", gap: "10px"
               }}>
                 <div>
-                  <div style={{ fontSize: "0.76rem", color: "#94a3b8" }}>當前技術綜合判定</div>
+                  <div style={{ fontSize: "0.76rem", color: isWarm ? "#57534e" : "#94a3b8" }}>當前技術綜合判定</div>
                   <div style={{ fontSize: "1.25rem", fontWeight: 800, color: advice.color }}>{advice.title}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: "0.76rem", color: "#94a3b8" }}>多空淨得分</div>
+                  <div style={{ fontSize: "0.76rem", color: isWarm ? "#57534e" : "#94a3b8" }}>多空淨得分</div>
                   <div style={{ fontSize: "1.25rem", fontWeight: 800, color: advice.color }}>
                     {(finalScore ?? 0) > 0 ? "+" : ""}{finalScore != null && !isNaN(finalScore) ? finalScore.toFixed(1) : "0.0"} 分
                   </div>
                 </div>
                 <div>
-                  <div style={{ fontSize: "0.76rem", color: "#94a3b8" }}>偵測潛在地雷風險</div>
-                  <div style={{ fontSize: "1.25rem", fontWeight: 800, color: risks.length === 0 ? "#4ade80" : "#f87171" }}>
+                  <div style={{ fontSize: "0.76rem", color: isWarm ? "#57534e" : "#94a3b8" }}>偵測潛在地雷風險</div>
+                  <div style={{ fontSize: "1.25rem", fontWeight: 800, color: risks.length === 0 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#dc2626" : "#f87171") }}>
                     {risks.length === 0 ? "0 項 (無風險扣分)" : `扣除 ${risks.length} 分`}
                   </div>
                 </div>
@@ -1833,7 +1826,7 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
 
               {/* Suggestions Signal Cards with Full Explanations */}
               <div>
-                <div style={{ fontWeight: 700, color: "#93c5fd", fontSize: "0.9rem", marginBottom: "10px" }}>
+                <div style={{ fontWeight: 700, color: isWarm ? "var(--accent-blue)" : "#93c5fd", fontSize: "0.9rem", marginBottom: "10px" }}>
                   📡 8 大技術指標即時量化診斷與深度解說：
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))", gap: "10px" }}>
@@ -1845,10 +1838,11 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                         key={i}
                         onClick={() => setActiveTechChart(chartType)}
                         style={{
-                          background: "rgba(15, 23, 42, 0.6)",
+                          background: isWarm ? "rgba(255, 255, 255, 0.95)" : "rgba(15, 23, 42, 0.6)",
                           border: `1px solid ${s.color}40`,
                           borderLeft: `4px solid ${s.color}`,
                           borderRadius: "10px", padding: "12px 14px",
+                          boxShadow: isWarm ? "0 2px 8px rgba(90,60,30,0.06)" : "none",
                           display: "flex", flexDirection: "column", gap: "4px",
                           cursor: "pointer", transition: "all 0.15s ease"
                         }}
@@ -1859,13 +1853,13 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                             {s.title}
                           </span>
                           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                            <span style={{ fontSize: "0.68rem", color: "#94a3b8", background: "rgba(255,255,255,0.06)", padding: "1px 6px", borderRadius: "4px" }}>
+                            <span style={{ fontSize: "0.68rem", color: isWarm ? "#57534e" : "#94a3b8", background: isWarm ? "rgba(140, 110, 80, 0.1)" : "rgba(255,255,255,0.06)", padding: "1px 6px", borderRadius: "4px" }}>
                               {exp.label}
                             </span>
                             <span style={{
-                              background: "rgba(56, 189, 248, 0.18)",
-                              color: "#38bdf8",
-                              border: "1px solid rgba(56, 189, 248, 0.4)",
+                              background: isWarm ? "rgba(217, 119, 6, 0.12)" : "rgba(56, 189, 248, 0.18)",
+                              color: isWarm ? "#b45309" : "#38bdf8",
+                              border: isWarm ? "1px solid rgba(217, 119, 6, 0.35)" : "1px solid rgba(56, 189, 248, 0.4)",
                               padding: "1px 6px",
                               borderRadius: "4px",
                               fontSize: "0.68rem",
@@ -1875,10 +1869,10 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                             </span>
                           </div>
                         </div>
-                        <div style={{ fontSize: "0.82rem", color: "#f8fafc", fontWeight: 500, marginTop: "2px" }}>
+                        <div style={{ fontSize: "0.82rem", color: isWarm ? "#18181b" : "#f8fafc", fontWeight: 600, marginTop: "2px" }}>
                           {s.desc}
                         </div>
-                        <div style={{ fontSize: "0.75rem", color: "#94a3b8", lineHeight: 1.45, marginTop: "4px", borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "4px" }}>
+                        <div style={{ fontSize: "0.75rem", color: isWarm ? "#57534e" : "#94a3b8", lineHeight: 1.45, marginTop: "4px", borderTop: isWarm ? "1px solid rgba(140, 110, 80, 0.12)" : "1px solid rgba(255,255,255,0.06)", paddingTop: "4px" }}>
                           💡 <b>量化定義：</b>{exp.explanation}
                         </div>
                       </div>
@@ -1890,8 +1884,8 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
             </div>
 
             {/* Footer */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: "12px" }}>
-              <span style={{ fontSize: "0.75rem", color: "#64748b" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: isWarm ? "1px solid rgba(140, 110, 80, 0.18)" : "1px solid rgba(255,255,255,0.1)", paddingTop: "12px" }}>
+              <span style={{ fontSize: "0.75rem", color: isWarm ? "#57534e" : "#64748b" }}>
                 以 8 大指標數值及 20/50/200 日價量統計為依據進行量化加權 ｜ 點擊任一項目可開啟獨立互動圖表
               </span>
               <button className="btn btn-primary btn-sm" onClick={() => setShowTechModal(false)}>
@@ -1919,19 +1913,20 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
       {selectedMetric && (
         <div style={{
           position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-          background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)",
+          background: isWarm ? "rgba(40, 30, 20, 0.4)" : "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)",
           zIndex: 20000, display: "flex", justifyContent: "center", alignItems: "center"
         }} onClick={() => setSelectedMetric(null)}>
           <div style={{
-            background: "#161622", borderRadius: "12px", width: "420px", maxWidth: "90%",
-            padding: "20px", border: "1px solid rgba(255,255,255,0.15)",
-            boxShadow: "0 15px 30px rgba(0, 0, 0, 0.6)",
+            background: isWarm ? "rgba(255, 252, 245, 0.98)" : "#161622", borderRadius: "12px", width: "420px", maxWidth: "90%",
+            padding: "20px", border: isWarm ? "1px solid rgba(140, 110, 80, 0.25)" : "1px solid rgba(255,255,255,0.15)",
+            color: isWarm ? "#18181b" : "#ffffff",
+            boxShadow: isWarm ? "0 15px 30px rgba(90, 60, 30, 0.15)" : "0 15px 30px rgba(0, 0, 0, 0.6)",
             display: "flex", flexDirection: "column", gap: "14px"
           }} onClick={e => e.stopPropagation()}>
             
             {/* Title */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: "10px" }}>
-              <h4 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 600, color: "var(--accent-blue-light)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: isWarm ? "1px solid rgba(140, 110, 80, 0.15)" : "1px solid rgba(255,255,255,0.1)", paddingBottom: "10px" }}>
+              <h4 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 700, color: isWarm ? "var(--accent-blue)" : "var(--accent-blue-light)" }}>
                 💡 {selectedMetric.label || selectedMetric.name}
               </h4>
               <button className="btn btn-outline btn-sm" onClick={() => setSelectedMetric(null)} style={{ minWidth: "24px", padding: 0, height: "24px", borderRadius: "50%", fontSize: "0.8rem" }}>✕</button>
@@ -1940,9 +1935,9 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
             {/* Diagnostic Result */}
             {selectedMetric.result && (
               <div style={{ 
-                background: selectedMetric.isPassed ? "rgba(76,175,80,0.08)" : selectedMetric.isFailed ? "rgba(255,82,82,0.08)" : "rgba(255,255,255,0.03)",
-                border: `1px solid ${selectedMetric.isPassed ? "rgba(76,175,80,0.2)" : selectedMetric.isFailed ? "rgba(255,82,82,0.2)" : "rgba(255,255,255,0.08)"}`,
-                color: selectedMetric.isPassed ? "#81c784" : selectedMetric.isFailed ? "#ef9a9a" : "var(--text-secondary)",
+                background: selectedMetric.isPassed ? (isWarm ? "rgba(22, 163, 74, 0.1)" : "rgba(76,175,80,0.08)") : selectedMetric.isFailed ? (isWarm ? "rgba(220, 38, 38, 0.1)" : "rgba(255,82,82,0.08)") : (isWarm ? "rgba(140, 110, 80, 0.08)" : "rgba(255,255,255,0.03)"),
+                border: `1px solid ${selectedMetric.isPassed ? (isWarm ? "rgba(22, 163, 74, 0.3)" : "rgba(76,175,80,0.2)") : selectedMetric.isFailed ? (isWarm ? "rgba(220, 38, 38, 0.3)" : "rgba(255,82,82,0.2)") : (isWarm ? "rgba(140, 110, 80, 0.2)" : "rgba(255,255,255,0.08)")}`,
+                color: selectedMetric.isPassed ? (isWarm ? "#15803d" : "#81c784") : selectedMetric.isFailed ? (isWarm ? "#dc2626" : "#ef9a9a") : (isWarm ? "#57534e" : "var(--text-secondary)"),
                 padding: "10px 12px", borderRadius: "6px", fontSize: "0.88rem"
               }}>
                 <strong>當前診斷：</strong>{selectedMetric.result}
@@ -1950,7 +1945,7 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
             )}
             
             {/* Explanation Text */}
-            <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", lineHeight: 1.5 }}>
+            <div style={{ fontSize: "0.85rem", color: isWarm ? "#44403c" : "var(--text-secondary)", lineHeight: 1.5 }}>
               {selectedMetric.explanation}
             </div>
 

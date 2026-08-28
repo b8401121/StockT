@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { User } from "firebase/auth";
 import { toggleFullscreen } from "./utils/platform";
 import { onAuthChange, logoutUser } from "./utils/firebase";
+import { useAppTheme } from "./utils/theme";
 import "./index.css";
 import { AuthScreen } from "./components/AuthScreen";
 import { AnalysisTab } from "./components/AnalysisTab";
@@ -16,6 +17,8 @@ import { loadStocks, updateStocks } from "./utils/stocks";
 type TabId = "analysis" | "scanner" | "fundamental" | "hybrid" | "ai_alpha" | "watchlist";
 
 export default function App() {
+  const [theme, , toggleTheme] = useAppTheme();
+  const isWarm = theme === "warm";
   const [activeTab, setActiveTab] = useState<TabId>("analysis");
   const [visitedTabs, setVisitedTabs] = useState<Set<TabId>>(() => new Set(["analysis"]));
   const [analyzeTarget, setAnalyzeTarget] = useState<string>("");
@@ -93,7 +96,7 @@ export default function App() {
   // 初始化中（等待 Firebase 回應）
   if (authUser === undefined) {
     return (
-      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", background: "#0d0f17", color: "rgba(255,255,255,0.5)", fontSize: "0.9rem" }}>
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", background: isWarm ? "#f6f1e8" : "#0d0f17", color: isWarm ? "#57534e" : "rgba(255,255,255,0.5)", fontSize: "0.9rem" }}>
         ⏳ 初始化中...
       </div>
     );
@@ -133,25 +136,47 @@ export default function App() {
           })}
         </nav>
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          {/* 主題切換按鈕 */}
+          <button
+            onClick={toggleTheme}
+            style={{
+              background: isWarm ? "rgba(217, 119, 6, 0.15)" : "rgba(255, 255, 255, 0.08)",
+              border: `1px solid ${isWarm ? "rgba(217, 119, 6, 0.45)" : "rgba(255, 255, 255, 0.2)"}`,
+              color: isWarm ? "#b45309" : "#ffd740",
+              padding: "4px 10px",
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontSize: "0.8rem",
+              fontWeight: 700,
+              display: "flex",
+              alignItems: "center",
+              gap: "5px",
+              transition: "all 0.2s ease",
+            }}
+            title={`點擊切換為${isWarm ? "深色暗夜" : "溫潤暖色"}主題`}
+          >
+            {isWarm ? "🌅 暖色系" : "🌙 深色系"}
+          </button>
+
           {/* 用戶資訊 / 登出 */}
           {isLoggedIn ? (
             <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-              <span style={{ fontSize: "0.78rem", color: "rgba(255,255,255,0.6)", padding: "4px 8px", background: "rgba(255,255,255,0.05)", borderRadius: "6px" }}>
+              <span style={{ fontSize: "0.78rem", color: isWarm ? "#57534e" : "rgba(255,255,255,0.6)", padding: "4px 8px", background: isWarm ? "rgba(140, 110, 80, 0.1)" : "rgba(255,255,255,0.05)", borderRadius: "6px" }}>
                 👤 {username || "用戶"}
               </span>
               <button
                 onClick={handleLogout}
                 style={{
-                  background: "rgba(255,82,82,0.12)", border: "1px solid rgba(255,82,82,0.3)",
-                  color: "#ff8a80", borderRadius: "6px", padding: "4px 10px",
-                  cursor: "pointer", fontSize: "0.78rem"
+                  background: isWarm ? "rgba(220,38,38,0.12)" : "rgba(255,82,82,0.12)", border: `1px solid ${isWarm ? "rgba(220,38,38,0.3)" : "rgba(255,82,82,0.3)"}`,
+                  color: isWarm ? "#dc2626" : "#ff8a80", borderRadius: "6px", padding: "4px 10px",
+                  cursor: "pointer", fontSize: "0.78rem", fontWeight: 600
                 }}
               >
                 登出
               </button>
             </div>
           ) : (
-            <span style={{ fontSize: "0.78rem", color: "rgba(255,255,255,0.35)", padding: "4px 8px" }}>
+            <span style={{ fontSize: "0.78rem", color: isWarm ? "#71717a" : "rgba(255,255,255,0.35)", padding: "4px 8px" }}>
               👀 訪客模式
             </span>
           )}
@@ -161,16 +186,16 @@ export default function App() {
           {/* 全螢幕按鈕 */}
           <button
             onClick={async () => await toggleFullscreen()}
-            style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.2)", color: "white", padding: "4px 8px", borderRadius: "4px", cursor: "pointer", fontSize: "0.8rem" }}
+            style={{ background: isWarm ? "rgba(140, 110, 80, 0.08)" : "transparent", border: `1px solid ${isWarm ? "rgba(140, 110, 80, 0.25)" : "rgba(255,255,255,0.2)"}`, color: isWarm ? "#18181b" : "white", padding: "4px 8px", borderRadius: "4px", cursor: "pointer", fontSize: "0.8rem" }}
             title="全螢幕 (Alt+Enter)"
           >
             🔲
           </button>
           <div style={{
             fontSize: "0.75rem", padding: "4px 8px", borderRadius: "6px",
-            background: isUpdating ? "rgba(235,94,40,0.15)" : "rgba(255,255,255,0.05)",
-            border: isUpdating ? "1px solid rgba(235,94,40,0.3)" : "1px solid rgba(255,255,255,0.1)",
-            color: isUpdating ? "#eb5e28" : "rgba(255,255,255,0.6)",
+            background: isUpdating ? (isWarm ? "rgba(217, 119, 6, 0.15)" : "rgba(235,94,40,0.15)") : (isWarm ? "rgba(140, 110, 80, 0.1)" : "rgba(255,255,255,0.05)"),
+            border: isUpdating ? "1px solid rgba(217,119,6,0.3)" : (isWarm ? "1px solid rgba(140,110,80,0.2)" : "1px solid rgba(255,255,255,0.1)"),
+            color: isUpdating ? (isWarm ? "#b45309" : "#eb5e28") : (isWarm ? "#57534e" : "rgba(255,255,255,0.6)"),
           }}>
             {stockStatus}
           </div>
