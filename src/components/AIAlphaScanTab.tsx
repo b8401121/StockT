@@ -1,4 +1,4 @@
-import { mkMops, mkYahoo, StockData } from "../utils/platform";
+import { mkMops, mkYahoo, OhlcvData } from "../utils/platform";
 import React, { useState, useRef, useEffect } from "react";
 import { StockInfoFull } from "../utils/analysis";
 import { evaluateAIAlpha, AIAlphaResult, fmtFixed, metricVal } from "../utils/aiAlphaModel";
@@ -140,12 +140,10 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
     try {
       const allKeys = Object.keys(fundamentalsMap);
       const targetKeys = filterSymbolsByMarket(allKeys, fundamentalsMap, market);
-
       const total = targetKeys.length;
-      setProgressMsg(`【階段 1/2】全市場快速多因子初篩 (${total} 檔)...`);
 
       const selectedStrat = STRATEGIES.find(s => s.id === strategy) || STRATEGIES[0];
-      const preliminaryList: { key: string; symbol: string; curP: number; prevP: number; info: StockInfoFull; aiResult: AIAlphaResult }[] = [];
+      const matchedStocks: RankedAlphaStock[] = [];
 
       const safeNum = (v: any) => {
         if (v == null || v === "Infinity" || v === "-Infinity" || v === "NaN" || v === "") return undefined;
@@ -154,128 +152,62 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
       };
 
       // ──────────────────────────────────────────────────────────────────────────
-      // 階段 1：全市場基本面與財務特徵高速初篩 (即時 Progressive 渲染)
+      // 🚀 方案 B：全市場直接 17 維真實多因子評估 (無 Candidate-Gating 偏誤)
       // ──────────────────────────────────────────────────────────────────────────
-      for (let i = 0; i < total; i++) {
+      const BATCH_SIZE = 16;
+      for (let i = 0; i < total; i += BATCH_SIZE) {
         if (cancelRef.current) break;
-        const key = targetKeys[i];
-        const p = fundamentalsMap[key] || {};
-        const symbol = p.symbol || `${key}.TW`;
 
-        const curP = p.close_price || p.current_price || p.c || 0;
-        const prevP = p.previous_close || (p.close_price && p.change != null ? p.close_price - p.change : curP);
+        const chunkKeys = targetKeys.slice(i, Math.min(i + BATCH_SIZE, total));
+        const currentProgress = Math.round(((i + chunkKeys.length) / total) * 100);
+        
+        setProgress(currentProgress);
+        setProgressMsg(`正在進行 17 維多因子推論 ${i + 1}~${Math.min(i + BATCH_SIZE, total)} / ${total} 檔... (已精選 ${matchedStocks.length} 檔)`);
 
-        const info: StockInfoFull = {
-          symbol,
-          name: p.name || p.n || key,
-          current_price: mkYahoo(safeNum(curP) || 0),
-          previous_close: mkYahoo(safeNum(prevP) || 0),
-          pe: (safeNum(p.pe)) != null ? mkMops((safeNum(p.pe))!) : undefined,
-          tw_pe: (safeNum(p.tw_pe ?? p.pe)) != null ? mkMops((safeNum(p.tw_pe ?? p.pe))!) : undefined,
-          pb: (safeNum(p.pb)) != null ? mkMops((safeNum(p.pb))!) : undefined,
-          dividend_yield: (() => { const v = safeNum(p.dividend_yield) ?? (safeNum(p.dividend_yield_pct) != null ? safeNum(p.dividend_yield_pct)! / 100 : null); return v != null ? mkMops(v) : undefined; })(),
-          eps: (safeNum(p.eps)) != null ? mkMops((safeNum(p.eps))!) : undefined,
-          roe: (safeNum(p.roe)) != null ? mkMops((safeNum(p.roe))!) : undefined,
-          profit_margins: (safeNum(p.profit_margins)) != null ? mkMops((safeNum(p.profit_margins))!) : undefined,
-          gross_margins: (safeNum(p.gross_margins)) != null ? mkMops((safeNum(p.gross_margins))!) : undefined,
-          operating_margins: (safeNum(p.operating_margins)) != null ? mkMops((safeNum(p.operating_margins))!) : undefined,
-          revenue_growth: (safeNum(p.revenue_growth)) != null ? mkMops((safeNum(p.revenue_growth))!) : undefined,
-          earnings_growth: (safeNum(p.earnings_growth)) != null ? mkMops((safeNum(p.earnings_growth))!) : undefined,
-          debt_to_equity: (safeNum(p.debt_to_equity)) != null ? mkMops((safeNum(p.debt_to_equity))!) : undefined,
-          current_ratio: (safeNum(p.current_ratio)) != null ? mkMops((safeNum(p.current_ratio))!) : undefined,
-          quick_ratio: (safeNum(p.quick_ratio)) != null ? mkMops((safeNum(p.quick_ratio))!) : undefined,
-          free_cashflow: (safeNum(p.free_cashflow)) != null ? mkMops((safeNum(p.free_cashflow))!) : undefined,
-          operating_cashflow: (safeNum(p.operating_cashflow)) != null ? mkMops((safeNum(p.operating_cashflow))!) : undefined,
-          market_cap: (safeNum(p.market_cap)) != null ? mkMops((safeNum(p.market_cap))!) : undefined,
-        };
-
-        const aiResult = evaluateAIAlpha(info, curP, prevP, null);
-
-        // 基本面資料保護：至少具備 5 項以上財務/估值因子
-        if (aiResult.dataQuality.availableCount >= 5) {
-          // 💡 階段 1 初篩智慧寬鬆閥：由於尚未載入日K線(缺少6項價量動能)，需以寬鬆閥門保留具備爆發潛力的個股
-          let isPreCandidate = false;
-          if (strategy === "strong_bull") {
-            isPreCandidate = aiResult.winRatePct >= 54.0 || (metricVal(info.roe) ?? 0) >= 0.10 || (metricVal(info.revenue_growth) ?? 0) >= 0.08;
-          } else if (strategy === "solid_bull") {
-            isPreCandidate = aiResult.winRatePct >= 50.0 || (metricVal(info.roe) ?? 0) >= 0.08;
-          } else if (strategy === "finlab_momentum") {
-            isPreCandidate = aiResult.winRatePct >= 48.0 && (metricVal(info.roe) ?? 0) >= 0.05;
-          } else if (strategy === "value_alpha") {
-            isPreCandidate = (metricVal(info.roe) ?? 0) >= 0.10 && (metricVal(info.tw_pe ?? info.pe) ?? 20) <= 28;
-          } else if (strategy === "growth_alpha") {
-            isPreCandidate = (metricVal(info.revenue_growth) ?? 0) >= 0.06 || aiResult.winRatePct >= 52.0;
-          } else if (strategy === "landmine_risk") {
-            isPreCandidate = aiResult.winRatePct <= 52.0 || (metricVal(info.roe) ?? 0) < 0 || (metricVal(info.debt_to_equity) ?? 0) > 200;
-          } else {
-            isPreCandidate = selectedStrat.filterFn(aiResult, info);
-          }
-
-          if (isPreCandidate) {
-            preliminaryList.push({ key, symbol, curP, prevP, info, aiResult });
-          }
-        }
-
-        // 漸進式即時回饋：每掃描 60 檔即時更新進度與初步名單
-        if (i % 60 === 0 || i === total - 1) {
-          setProgress(Math.round(((i + 1) / total) * 35));
-          setProgressMsg(`【階段 1/2】初篩進度 ${i + 1}/${total} 檔... 已命中 ${preliminaryList.length} 檔符合標準`);
-          
-          // 即時展示目前初步命中的股票
-          const liveSorted = [...preliminaryList]
-            .sort((a, b) => (strategy === "landmine_risk" ? a.aiResult.winRatePct - b.aiResult.winRatePct : b.aiResult.winRatePct - a.aiResult.winRatePct))
-            .slice(0, 30)
-            .map((item, idx) => ({ ...item.aiResult, rank: idx + 1, info: item.info }));
-          
-          setResults(liveSorted);
-          await new Promise((r) => setTimeout(r, 0));
-        }
-      }
-
-      // 排序並選出前 80 檔優質標的進行階段 2 深度即時 OHLCV K 線加載與 17 維多因子精算
-      if (strategy === "landmine_risk") {
-        preliminaryList.sort((a, b) => a.aiResult.winRatePct - b.aiResult.winRatePct);
-      } else {
-        preliminaryList.sort((a, b) => b.aiResult.winRatePct - a.aiResult.winRatePct);
-      }
-
-      const topCandidates = preliminaryList.slice(0, 80);
-      const evaluatedList: RankedAlphaStock[] = [];
-
-      // ──────────────────────────────────────────────────────────────────────────
-      // 階段 2：深度載入即時真實 1 年期日 K 線，啟動完整 17 維價量動能技術因子
-      // ──────────────────────────────────────────────────────────────────────────
-      const BATCH_SIZE = 6;
-      for (let i = 0; i < topCandidates.length; i += BATCH_SIZE) {
-        if (cancelRef.current) break;
-        const chunk = topCandidates.slice(i, i + BATCH_SIZE);
-        const stockNames = chunk.map(c => c.info.name).join("、");
-
-        setProgressMsg(`【階段 2/2】連線分析 ${stockNames} 之即時日 K 線與動能 (${i + 1}/${topCandidates.length})...`);
-
+        // 並行批次評估當前 Chunk 的所有個股
         const chunkResults = await Promise.allSettled(
-          chunk.map(async (cand) => {
-            let liveData: StockData | null = null;
-            try {
-              liveData = await stockService.getStockData(cand.symbol, "1y");
-            } catch {}
+          chunkKeys.map(async (key) => {
+            const p = fundamentalsMap[key] || {};
+            const symbol = p.symbol || `${key}.TW`;
 
-            const curP = liveData?.info?.current_price?.value ?? cand.curP;
-            const prevP = liveData?.info?.previous_close?.value ?? cand.prevP;
-            const ohlcv = (liveData?.ohlcv && liveData.ohlcv.close.length >= 20) ? liveData.ohlcv : null;
+            const curP = p.close_price || p.current_price || p.c || 0;
+            const prevP = p.previous_close || (p.close_price && p.change != null ? p.close_price - p.change : curP);
 
-            // 若取得更豐富的即時基本面，進行增強
-            const refinedInfo: StockInfoFull = {
-              ...cand.info,
-              current_price: mkYahoo(curP),
-              previous_close: mkYahoo(prevP),
-              pe: cand.info.pe || liveData?.info?.pe,
-              roe: cand.info.roe || liveData?.info?.roe,
-              eps: cand.info.eps || liveData?.info?.eps,
+            const info: StockInfoFull = {
+              symbol,
+              name: p.name || p.n || key,
+              current_price: mkYahoo(safeNum(curP) || 0),
+              previous_close: mkYahoo(safeNum(prevP) || 0),
+              pe: (safeNum(p.pe)) != null ? mkMops((safeNum(p.pe))!) : undefined,
+              tw_pe: (safeNum(p.tw_pe ?? p.pe)) != null ? mkMops((safeNum(p.tw_pe ?? p.pe))!) : undefined,
+              pb: (safeNum(p.pb)) != null ? mkMops((safeNum(p.pb))!) : undefined,
+              dividend_yield: (() => { const v = safeNum(p.dividend_yield) ?? (safeNum(p.dividend_yield_pct) != null ? safeNum(p.dividend_yield_pct)! / 100 : null); return v != null ? mkMops(v) : undefined; })(),
+              eps: (safeNum(p.eps)) != null ? mkMops((safeNum(p.eps))!) : undefined,
+              roe: (safeNum(p.roe)) != null ? mkMops((safeNum(p.roe))!) : undefined,
+              profit_margins: (safeNum(p.profit_margins)) != null ? mkMops((safeNum(p.profit_margins))!) : undefined,
+              gross_margins: (safeNum(p.gross_margins)) != null ? mkMops((safeNum(p.gross_margins))!) : undefined,
+              operating_margins: (safeNum(p.operating_margins)) != null ? mkMops((safeNum(p.operating_margins))!) : undefined,
+              revenue_growth: (safeNum(p.revenue_growth)) != null ? mkMops((safeNum(p.revenue_growth))!) : undefined,
+              earnings_growth: (safeNum(p.earnings_growth)) != null ? mkMops((safeNum(p.earnings_growth))!) : undefined,
+              debt_to_equity: (safeNum(p.debt_to_equity)) != null ? mkMops((safeNum(p.debt_to_equity))!) : undefined,
+              current_ratio: (safeNum(p.current_ratio)) != null ? mkMops((safeNum(p.current_ratio))!) : undefined,
+              quick_ratio: (safeNum(p.quick_ratio)) != null ? mkMops((safeNum(p.quick_ratio))!) : undefined,
+              free_cashflow: (safeNum(p.free_cashflow)) != null ? mkMops((safeNum(p.free_cashflow))!) : undefined,
+              operating_cashflow: (safeNum(p.operating_cashflow)) != null ? mkMops((safeNum(p.operating_cashflow))!) : undefined,
+              market_cap: (safeNum(p.market_cap)) != null ? mkMops((safeNum(p.market_cap))!) : undefined,
             };
 
-            const fullAiResult = evaluateAIAlpha(refinedInfo, curP, prevP, ohlcv);
-            return { aiResult: fullAiResult, info: refinedInfo };
+            // 取得即時 K 線 (若有快取則秒讀)
+            let liveOhlcv: OhlcvData | null = null;
+            try {
+              const liveData = await stockService.getStockData(symbol, "1y");
+              if (liveData?.ohlcv && liveData.ohlcv.close.length >= 20) {
+                liveOhlcv = liveData.ohlcv;
+              }
+            } catch {}
+
+            const aiResult = evaluateAIAlpha(info, curP, prevP, liveOhlcv);
+            return { aiResult, info };
           })
         );
 
@@ -283,45 +215,42 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
           if (res.status === "fulfilled") {
             const { aiResult, info } = res.value;
 
-            // 🛡️ Data Quality Gate: 要求至少 10 項可用因子
-            if (strategy !== "landmine_risk" && aiResult.dataQuality.availableCount < 10) {
-              continue;
-            }
-
-            // 🎯 嚴格執行策略勝率與指標門檻過濾
-            if (selectedStrat.filterFn(aiResult, info)) {
-              evaluatedList.push({
-                ...aiResult,
-                rank: 0,
-                info,
-              });
+            // 基本資料保護 Gate
+            if (aiResult.dataQuality.availableCount >= 5) {
+              if (selectedStrat.filterFn(aiResult, info)) {
+                matchedStocks.push({
+                  ...aiResult,
+                  rank: 0,
+                  info,
+                });
+              }
             }
           }
         }
 
-        // 漸進式即時刷新最終 17 因子精算表格
-        const currentRanked = [...evaluatedList].sort((a, b) => (strategy === "landmine_risk" ? a.winRatePct - b.winRatePct : b.winRatePct - a.winRatePct));
+        // 漸進式即時截面排序展示
+        const currentRanked = [...matchedStocks].sort((a, b) => 
+          strategy === "landmine_risk" ? a.winRatePct - b.winRatePct : b.winRatePct - a.winRatePct
+        );
         currentRanked.forEach((item, idx) => { item.rank = idx + 1; });
         setResults(currentRanked);
 
-        const processed = Math.min(i + BATCH_SIZE, topCandidates.length);
-        setProgress(35 + Math.round((processed / topCandidates.length) * 65));
         await new Promise((r) => setTimeout(r, 0));
       }
 
       if (strategy === "landmine_risk") {
-        evaluatedList.sort((a, b) => a.winRatePct - b.winRatePct);
+        matchedStocks.sort((a, b) => a.winRatePct - b.winRatePct);
       } else {
-        evaluatedList.sort((a, b) => b.winRatePct - a.winRatePct);
+        matchedStocks.sort((a, b) => b.winRatePct - a.winRatePct);
       }
 
-      evaluatedList.forEach((item, idx) => {
+      matchedStocks.forEach((item, idx) => {
         item.rank = idx + 1;
       });
 
-      setResults(evaluatedList);
+      setResults(matchedStocks);
       setProgress(100);
-      setProgressMsg(`🎉 評估完成！共精選出 ${evaluatedList.length} 檔 17 維多因子即時標的`);
+      setProgressMsg(`🎉 評估完成！共精選出 ${matchedStocks.length} 檔 17 維多因子即時標的`);
     } catch (e: any) {
       setProgressMsg(`評估錯誤: ${e.message}`);
     } finally {
