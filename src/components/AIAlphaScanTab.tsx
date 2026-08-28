@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { StockInfoFull } from "../utils/analysis";
-import { evaluateAIAlpha, AIAlphaResult } from "../utils/aiAlphaModel";
+import { evaluateAIAlpha, AIAlphaResult, fmtFixed } from "../utils/aiAlphaModel";
 import { HardwareBadge } from "./HardwareBadge";
 import { AddToWatchlistBtn } from "./AddToWatchlistBtn";
 import twseFundamentals from "../utils/twse_mops_fundamentals.json";
@@ -230,10 +230,10 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
           <td><b>#${r.rank}</b></td>
           <td><b>${r.symbol.split(".")[0]}</b></td>
           <td>${r.name}</td>
-          <td><span class="badge-win">${r.winRatePct.toFixed(1)}%</span></td>
-          <td style="color:#38bdf8; font-weight:bold;">${r.expectedAlphaPct >= 0 ? '+' : ''}${r.expectedAlphaPct.toFixed(1)}%</td>
+          <td><span class="badge-win">${fmtFixed(r.winRatePct, 1)}%</span></td>
+          <td style="color:#38bdf8; font-weight:bold;">${r.expectedAlphaPct >= 0 ? '+' : ''}${fmtFixed(r.expectedAlphaPct, 1)}%</td>
           <td><span class="badge-tier">${r.convictionTier}</span></td>
-          <td>PE: ${r.info.tw_pe?.toFixed(1) ?? r.info.pe?.toFixed(1) ?? "-"} | ROE: ${r.info.roe != null ? (r.info.roe * 100).toFixed(1) + "%" : "-"}</td>
+          <td>PE: ${fmtFixed(r.info.tw_pe ?? r.info.pe, 1, "-")} | ROE: ${r.info.roe != null ? fmtFixed(r.info.roe * 100, 1) + "%" : "-"}</td>
           <td>${r.positiveDrivers.join("、") || r.riskDrivers.join("、")}</td>
         </tr>
       `).join("")}
@@ -346,12 +346,12 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
                           <div style={{ height: "100%", width: `${r.winRatePct}%`, background: winColor }} />
                         </div>
                         <span style={{ fontWeight: 800, color: winColor, minWidth: "46px", textAlign: "right" }}>
-                          {r.winRatePct.toFixed(1)}%
+                          {fmtFixed(r.winRatePct, 1)}%
                         </span>
                       </div>
                     </td>
                     <td style={{ fontWeight: 700, color: r.expectedAlphaPct >= 0 ? "#38bdf8" : "#94a3b8" }}>
-                      {r.expectedAlphaPct >= 0 ? "+" : ""}{r.expectedAlphaPct.toFixed(1)}%
+                      {r.expectedAlphaPct >= 0 ? "+" : ""}{fmtFixed(r.expectedAlphaPct, 1)}%
                     </td>
                     <td>
                       <span className="badge" style={{
@@ -371,8 +371,8 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
                       )}
                     </td>
                     <td style={{ fontSize: "0.78rem", color: "var(--text-muted)" }}>
-                      <div>PE: <b style={{ color: "var(--text-primary)" }}>{r.info.tw_pe?.toFixed(1) ?? r.info.pe?.toFixed(1) ?? "-"}</b></div>
-                      <div>ROE: <b style={{ color: (r.info.roe ?? 0) >= 0.15 ? "var(--accent-red)" : "var(--text-primary)" }}>{r.info.roe != null ? (r.info.roe * 100).toFixed(1) + "%" : "-"}</b></div>
+                      <div>PE: <b style={{ color: "var(--text-primary)" }}>{fmtFixed(r.info.tw_pe ?? r.info.pe, 1, "-")}</b></div>
+                      <div>ROE: <b style={{ color: (r.info.roe ?? 0) >= 0.15 ? "var(--accent-red)" : "var(--text-primary)" }}>{r.info.roe != null ? fmtFixed(r.info.roe * 100, 1) + "%" : "-"}</b></div>
                     </td>
                     <td>
                       <button
@@ -441,7 +441,7 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
                   🧠 {selectedStockForDetail.name} ({selectedStockForDetail.symbol.split(".")[0]}) 17 維神經網路因子全景
                 </span>
                 <div style={{ fontSize: "0.82rem", color: "#c084fc", marginTop: "2px" }}>
-                  20 日超額勝率：<b>{selectedStockForDetail.winRatePct.toFixed(1)}%</b> ｜ 評級：<b>{selectedStockForDetail.convictionTier}</b> ｜ 預估 Alpha：<b>{selectedStockForDetail.expectedAlphaPct >= 0 ? '+' : ''}{selectedStockForDetail.expectedAlphaPct.toFixed(1)}%</b>
+                  20 日超額勝率：<b>{fmtFixed(selectedStockForDetail.winRatePct, 1)}%</b> ｜ 評級：<b>{selectedStockForDetail.convictionTier}</b> ｜ 預估 Alpha：<b>{selectedStockForDetail.expectedAlphaPct >= 0 ? '+' : ''}{fmtFixed(selectedStockForDetail.expectedAlphaPct, 1)}%</b>
                 </div>
               </div>
               <button

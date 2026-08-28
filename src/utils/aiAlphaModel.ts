@@ -31,6 +31,21 @@ function sigmoid(x: number): number {
   return 1 / (1 + Math.exp(-Math.max(-10, Math.min(10, x))));
 }
 
+export function fmtFixed(v: any, digits = 1, fallback = "-"): string {
+  if (v == null || v === "" || v === "Infinity" || v === "-Infinity" || v === "NaN") return fallback;
+  const num = Number(v);
+  if (isNaN(num) || !isFinite(num)) return fallback;
+  return num.toFixed(digits);
+}
+
+export function toSafeNum(v: any, fallback: number): number;
+export function toSafeNum(v: any, fallback?: number | null): number | null;
+export function toSafeNum(v: any, fallback: number | null = null): number | null {
+  if (v == null || v === "" || v === "Infinity" || v === "-Infinity" || v === "NaN") return fallback;
+  const num = Number(v);
+  return isNaN(num) || !isFinite(num) ? fallback : num;
+}
+
 /**
  * 提取 17 維正規化特徵向量
  */
@@ -45,31 +60,31 @@ export function extract17Features(info: StockInfoFull, curPrice: number, prevClo
   let riskPenalty = 0;
 
   // 1. ROE (基準 10%)
-  const roe = info.roe ?? 0.08;
+  const roe = toSafeNum(info.roe, 0.08);
   let f_roe = 0;
   if (roe >= 0.20) {
     f_roe = Math.min(3, (roe - 0.10) / 0.10);
-    posLabels.push(`高獲利 ROE ${(roe * 100).toFixed(1)}%`);
+    posLabels.push(`高獲利 ROE ${fmtFixed(roe * 100, 1)}%`);
   } else if (roe >= 0.10) {
     f_roe = (roe - 0.10) / 0.10;
   } else if (roe < 0) {
     f_roe = Math.max(-4.0, roe * 6.0); // 嚴重虧損大幅扣分
-    negLabels.push(`ROE虧損 ${(roe * 100).toFixed(1)}%`);
+    negLabels.push(`ROE虧損 ${fmtFixed(roe * 100, 1)}%`);
     riskPenalty += 1.5;
   } else {
     f_roe = (roe - 0.10) / 0.10;
   }
 
   // 2. 毛利率與淨利率聯動（避免虛假高毛利陷阱）
-  const gm = info.gross_margins ?? 0.20;
-  const nm = info.profit_margins ?? 0.08;
+  const gm = toSafeNum(info.gross_margins, 0.20);
+  const nm = toSafeNum(info.profit_margins, 0.08);
 
   let f_gm = (gm - 0.25) / 0.18;
   let f_nm = 0;
 
   if (nm < 0) {
     f_nm = Math.max(-4.0, nm * 6.0);
-    negLabels.push(`本業淨利嚴重虧損 ${(nm * 100).toFixed(1)}%`);
+    negLabels.push(`本業淨利嚴重虧損 ${fmtFixed(nm * 100, 1)}%`);
     riskPenalty += 1.5;
     // 若毛利高但淨利大虧，視為費用失控或業外黑洞，壓低毛利得分
     if (gm > 0.50) {
@@ -78,90 +93,90 @@ export function extract17Features(info: StockInfoFull, curPrice: number, prevClo
     }
   } else if (nm >= 0.20) {
     f_nm = Math.min(2.5, (nm - 0.10) / 0.12);
-    posLabels.push(`高淨利 ${(nm * 100).toFixed(1)}%`);
+    posLabels.push(`高淨利 ${fmtFixed(nm * 100, 1)}%`);
   }
 
   if (gm >= 0.40 && nm > 0) {
-    posLabels.push(`高毛利率 ${(gm * 100).toFixed(1)}%`);
+    posLabels.push(`高毛利率 ${fmtFixed(gm * 100, 1)}%`);
   }
 
   // 3. EPS 獲利能力
-  const eps = info.eps ?? (curPrice > 0 ? curPrice / 20 : 3.0);
+  const eps = toSafeNum(info.eps, curPrice > 0 ? curPrice / 20 : 3.0);
   let f_eps = 0;
   if (eps > 0) {
     f_eps = Math.min(2.5, Math.log1p(eps) / 1.5);
-    if (eps >= 8.0) posLabels.push(`EPS優異 ${eps.toFixed(2)}元`);
+    if (eps >= 8.0) posLabels.push(`EPS優異 ${fmtFixed(eps, 2)}元`);
   } else {
     f_eps = -3.5; // 虧損股嚴重扣分
-    negLabels.push(`每股虧損 EPS ${eps.toFixed(2)}元`);
+    negLabels.push(`每股虧損 EPS ${fmtFixed(eps, 2)}元`);
     riskPenalty += 1.5;
   }
 
   // 4. 營收成長率 YoY
-  const revGrowth = info.revenue_growth ?? 0.05;
+  const revGrowth = toSafeNum(info.revenue_growth, 0.05);
   const f_rev = Math.max(-2.5, Math.min(2.5, revGrowth / 0.20));
-  if (revGrowth >= 0.20) posLabels.push(`營收高成長 +${(revGrowth * 100).toFixed(1)}%`);
-  else if (revGrowth < -0.10) negLabels.push(`營收衰退 ${(revGrowth * 100).toFixed(1)}%`);
+  if (revGrowth >= 0.20) posLabels.push(`營收高成長 +${fmtFixed(revGrowth * 100, 1)}%`);
+  else if (revGrowth < -0.10) negLabels.push(`營收衰退 ${fmtFixed(revGrowth * 100, 1)}%`);
 
   // 5. 盈餘成長率 YoY
-  const earnGrowth = info.earnings_growth ?? 0.05;
+  const earnGrowth = toSafeNum(info.earnings_growth, 0.05);
   const f_earn = Math.max(-2, Math.min(2.5, earnGrowth / 0.25));
-  if (earnGrowth >= 0.25 && eps > 0) posLabels.push(`盈餘大幅增長 +${(earnGrowth * 100).toFixed(1)}%`);
+  if (earnGrowth >= 0.25 && eps > 0) posLabels.push(`盈餘大幅增長 +${fmtFixed(earnGrowth * 100, 1)}%`);
 
   // 6. 本益比合理性 (5~22 倍最佳，虧損公司 PE 無意義)
-  const pe = info.tw_pe ?? info.pe ?? (curPrice > 0 && eps > 0 ? curPrice / eps : null);
+  const pe = toSafeNum(info.tw_pe ?? info.pe, (curPrice > 0 && eps > 0 ? curPrice / eps : null));
   let f_pe = 0;
   if (eps <= 0) {
     f_pe = -2.0;
   } else if (pe && pe > 0 && pe <= 20) {
     f_pe = (20 - pe) / 10;
-    if (pe <= 15) posLabels.push(`低本益比 ${pe.toFixed(1)}倍`);
+    if (pe <= 15) posLabels.push(`低本益比 ${fmtFixed(pe, 1)}倍`);
   } else if (pe && pe > 50) {
     f_pe = -1.5;
-    negLabels.push(`本益比偏高 ${pe.toFixed(1)}倍`);
+    negLabels.push(`本益比偏高 ${fmtFixed(pe, 1)}倍`);
   }
 
   // 7. 股價淨值比 PB
-  const pb = info.pb ?? 2.0;
+  const pb = toSafeNum(info.pb, 2.0);
   let f_pb = 0;
   if (pb > 0 && pb <= 1.5 && roe > 0) {
     f_pb = Math.max(-2, (2.5 - pb) / 1.5);
-    posLabels.push(`低PB ${pb.toFixed(1)}倍`);
+    posLabels.push(`低PB ${fmtFixed(pb, 1)}倍`);
   } else if (pb > 4.0 && roe < 0) {
     f_pb = -2.5;
-    negLabels.push(`虧損且PB高達 ${pb.toFixed(1)}倍`);
+    negLabels.push(`虧損且PB高達 ${fmtFixed(pb, 1)}倍`);
     riskPenalty += 1.0;
   }
 
   // 8. 現金殖利率 (>= 4% 佳)
-  const dy = info.dividend_yield ?? 0.035;
+  const dy = toSafeNum(info.dividend_yield, 0.035);
   const f_dy = eps > 0 && dy >= 0.04 ? Math.min(2, (dy - 0.035) / 0.025) : -0.5;
-  if (dy >= 0.05 && eps > 0) posLabels.push(`高殖利率 ${(dy * 100).toFixed(1)}%`);
+  if (dy >= 0.05 && eps > 0) posLabels.push(`高殖利率 ${fmtFixed(dy * 100, 1)}%`);
 
   // 9. 負債比率 (< 60% 佳, > 200% 極度危險)
-  const de = info.debt_to_equity ?? 60;
+  const de = toSafeNum(info.debt_to_equity, 60);
   let f_de = 0;
   if (de > 250) {
     f_de = -3.5;
-    negLabels.push(`高負債比 ${de.toFixed(0)}% (財務槓桿過大)`);
+    negLabels.push(`高負債比 ${fmtFixed(de, 0)}% (財務槓桿過大)`);
     riskPenalty += 1.5;
   } else {
     f_de = Math.max(-2, Math.min(2, (120 - de) / 60));
   }
 
   // 10. 流動比率 (< 1.0 短期償債困難)
-  const cr = info.current_ratio ?? 1.8;
+  const cr = toSafeNum(info.current_ratio, 1.8);
   let f_cr = 0;
   if (cr < 1.0) {
     f_cr = -2.5;
-    negLabels.push(`流動比率偏低 (${cr.toFixed(2)}) 償債壓力大`);
+    negLabels.push(`流動比率偏低 (${fmtFixed(cr, 2)}) 償債壓力大`);
     riskPenalty += 1.0;
   } else {
     f_cr = Math.max(-1.5, Math.min(2, (cr - 1.5) / 1.0));
   }
 
   // 11. 自由現金流
-  const fcf = info.free_cashflow ?? 50000000;
+  const fcf = toSafeNum(info.free_cashflow, 50000000);
   const f_fcf = fcf > 0 ? 1.0 : -2.5;
   if (fcf > 0) posLabels.push(`自由現金流入正向`);
   else {
@@ -172,8 +187,8 @@ export function extract17Features(info: StockInfoFull, curPrice: number, prevClo
   // 12. 當日盤面漲跌力道
   const changePct = prevClose > 0 ? ((curPrice - prevClose) / prevClose) * 100 : 0;
   const f_change = Math.max(-3.0, Math.min(3.0, changePct / 2.5));
-  if (changePct >= 2.5 && eps > 0 && roe > 0) posLabels.push(`盤面強勢 +${changePct.toFixed(2)}%`);
-  else if (changePct <= -3.0) negLabels.push(`盤面弱勢 ${changePct.toFixed(2)}%`);
+  if (changePct >= 2.5 && eps > 0 && roe > 0) posLabels.push(`盤面強勢 +${fmtFixed(changePct, 2)}%`);
+  else if (changePct <= -3.0) negLabels.push(`盤面弱勢 ${fmtFixed(changePct, 2)}%`);
 
   // 13. FinLab 核心因子 ①：120日中期波段動能 (120-Day Momentum)
   // 由 52 週高低與現價位階估算 120 日動能趨勢
@@ -258,18 +273,18 @@ export function evaluateAIAlpha(
 
   const winRatePct = Number((rawProb * 100).toFixed(1));
   const expectedAlphaPct = Number(((rawProb - 0.50) * 24.0).toFixed(1));
-  const roeVal = info.roe ?? 0.08;
-  const gmVal = info.gross_margins ?? 0.20;
-  const nmVal = info.profit_margins ?? 0.08;
-  const epsVal = info.eps ?? (curPrice > 0 ? curPrice / 20 : 3.0);
-  const revVal = info.revenue_growth ?? 0.05;
-  const earnVal = info.earnings_growth ?? 0.05;
-  const peVal = info.tw_pe ?? info.pe;
-  const pbVal = info.pb ?? 2.0;
-  const dyVal = info.dividend_yield ?? 0.035;
-  const deVal = info.debt_to_equity ?? 60;
-  const crVal = info.current_ratio ?? 1.8;
-  const fcfVal = info.free_cashflow ?? 50000000;
+  const roeVal = toSafeNum(info.roe, 0.08);
+  const gmVal = toSafeNum(info.gross_margins, 0.20);
+  const nmVal = toSafeNum(info.profit_margins, 0.08);
+  const epsVal = toSafeNum(info.eps, (curPrice > 0 ? curPrice / 20 : 3.0));
+  const revVal = toSafeNum(info.revenue_growth, 0.05);
+  const earnVal = toSafeNum(info.earnings_growth, 0.05);
+  const peVal = toSafeNum(info.tw_pe ?? info.pe, null);
+  const pbVal = toSafeNum(info.pb, 2.0);
+  const dyVal = toSafeNum(info.dividend_yield, 0.035);
+  const deVal = toSafeNum(info.debt_to_equity, 60);
+  const crVal = toSafeNum(info.current_ratio, 1.8);
+  const fcfVal = toSafeNum(info.free_cashflow, 50000000);
   const changePct = prevClose > 0 ? ((curPrice - prevClose) / prevClose) * 100 : 0;
 
   const allFactors: AIFactorItem[] = [
@@ -277,7 +292,7 @@ export function evaluateAIAlpha(
       id: 1,
       category: "基本獲利能力",
       name: "1. ROE 股東權益報酬率",
-      valueDisplay: `${(roeVal * 100).toFixed(1)}%`,
+      valueDisplay: `${fmtFixed(roeVal * 100, 1)}%`,
       status: roeVal >= 0.15 ? "positive" : roeVal < 0 ? "negative" : "neutral",
       impact: roeVal >= 0.15 ? "+0.35 (極優)" : roeVal < 0 ? "-0.60 (虧損)" : "+0.10 (常態)",
       explanation: roeVal >= 0.15 ? "股東資金回報率極高，具備護城河與定價權" : roeVal < 0 ? "股東權益遭到虧損侵蝕，高風險" : "獲利能力符合市場常態",
@@ -286,7 +301,7 @@ export function evaluateAIAlpha(
       id: 2,
       category: "基本獲利能力",
       name: "2. 營業毛利率",
-      valueDisplay: `${(gmVal * 100).toFixed(1)}%`,
+      valueDisplay: `${fmtFixed(gmVal * 100, 1)}%`,
       status: (gmVal >= 0.35 && nmVal > 0) ? "positive" : (nmVal < 0 && gmVal > 0.5) ? "negative" : gmVal < 0.15 ? "negative" : "neutral",
       impact: (gmVal >= 0.35 && nmVal > 0) ? "+0.25 (高毛利)" : (nmVal < 0 && gmVal > 0.5) ? "-0.20 (背離)" : "0.00",
       explanation: (nmVal < 0 && gmVal > 0.5) ? "毛利高但本業大虧，存在虛假毛利與費用黑洞" : gmVal >= 0.35 ? "產品附加價值高，抗通膨能力強" : "產品毛利率處於常態水準",
@@ -295,7 +310,7 @@ export function evaluateAIAlpha(
       id: 3,
       category: "基本獲利能力",
       name: "3. 本業淨利率",
-      valueDisplay: `${(nmVal * 100).toFixed(1)}%`,
+      valueDisplay: `${fmtFixed(nmVal * 100, 1)}%`,
       status: nmVal >= 0.15 ? "positive" : nmVal < 0 ? "negative" : "neutral",
       impact: nmVal >= 0.15 ? "+0.30 (優異)" : nmVal < 0 ? "-0.55 (虧損)" : "+0.05",
       explanation: nmVal >= 0.15 ? "本業獲利轉化能力強，落袋資金充裕" : nmVal < 0 ? "本業虧損，營運承壓" : "淨利率維持合理水準",
@@ -304,7 +319,7 @@ export function evaluateAIAlpha(
       id: 4,
       category: "基本獲利能力",
       name: "4. 每股盈餘 (EPS TTM)",
-      valueDisplay: `${epsVal.toFixed(2)} 元`,
+      valueDisplay: `${fmtFixed(epsVal, 2)} 元`,
       status: epsVal >= 6.0 ? "positive" : epsVal < 0 ? "negative" : "neutral",
       impact: epsVal >= 6.0 ? "+0.30 (高獲利)" : epsVal < 0 ? "-0.50 (虧損)" : "+0.10",
       explanation: epsVal >= 6.0 ? "每股獲利豐厚，配息與再投資底氣足" : epsVal < 0 ? "每股虧損，無基本面底氣" : "獲利穩定",
@@ -313,7 +328,7 @@ export function evaluateAIAlpha(
       id: 5,
       category: "基本獲利能力",
       name: "5. 營收成長率 (YoY)",
-      valueDisplay: `${(revVal * 100).toFixed(1)}%`,
+      valueDisplay: `${fmtFixed(revVal * 100, 1)}%`,
       status: revVal >= 0.15 ? "positive" : revVal < -0.10 ? "negative" : "neutral",
       impact: revVal >= 0.15 ? "+0.28 (高成長)" : revVal < -0.10 ? "-0.30 (衰退)" : "0.00",
       explanation: revVal >= 0.15 ? "出貨量與營收爆發，業務擴張強勁" : revVal < -0.10 ? "營收明顯衰退，市場需求走弱" : "營收維持平穩",
@@ -322,7 +337,7 @@ export function evaluateAIAlpha(
       id: 6,
       category: "基本獲利能力",
       name: "6. 盈餘成長率 (YoY)",
-      valueDisplay: `${(earnVal * 100).toFixed(1)}%`,
+      valueDisplay: `${fmtFixed(earnVal * 100, 1)}%`,
       status: (earnVal >= 0.20 && epsVal > 0) ? "positive" : (earnVal < -0.15 || epsVal < 0) ? "negative" : "neutral",
       impact: (earnVal >= 0.20 && epsVal > 0) ? "+0.25 (擴張)" : "-0.15",
       explanation: (earnVal >= 0.20 && epsVal > 0) ? "獲利增長速度超越營收，獲利品質躍升" : "獲利增長力道有限或衰退",
@@ -331,7 +346,7 @@ export function evaluateAIAlpha(
       id: 7,
       category: "財務穩健與估值",
       name: "7. 自由現金流 (FCF)",
-      valueDisplay: `${(fcfVal / 1e8).toFixed(2)} 億`,
+      valueDisplay: `${fmtFixed(fcfVal / 1e8, 2)} 億`,
       status: fcfVal > 0 ? "positive" : "negative",
       impact: fcfVal > 0 ? "+0.20 (充沛)" : "-0.40 (燒錢)",
       explanation: fcfVal > 0 ? "營業活動扣除資本支出後仍有淨流入，真金白銀入袋" : "自由現金流為負，持續燒錢營運",
@@ -340,7 +355,7 @@ export function evaluateAIAlpha(
       id: 8,
       category: "財務穩健與估值",
       name: "8. 負債 / 權益比 (D/E)",
-      valueDisplay: `${deVal.toFixed(1)}%`,
+      valueDisplay: `${fmtFixed(deVal, 1)}%`,
       status: deVal <= 60 ? "positive" : deVal > 200 ? "negative" : "neutral",
       impact: deVal <= 60 ? "+0.15 (安全)" : deVal > 200 ? "-0.45 (高槓桿)" : "0.00",
       explanation: deVal > 200 ? "財務槓桿過高，利息支出沉重，抗景氣逆風能力差" : deVal <= 60 ? "資本結構穩健，無破產違約疑慮" : "負債比處於合理範圍",
@@ -349,7 +364,7 @@ export function evaluateAIAlpha(
       id: 9,
       category: "財務穩健與估值",
       name: "9. 流動比率 (CR)",
-      valueDisplay: `${crVal.toFixed(2)}`,
+      valueDisplay: `${fmtFixed(crVal, 2)}`,
       status: crVal >= 1.5 ? "positive" : crVal < 1.0 ? "negative" : "neutral",
       impact: crVal >= 1.5 ? "+0.12" : crVal < 1.0 ? "-0.35 (流動性差)" : "0.00",
       explanation: crVal < 1.0 ? "短期流動資產無法覆蓋流動負債，償債壓力大" : "短期流動性健康",
@@ -358,7 +373,7 @@ export function evaluateAIAlpha(
       id: 10,
       category: "財務穩健與估值",
       name: "10. 本益比合理性 (PE)",
-      valueDisplay: peVal ? `${peVal.toFixed(1)} 倍` : "N/A",
+      valueDisplay: peVal != null ? `${fmtFixed(peVal, 1)} 倍` : "N/A",
       status: (peVal && peVal > 0 && peVal <= 20 && epsVal > 0) ? "positive" : (peVal && peVal > 50) ? "negative" : "neutral",
       impact: (peVal && peVal > 0 && peVal <= 20 && epsVal > 0) ? "+0.20 (低估/合理)" : "-0.15",
       explanation: (peVal && peVal > 0 && peVal <= 20 && epsVal > 0) ? "本益比合理，估值安全邊際高" : "估值過高或虧損無PE",
@@ -367,7 +382,7 @@ export function evaluateAIAlpha(
       id: 11,
       category: "財務穩健與估值",
       name: "11. 股價淨值比 (PB)",
-      valueDisplay: `${pbVal.toFixed(2)} 倍`,
+      valueDisplay: `${fmtFixed(pbVal, 2)} 倍`,
       status: (pbVal <= 1.5 && roeVal > 0) ? "positive" : (pbVal > 4.0 && roeVal < 0) ? "negative" : "neutral",
       impact: (pbVal <= 1.5 && roeVal > 0) ? "+0.15 (價值尋寶)" : (pbVal > 4.0 && roeVal < 0) ? "-0.30 (泡沫)" : "0.00",
       explanation: (pbVal <= 1.5 && roeVal > 0) ? "具備清算價值與價值防禦保護" : "淨值比合理或偏高",
@@ -376,7 +391,7 @@ export function evaluateAIAlpha(
       id: 12,
       category: "財務穩健與估值",
       name: "12. 現金殖利率 (DY)",
-      valueDisplay: `${(dyVal * 100).toFixed(1)}%`,
+      valueDisplay: `${fmtFixed(dyVal * 100, 1)}%`,
       status: (dyVal >= 0.045 && epsVal > 0) ? "positive" : "neutral",
       impact: (dyVal >= 0.045 && epsVal > 0) ? "+0.18 (高息保護)" : "0.00",
       explanation: (dyVal >= 0.045 && epsVal > 0) ? "高股息收益提供下檔防禦保護" : "股息殖利率一般",
@@ -385,7 +400,7 @@ export function evaluateAIAlpha(
       id: 13,
       category: "價量動能與趨勢 (FinLab)",
       name: "13. 當日盤面漲跌力道",
-      valueDisplay: `${changePct >= 0 ? '+' : ''}${changePct.toFixed(2)}%`,
+      valueDisplay: `${changePct >= 0 ? '+' : ''}${fmtFixed(changePct, 2)}%`,
       status: (changePct >= 2.0 && epsVal > 0 && roeVal > 0) ? "positive" : (changePct <= -2.5) ? "negative" : "neutral",
       impact: (changePct >= 2.0 && epsVal > 0 && roeVal > 0) ? "+0.25 (多頭起揚)" : (changePct <= -2.5) ? "-0.25 (盤面弱勢)" : "0.00",
       explanation: (changePct >= 2.0 && epsVal > 0 && roeVal > 0) ? "盤面買盤積極敲進，量價俱揚" : isLossMaking && changePct > 0 ? "虧損股無基之彈，投機過熱" : "盤面波動處於常態",
