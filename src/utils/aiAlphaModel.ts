@@ -810,12 +810,17 @@ export function evaluateAIAlpha(
     Math.max(0.1, Math.min(1.0, (overallQualityScore / 100) * (hasCoreFundamentals && hasCoreTechnicals ? 1.0 : 0.75))).toFixed(2)
   );
 
-  const dataQuality: DataQualityReport = {
-    overallScore: overallQualityScore,
-    financialCompleteness: Math.round(((factors.filter(f => f.category === "Fundamental" && f.available).length) / 5) * 100),
-    valuationCompleteness: Math.round(((factors.filter(f => f.category === "Valuation" && f.available).length) / 2) * 100),
-    financialSafetyCompleteness: Math.round(((factors.filter(f => f.category === "Safety" && f.available).length) / 1) * 100),
-    priceActionCompleteness: Math.round(((factors.filter(f => f.category === "OHLCV" && f.available).length) / 8) * 100),
+    const qualGrowthCount = factors.filter(f => f.category === "Quality" || f.category === "Growth" || f.category === "Fundamental").length || 1;
+    const valCount = factors.filter(f => f.category === "Valuation").length || 1;
+    const safetyCount = factors.filter(f => f.category === "Safety").length || 1;
+    const ohlcvCount = factors.filter(f => f.category === "OHLCV").length || 1;
+
+    const dataQuality: DataQualityReport = {
+      overallScore: overallQualityScore,
+      financialCompleteness: Math.min(100, Math.round((factors.filter(f => (f.category === "Quality" || f.category === "Growth" || f.category === "Fundamental") && f.available).length / qualGrowthCount) * 100)),
+      valuationCompleteness: Math.min(100, Math.round((factors.filter(f => f.category === "Valuation" && f.available).length / valCount) * 100)),
+      financialSafetyCompleteness: Math.min(100, Math.round((factors.filter(f => f.category === "Safety" && f.available).length / safetyCount) * 100)),
+      priceActionCompleteness: Math.min(100, Math.round((factors.filter(f => f.category === "OHLCV" && f.available).length / ohlcvCount) * 100)),
     availableCount,
     totalRequired,
     isDegraded,

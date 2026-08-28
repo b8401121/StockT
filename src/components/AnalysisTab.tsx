@@ -578,73 +578,20 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                       </div>
                     </div>
 
-                    {/* 🎯 啟發式多因子勝率校準估算 (Heuristic-calibrated Estimate) */}
+                    {/* 點擊展開放大視窗提示 */}
                     <div style={{
-                      background: "rgba(30, 41, 59, 0.45)",
-                      border: "1px solid rgba(56, 189, 248, 0.25)",
-                      borderRadius: "6px",
-                      padding: "7px 10px",
-                      marginBottom: "10px",
-                      fontSize: "0.72rem",
-                      color: "#94a3b8"
+                      marginTop: "6px",
+                      paddingTop: "8px",
+                      borderTop: "1px solid rgba(168, 85, 247, 0.25)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      color: "#d8b4fe",
+                      fontSize: "0.76rem",
+                      fontWeight: 600
                     }}>
-                      <div style={{ color: "#38bdf8", fontWeight: 700, marginBottom: "2px" }}>
-                        🎯 校準模型：Heuristic-calibrated Estimate (啟發式分位估算)
-                      </div>
-                      <div style={{ lineHeight: "1.4", color: "#cbd5e1" }}>
-                        {cal.methodologyNote}
-                      </div>
-                    </div>
-
-                    {/* 17 維因子完整全景明細清單 */}
-                    <div style={{ marginTop: "10px", borderTop: "1px solid rgba(168, 85, 247, 0.3)", paddingTop: "10px" }}>
-                      <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "#f3e8ff", marginBottom: "8px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                        <span>📋 17 維真實多因子檢驗明細：</span>
-                        <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.6)" }}>
-                          ✅{aiResult.allFactors.filter(f => f.status === "positive").length} ❌{aiResult.allFactors.filter(f => f.status === "negative").length} ⚪{aiResult.allFactors.filter(f => f.status === "neutral").length}
-                        </span>
-                      </div>
-
-                      <div style={{ display: "flex", flexDirection: "column", gap: "6px", maxHeight: "320px", overflowY: "auto", paddingRight: "4px" }}>
-                        {aiResult.allFactors.map((f) => {
-                          const isPos = f.status === "positive";
-                          const isNeg = f.status === "negative";
-                          const statusBg = isPos ? "rgba(34, 197, 94, 0.15)" : isNeg ? "rgba(239, 68, 68, 0.18)" : "rgba(148, 163, 184, 0.1)";
-                          const statusBorder = isPos ? "rgba(34, 197, 94, 0.4)" : isNeg ? "rgba(239, 68, 68, 0.4)" : "rgba(148, 163, 184, 0.25)";
-                          const statusColor = isPos ? "#4ade80" : isNeg ? "#f87171" : "#94a3b8";
-                          const icon = isPos ? "✅" : isNeg ? "❌" : "⚪";
-
-                          return (
-                            <div
-                              key={f.id}
-                              title={`${f.name} (${f.category})\n數值: ${f.valueDisplay}\n來源: ${f.source}\nAI 影響權重: ${f.impact}\n說明: ${f.explanation}`}
-                              style={{
-                                background: statusBg,
-                                border: `1px solid ${statusBorder}`,
-                                borderRadius: "6px",
-                                padding: "6px 8px",
-                                fontSize: "0.78rem",
-                                display: "flex",
-                                flexDirection: "column",
-                                gap: "2px",
-                              }}
-                            >
-                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                                <span style={{ fontWeight: 600, color: "#f1f5f9" }}>
-                                  {icon} {f.name} <span style={{ fontSize: "0.68rem", color: "#94a3b8", fontWeight: 400 }}>[{f.source}]</span>
-                                </span>
-                                <span style={{ fontWeight: 700, color: statusColor, fontSize: "0.82rem" }}>
-                                  {f.valueDisplay}
-                                </span>
-                              </div>
-                              <div style={{ fontSize: "0.72rem", color: "#cbd5e1", display: "flex", justifyContent: "space-between", marginTop: "1px" }}>
-                                <span>{f.explanation}</span>
-                                <span style={{ color: statusColor, fontWeight: 600, marginLeft: "6px", whiteSpace: "nowrap" }}>{f.impact}</span>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
+                      <span>🔍 點擊查看 17 維因子與 ML 全景評分</span>
+                      <span style={{ fontSize: "0.85rem" }}>▸</span>
                     </div>
                   </div>
                 );
