@@ -158,6 +158,8 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
   
   // 基本面 Modal
   const [showFundModal, setShowFundModal] = useState(false);
+  const [showAIModal, setShowAIModal] = useState(false);
+  const [aiModalFilter, setAiModalFilter] = useState<"ALL" | "OHLCV" | "Quality" | "Growth" | "Safety" | "Valuation">("ALL");
   const [fundData, setFundData] = useState<any>(null);
   const [fundLoading, setFundLoading] = useState(false);
   const [fundTab, setFundTab] = useState<"income" | "balance" | "cashflow">("income");
@@ -494,17 +496,40 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                 const cal = aiResult.calibration;
 
                 return (
-                  <div className="score-card" style={{
-                    background: "linear-gradient(135deg, rgba(123, 31, 162, 0.18), rgba(74, 20, 140, 0.28))",
-                    borderColor: "rgba(168, 85, 247, 0.5)",
-                    marginBottom: "12px",
-                    boxShadow: "0 4px 14px rgba(123, 31, 162, 0.15)"
-                  }}>
+                  <div
+                    className="score-card"
+                    onClick={() => setShowAIModal(true)}
+                    style={{
+                      background: "linear-gradient(135deg, rgba(123, 31, 162, 0.18), rgba(74, 20, 140, 0.28))",
+                      borderColor: "rgba(168, 85, 247, 0.5)",
+                      marginBottom: "12px",
+                      boxShadow: "0 4px 14px rgba(123, 31, 162, 0.15)",
+                      cursor: "pointer",
+                      transition: "transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease",
+                    }}
+                    title="點擊展開 AI 多因子量化全景診斷視窗"
+                  >
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: "6px", fontWeight: 700, fontSize: "0.95rem", color: "#e9d5ff" }}>
                         <span>🧠 CPU 內建 AI 多因子診斷 (量化校準版)</span>
                       </div>
-                      <HardwareBadge />
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <span style={{
+                          background: "rgba(168, 85, 247, 0.25)",
+                          color: "#d8b4fe",
+                          border: "1px solid rgba(168, 85, 247, 0.5)",
+                          padding: "2px 8px",
+                          borderRadius: "6px",
+                          fontSize: "0.72rem",
+                          fontWeight: 700,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "4px"
+                        }}>
+                          🔍 放大查看
+                        </span>
+                        <HardwareBadge />
+                      </div>
                     </div>
 
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(0,0,0,0.28)", padding: "10px 12px", borderRadius: "8px", marginBottom: "10px" }}>
@@ -1259,6 +1284,216 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                   數據來源: Yahoo Finance
                 </span>
                 <button className="btn btn-outline btn-sm" onClick={() => setShowFundModal(false)}>關閉</button>
+              </div>
+
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* 🧠 AI 多因子全景診斷放大視窗 Modal */}
+      {showAIModal && (() => {
+        if (!info) return null;
+        const aiResult = evaluateAIAlpha(info, info.current_price?.value || 0, info.previous_close?.value || (info.current_price?.value || 0), ohlcv);
+        const winRate = aiResult.winRatePct;
+        const alphaColor = winRate >= 75 ? "#38bdf8" : winRate >= 50 ? "#c084fc" : "#ef4444";
+        const dq = aiResult.dataQuality;
+        const ml = aiResult.mlInference;
+
+        const filteredFactors = aiModalFilter === "ALL" 
+          ? aiResult.factors 
+          : aiResult.factors.filter(f => f.category === aiModalFilter);
+
+        return (
+          <div style={{
+            position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+            background: "rgba(3, 7, 18, 0.85)", backdropFilter: "blur(12px)",
+            zIndex: 25000, display: "flex", justifyContent: "center", alignItems: "center",
+            padding: "20px"
+          }} onClick={() => setShowAIModal(false)}>
+            <div style={{
+              background: "linear-gradient(145deg, #111827, #0f172a)",
+              borderRadius: "16px", width: "960px", maxWidth: "98vw", maxHeight: "90vh",
+              padding: "24px", border: "1px solid rgba(168, 85, 247, 0.4)",
+              boxShadow: "0 25px 60px rgba(0, 0, 0, 0.8), 0 0 35px rgba(168, 85, 247, 0.18)",
+              display: "flex", flexDirection: "column", gap: "16px", overflow: "hidden"
+            }} onClick={e => e.stopPropagation()}>
+              
+              {/* Modal Header */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: "14px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <span style={{ fontSize: "1.6rem" }}>🧠</span>
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                      <h3 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 800, color: "#f3e8ff" }}>
+                        AI 多因子量化全景診斷
+                      </h3>
+                      <span style={{ background: "rgba(168, 85, 247, 0.25)", color: "#d8b4fe", padding: "2px 8px", borderRadius: "12px", fontSize: "0.75rem", fontWeight: 700, border: "1px solid rgba(168, 85, 247, 0.4)" }}>
+                        Cross-Sectional ML Alpha Engine
+                      </span>
+                    </div>
+                    <div style={{ fontSize: "0.86rem", color: "#94a3b8", marginTop: "3px" }}>
+                      標的：<b style={{ color: "#ffffff" }}>{info.name || info.symbol} ({info.symbol})</b> ｜ 最新價：<b style={{ color: "#38bdf8" }}>{fmtPrice(info.current_price?.value)} 元</b> ｜ 產業：<b style={{ color: "#cbd5e1" }}>{info.sector || "一般產業"}</b>
+                    </div>
+                  </div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <HardwareBadge />
+                  <button className="btn btn-outline btn-sm" onClick={() => setShowAIModal(false)} style={{ borderRadius: "50%", width: "32px", height: "32px", padding: 0, fontSize: "1rem" }}>✕</button>
+                </div>
+              </div>
+
+              {/* Modal Scrollable Body */}
+              <div style={{ overflowY: "auto", display: "flex", flexDirection: "column", gap: "16px", paddingRight: "6px" }}>
+                
+                {/* 頂部四大核心計量指標看板 */}
+                <div style={{
+                  display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px",
+                  background: "rgba(0,0,0,0.38)", padding: "16px", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.06)"
+                }}>
+                  <div style={{ borderLeft: "3px solid #38bdf8", paddingLeft: "10px" }}>
+                    <div style={{ fontSize: "0.78rem", color: "#94a3b8" }}>預估 20 日超額勝率</div>
+                    <div style={{ fontSize: "1.75rem", fontWeight: 900, color: alphaColor }}>
+                      {winRate.toFixed(1)}%
+                    </div>
+                    <div style={{ fontSize: "0.72rem", color: "#64748b" }}>歷史回測校準基準</div>
+                  </div>
+                  
+                  <div style={{ borderLeft: "3px solid #a855f7", paddingLeft: "10px" }}>
+                    <div style={{ fontSize: "0.78rem", color: "#94a3b8" }}>預估超額 Alpha</div>
+                    <div style={{ fontSize: "1.75rem", fontWeight: 900, color: aiResult.expectedAlphaPct >= 0 ? "#4ade80" : "#f87171" }}>
+                      {aiResult.expectedAlphaPct >= 0 ? "+" : ""}{aiResult.expectedAlphaPct.toFixed(1)}%
+                    </div>
+                    <div style={{ fontSize: "0.72rem", color: "#64748b" }}>相對於大盤 T+20 淨超額</div>
+                  </div>
+
+                  <div style={{ borderLeft: "3px solid #f59e0b", paddingLeft: "10px" }}>
+                    <div style={{ fontSize: "0.78rem", color: "#94a3b8" }}>AI 置信評級</div>
+                    <div style={{ fontSize: "1.3rem", fontWeight: 800, color: alphaColor, marginTop: "4px" }}>
+                      {aiResult.convictionTier}
+                    </div>
+                    <div style={{ fontSize: "0.72rem", color: "#64748b" }}>雙軌集成 (60% Rule + 40% ML)</div>
+                  </div>
+
+                  <div style={{ borderLeft: "3px solid #10b981", paddingLeft: "10px" }}>
+                    <div style={{ fontSize: "0.78rem", color: "#94a3b8" }}>資料品質完備度</div>
+                    <div style={{ fontSize: "1.45rem", fontWeight: 800, color: dq.overallScore >= 80 ? "#4ade80" : "#facc15" }}>
+                      {dq.overallScore} <span style={{ fontSize: "0.85rem", fontWeight: 500, color: "#94a3b8" }}>/ 100 ({dq.availableCount}/{dq.totalRequired})</span>
+                    </div>
+                    <div style={{ fontSize: "0.72rem", color: "#64748b" }}>零未來函數 (Point-in-Time)</div>
+                  </div>
+                </div>
+
+                {/* 機器學習 GBDT & 特徵貢獻度視圖 */}
+                {ml && (
+                  <div style={{
+                    background: "linear-gradient(135deg, rgba(30, 41, 59, 0.6), rgba(15, 23, 42, 0.8))",
+                    border: "1px solid rgba(56, 189, 248, 0.3)", borderRadius: "10px", padding: "12px 16px"
+                  }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px", flexWrap: "wrap", gap: "6px" }}>
+                      <div style={{ fontWeight: 700, fontSize: "0.88rem", color: "#38bdf8", display: "flex", alignItems: "center", gap: "6px" }}>
+                        <span>⚡ 機器學習 Track：8-Tree GBDT + Ridge 特徵交互推論</span>
+                      </div>
+                      <span style={{ fontSize: "0.75rem", color: "#94a3b8" }}>
+                        ML 預估勝率：<b style={{ color: "#38bdf8" }}>{ml.mlWinProbabilityPct.toFixed(1)}%</b> ｜ 預估 Alpha：<b style={{ color: ml.expectedAlphaPct >= 0 ? "#4ade80" : "#f87171" }}>{ml.expectedAlphaPct >= 0 ? "+" : ""}{ml.expectedAlphaPct.toFixed(1)}%</b>
+                      </span>
+                    </div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                      {ml.featureContributions?.slice(0, 6).map((fc, i) => (
+                        <span key={i} style={{
+                          background: fc.importance >= 0 ? "rgba(34, 197, 94, 0.12)" : "rgba(239, 68, 68, 0.12)",
+                          border: `1px solid ${fc.importance >= 0 ? "rgba(34, 197, 94, 0.3)" : "rgba(239, 68, 68, 0.3)"}`,
+                          color: fc.importance >= 0 ? "#86efac" : "#fca5a5",
+                          padding: "3px 8px", borderRadius: "6px", fontSize: "0.72rem"
+                        }}>
+                          {fc.feature}: {fc.importance >= 0 ? "+" : ""}{fc.importance.toFixed(3)}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 因子分類篩選標籤 */}
+                <div style={{ display: "flex", gap: "6px", borderBottom: "1px solid rgba(255,255,255,0.08)", paddingBottom: "8px", flexWrap: "wrap" }}>
+                  {[
+                    { id: "ALL", label: `全部 17 維因子 (${aiResult.factors.length})` },
+                    { id: "OHLCV", label: `🚀 價量動能 (${aiResult.factors.filter(f => f.category === "OHLCV").length})` },
+                    { id: "Quality", label: `💎 獲利品質 (${aiResult.factors.filter(f => f.category === "Quality").length})` },
+                    { id: "Growth", label: `📈 營運成長 (${aiResult.factors.filter(f => f.category === "Growth").length})` },
+                    { id: "Safety", label: `🛡️ 財務安全 (${aiResult.factors.filter(f => f.category === "Safety").length})` },
+                    { id: "Valuation", label: `🏷️ 市場估值 (${aiResult.factors.filter(f => f.category === "Valuation").length})` },
+                  ].map(tab => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setAiModalFilter(tab.id as any)}
+                      style={{
+                        background: aiModalFilter === tab.id ? "rgba(168, 85, 247, 0.35)" : "rgba(255,255,255,0.04)",
+                        border: `1px solid ${aiModalFilter === tab.id ? "rgba(168, 85, 247, 0.6)" : "rgba(255,255,255,0.08)"}`,
+                        color: aiModalFilter === tab.id ? "#f3e8ff" : "#94a3b8",
+                        padding: "5px 12px", borderRadius: "6px", fontSize: "0.78rem", fontWeight: aiModalFilter === tab.id ? 700 : 500,
+                        cursor: "pointer", transition: "all 0.2s ease"
+                      }}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* 17 維因子詳細卡片網格 */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(420px, 1fr))", gap: "10px" }}>
+                  {filteredFactors.map(f => {
+                    const isPos = f.status === "positive";
+                    const isNeg = f.status === "negative";
+                    const bg = isPos ? "rgba(34, 197, 94, 0.08)" : isNeg ? "rgba(239, 68, 68, 0.10)" : "rgba(148, 163, 184, 0.05)";
+                    const border = isPos ? "rgba(34, 197, 94, 0.3)" : isNeg ? "rgba(239, 68, 68, 0.3)" : "rgba(148, 163, 184, 0.15)";
+                    const color = isPos ? "#4ade80" : isNeg ? "#f87171" : "#94a3b8";
+                    const icon = isPos ? "✅" : isNeg ? "❌" : "⚪";
+
+                    return (
+                      <div key={f.key} style={{
+                        background: bg, border: `1px solid ${border}`, borderRadius: "8px", padding: "10px 12px",
+                        display: "flex", flexDirection: "column", gap: "4px"
+                      }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                            <span style={{ fontSize: "1rem" }}>{icon}</span>
+                            <span style={{ fontWeight: 700, color: "#f8fafc", fontSize: "0.88rem" }}>{f.label}</span>
+                            <span style={{ fontSize: "0.68rem", color: "#94a3b8", background: "rgba(255,255,255,0.06)", padding: "1px 6px", borderRadius: "4px" }}>
+                              {f.source || "系統精算"}
+                            </span>
+                          </div>
+                          <span style={{ fontWeight: 800, color: color, fontSize: "0.95rem" }}>
+                            {f.valueDisplay}
+                          </span>
+                        </div>
+
+                        <div style={{ fontSize: "0.76rem", color: "#cbd5e1", lineHeight: 1.4, marginTop: "2px" }}>
+                          {f.explanation}
+                        </div>
+
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px dashed rgba(255,255,255,0.06)", paddingTop: "4px", marginTop: "2px", fontSize: "0.70rem" }}>
+                          <span style={{ color: "#94a3b8" }}>
+                            因子權重：{((f.weight || 0) * 100).toFixed(0)}%
+                          </span>
+                          <span style={{ color: color, fontWeight: 700 }}>
+                            {isPos ? `多頭推進 (+${((f.score || 0) * (f.weight || 0)).toFixed(2)})` : isNeg ? `空頭扣分 (${((f.score || 0) * (f.weight || 0)).toFixed(2)})` : "中性"}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+              </div>
+
+              {/* Modal Footer */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: "12px" }}>
+                <span style={{ fontSize: "0.75rem", color: "#64748b" }}>
+                  🔒 StockT Cross-Sectional ML Alpha Engine ｜ 點擊遮罩或按鈕即可關閉
+                </span>
+                <button className="btn btn-primary btn-sm" onClick={() => setShowAIModal(false)}>
+                  確定關閉
+                </button>
               </div>
 
             </div>
