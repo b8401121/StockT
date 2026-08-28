@@ -1265,35 +1265,82 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                   background: "rgba(0,0,0,0.38)", padding: "16px", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.06)"
                 }}>
                   <div style={{ borderLeft: "3px solid #38bdf8", paddingLeft: "10px" }}>
-                    <div style={{ fontSize: "0.78rem", color: "#94a3b8" }}>預估 20 日超額勝率</div>
-                    <div style={{ fontSize: "1.75rem", fontWeight: 900, color: alphaColor }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <span style={{ fontSize: "0.78rem", color: "#94a3b8", fontWeight: 600 }}>預估 20 日超額勝率</span>
+                    </div>
+                    <div style={{ fontSize: "1.75rem", fontWeight: 900, color: alphaColor, margin: "2px 0" }}>
                       {winRate.toFixed(1)}%
                     </div>
-                    <div style={{ fontSize: "0.72rem", color: "#64748b" }}>歷史回測校準基準</div>
+                    <div style={{ fontSize: "0.72rem", color: "#94a3b8", lineHeight: 1.3 }}>
+                      歷史回測校準基準 ｜ 實扣 63.5 bps 摩擦後擊敗大盤機率
+                    </div>
                   </div>
                   
                   <div style={{ borderLeft: "3px solid #a855f7", paddingLeft: "10px" }}>
-                    <div style={{ fontSize: "0.78rem", color: "#94a3b8" }}>預估超額 Alpha</div>
-                    <div style={{ fontSize: "1.75rem", fontWeight: 900, color: aiResult.expectedAlphaPct >= 0 ? "#4ade80" : "#f87171" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <span style={{ fontSize: "0.78rem", color: "#94a3b8", fontWeight: 600 }}>預估超額 Alpha</span>
+                    </div>
+                    <div style={{ fontSize: "1.75rem", fontWeight: 900, color: aiResult.expectedAlphaPct >= 0 ? "#4ade80" : "#f87171", margin: "2px 0" }}>
                       {aiResult.expectedAlphaPct >= 0 ? "+" : ""}{aiResult.expectedAlphaPct.toFixed(1)}%
                     </div>
-                    <div style={{ fontSize: "0.72rem", color: "#64748b" }}>相對於大盤 T+20 淨超額</div>
+                    <div style={{ fontSize: "0.72rem", color: "#94a3b8", lineHeight: 1.3 }}>
+                      相對於大盤 T+20 淨超額 ｜ 預期領先加權指數之利潤幅度
+                    </div>
                   </div>
 
                   <div style={{ borderLeft: "3px solid #f59e0b", paddingLeft: "10px" }}>
-                    <div style={{ fontSize: "0.78rem", color: "#94a3b8" }}>AI 置信評級</div>
-                    <div style={{ fontSize: "1.3rem", fontWeight: 800, color: alphaColor, marginTop: "4px" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <span style={{ fontSize: "0.78rem", color: "#94a3b8", fontWeight: 600 }}>AI 置信評級</span>
+                    </div>
+                    <div style={{ fontSize: "1.3rem", fontWeight: 800, color: alphaColor, marginTop: "4px", marginBottom: "2px" }}>
                       {aiResult.convictionTier}
                     </div>
-                    <div style={{ fontSize: "0.72rem", color: "#64748b" }}>雙軌集成 (60% Rule + 40% ML)</div>
+                    <div style={{ fontSize: "0.72rem", color: "#94a3b8", lineHeight: 1.3 }}>
+                      雙軌集成 (60% Rule + 40% ML) ｜ 截面分位強度綜合判定
+                    </div>
                   </div>
 
                   <div style={{ borderLeft: "3px solid #10b981", paddingLeft: "10px" }}>
-                    <div style={{ fontSize: "0.78rem", color: "#94a3b8" }}>資料品質完備度</div>
-                    <div style={{ fontSize: "1.45rem", fontWeight: 800, color: dq.overallScore >= 80 ? "#4ade80" : "#facc15" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <span style={{ fontSize: "0.78rem", color: "#94a3b8", fontWeight: 600 }}>資料品質完備度</span>
+                    </div>
+                    <div style={{ fontSize: "1.45rem", fontWeight: 800, color: dq.overallScore >= 80 ? "#4ade80" : "#facc15", margin: "2px 0" }}>
                       {dq.overallScore} <span style={{ fontSize: "0.85rem", fontWeight: 500, color: "#94a3b8" }}>/ 100 ({dq.availableCount}/{dq.totalRequired})</span>
                     </div>
-                    <div style={{ fontSize: "0.72rem", color: "#64748b" }}>零未來函數 (Point-in-Time)</div>
+                    <div style={{ fontSize: "0.72rem", color: "#94a3b8", lineHeight: 1.3 }}>
+                      零未來函數 (Point-in-Time) ｜ 嚴格鎖定法定財報申報時效
+                    </div>
+                  </div>
+                </div>
+
+                {/* 💡 4 大核心指標深度解讀指南 */}
+                <div style={{
+                  background: "rgba(15, 23, 42, 0.6)",
+                  border: "1px solid rgba(148, 163, 184, 0.18)",
+                  borderRadius: "10px",
+                  padding: "12px 14px",
+                  fontSize: "0.76rem"
+                }}>
+                  <div style={{ fontWeight: 700, color: "#cbd5e1", marginBottom: "8px", display: "flex", alignItems: "center", gap: "6px" }}>
+                    <span>📖 4 大核心計量指標深度解讀指南</span>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "10px", color: "#94a3b8", lineHeight: 1.45 }}>
+                    <div style={{ background: "rgba(0,0,0,0.2)", padding: "8px", borderRadius: "6px" }}>
+                      <b style={{ color: "#38bdf8" }}>🎯 20日超額勝率：</b><br />
+                      衡量自 T+1 開盤持有至 T+20 收盤，扣除 63.5 bps 總摩擦後擊敗大盤之實證機率。由 2018–2024 歷史回測分位數單調性校準。
+                    </div>
+                    <div style={{ background: "rgba(0,0,0,0.2)", padding: "8px", borderRadius: "6px" }}>
+                      <b style={{ color: "#c084fc" }}>📈 預估超額 Alpha：</b><br />
+                      預期 20 個交易日相對於加權指數的純 Alpha 淨超額幅度（+1.4% 表示預期領先大盤 1.4 個百分點）。
+                    </div>
+                    <div style={{ background: "rgba(0,0,0,0.2)", padding: "8px", borderRadius: "6px" }}>
+                      <b style={{ color: "#fbbf24" }}>🧠 AI 置信評級：</b><br />
+                      60% 啟發式 17 維因子 + 40% 8-Tree GBDT 決策樹雙軌集成。勝率 ≥68% 強烈看多、60~68% 穩健多頭、50~60% 中性盤整、&lt;50% 偏空避險。
+                    </div>
+                    <div style={{ background: "rgba(0,0,0,0.2)", padding: "8px", borderRadius: "6px" }}>
+                      <b style={{ color: "#34d399" }}>🛡️ 資料品質完備度：</b><br />
+                      計算 17 項核心因子中即時有效之比例（17/17=100分）。嚴格依據 MOPS 財報法定申報日鎖定，確認 0 未來函數洩漏。
+                    </div>
                   </div>
                 </div>
 
