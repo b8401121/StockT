@@ -76,13 +76,13 @@ function filterSymbolsByMarket(allKeys: string[], fundamentalsMap: Record<string
 const STRATEGIES = [
   {
     id: "strong_bull",
-    label: "⭐⭐⭐⭐⭐ 極致多頭 (勝率 ≥ 68% / 強烈看多)",
-    filterFn: (s: AIAlphaResult) => s.winRatePct >= 68 || s.convictionTier.includes("強烈看多"),
+    label: "⭐⭐⭐⭐⭐ 極致多頭 (勝率 ≥ 68%)",
+    filterFn: (s: AIAlphaResult) => s.winRatePct >= 68.0,
   },
   {
     id: "solid_bull",
-    label: "⭐⭐⭐⭐ 穩健多頭 (勝率 ≥ 58% / 穩健多頭)",
-    filterFn: (s: AIAlphaResult) => s.winRatePct >= 58 || s.convictionTier.includes("穩健多頭"),
+    label: "⭐⭐⭐⭐ 穩健多頭 (勝率 ≥ 58%)",
+    filterFn: (s: AIAlphaResult) => s.winRatePct >= 58.0,
   },
   {
     id: "finlab_momentum",
@@ -261,11 +261,20 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
         for (const res of chunkResults) {
           if (res.status === "fulfilled") {
             const { aiResult, info } = res.value;
-            evaluatedList.push({
-              ...aiResult,
-              rank: 0,
-              info,
-            });
+
+            // 🛡️ Data Quality Gate: 非偏空策略要求至少 12 項可用因子
+            if (strategy !== "landmine_risk" && aiResult.dataQuality.availableCount < 12) {
+              continue;
+            }
+
+            // 🎯 嚴格執行策略勝率與指標門檻過濾
+            if (selectedStrat.filterFn(aiResult, info)) {
+              evaluatedList.push({
+                ...aiResult,
+                rank: 0,
+                info,
+              });
+            }
           }
         }
 
