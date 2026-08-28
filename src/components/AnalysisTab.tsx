@@ -1,6 +1,6 @@
 import { AddToWatchlistBtn } from "./AddToWatchlistBtn";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { invoke } from "../utils/platform";
+import { stockService, newsService, fundamentalService } from "../services";
 import twseFundamentals from "../utils/twse_mops_fundamentals.json";
 import { ChartPanel } from "./Chart";
 import { calculateAllIndicators, OhlcvData } from "../utils/indicators";
@@ -61,19 +61,7 @@ function resolveSymbol(input: string): string {
 
 // ─── 英文自動翻譯為繁中 ──────────────────────────────────────────────────────────
 const translateText = async (text: string): Promise<string> => {
-  try {
-    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=zh-TW&dt=t&q=${encodeURIComponent(text)}`;
-    const resp = await fetch(url);
-    if (resp.ok) {
-      const json = await resp.json();
-      if (json && json[0]) {
-        return json[0].map((item: any) => item[0]).join("");
-      }
-    }
-  } catch (e) {
-    console.error("translation error:", e);
-  }
-  return text;
+  return await stockService.translateText(text);
 };
 
 // ─── 指標詳細解說字典 ──────────────────────────────────────────────────────────
@@ -308,9 +296,9 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
     setInfo(null);
     setAutocomplete([]);
     try {
-      const data: any = await invoke("fetch_stock_data", { symbol: target, range: "1y" });
+      const data = await stockService.getStockData(target, "1y");
       const stockOhlcv: OhlcvData = data.ohlcv;
-      const stockInfo: StockInfoFull = { ...data.info };
+      const stockInfo: StockInfoFull = { ...data.info } as StockInfoFull;
 
       setOhlcv(stockOhlcv);
       setInfo(stockInfo);
@@ -334,8 +322,8 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
 
       // 抓新聞
       const searchName = stockInfo.name || target.split(".")[0];
-      invoke("fetch_news", { query: searchName })
-        .then((n: any) => setNews(n))
+      newsService.getNews(searchName)
+        .then((n) => setNews(n))
         .catch(() => {});
     } catch (e: any) {
       setError(e?.message || String(e) || "無法連線取得該標的之即時行情資料，請檢查網路連線後重試。");
@@ -356,7 +344,7 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
     setShowFundModal(true);
     setFundData(null);
     try {
-      const data = await invoke("fetch_detailed_fundamentals", { symbol: info.symbol });
+      const data = await fundamentalService.getDetailedFundamentals(info.symbol);
       setFundData(data);
     } catch (e) {
       console.error(e);
@@ -756,7 +744,7 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                             href="#"
                             onClick={(e) => {
                               e.preventDefault();
-                              invoke("open_url", { url: item.link });
+                              stockService.openUrl(item.link);
                             }}
                           >
                             {item.title}
@@ -772,14 +760,14 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
               <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginTop: "8px" }}>
                 <button className="btn btn-outline btn-sm" onClick={() => {
                   const code = info.symbol.split(".")[0];
-                  invoke("open_url", { url: `https://www.cmoney.tw/forum/stock/${code}` });
+                  stockService.openUrl(`https://www.cmoney.tw/forum/stock/${code}`);
                 }}>股市同學會</button>
                 <button className="btn btn-outline btn-sm" onClick={() => {
-                  invoke("open_url", { url: `https://tw.stock.yahoo.com/quote/${info.symbol}` });
+                  stockService.openUrl(`https://tw.stock.yahoo.com/quote/${info.symbol}`);
                 }}>Yahoo 股市</button>
                 <button className="btn btn-outline btn-sm" onClick={() => {
                   const code = info.symbol.split(".")[0];
-                  invoke("open_url", { url: `https://goodinfo.tw/tw/StockDetail.asp?STOCK_ID=${code}` });
+                  stockService.openUrl(`https://goodinfo.tw/tw/StockDetail.asp?STOCK_ID=${code}`);
                 }}>Goodinfo</button>
                 <button className="btn btn-primary btn-sm" onClick={fetchFundamentals}>
                   📊 詳細基本面

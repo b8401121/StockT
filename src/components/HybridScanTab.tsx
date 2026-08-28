@@ -1,6 +1,6 @@
 import { AddToWatchlistBtn } from "./AddToWatchlistBtn";
 import React, { useRef, useState } from "react";
-import { invoke } from "../utils/platform";
+import { stockService } from "../services";
 import { calculateAllIndicators, OhlcvData } from "../utils/indicators";
 import { computeFundamentalScore, getFsGrade, getTechRating, calcTechScanScore, StockInfoFull } from "../utils/analysis";
 import { exportToHtmlFile } from "../utils/exportHtml";
@@ -116,10 +116,10 @@ export const HybridScanTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({
       await new Promise((r) => setTimeout(r, 45));
 
       try {
-        const dataList: any[] = await invoke("fetch_batch_stock_data_full", { symbols: chunk, range: "1y" });
+        const dataList = await stockService.getBatchStockDataFull(chunk, "1y");
         for (const data of dataList) {
           if (cancelRef.current) break;
-          const info: StockInfoFull = data.info;
+          const info: StockInfoFull = data.info as StockInfoFull;
           const ohlcv: OhlcvData = data.ohlcv;
           const name = info.name || info.symbol;
 
@@ -192,7 +192,7 @@ export const HybridScanTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({
       const title = `融合智慧選股排名結果 (基本面 60% + 技術面 40%)`;
       const filename = `scan_hybrid.html`;
       const htmlContent = await exportToHtmlFile(title, results, "hybrid");
-      const savedPath = await invoke("export_txt_file", { filename, content: htmlContent });
+      const savedPath = await stockService.exportTxtFile(filename, htmlContent);
       alert(`選股名單匯出成功！已產生精美網頁檔案！\n已儲存至您的【下載】資料夾：\n${savedPath}`);
     } catch (err) {
       alert(`匯出失敗: ${err}`);

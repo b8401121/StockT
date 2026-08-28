@@ -1,6 +1,6 @@
 import { AddToWatchlistBtn } from "./AddToWatchlistBtn";
 import React, { useRef, useState } from "react";
-import { invoke } from "../utils/platform";
+import { stockService } from "../services";
 import { getFsGrade, StockInfoFull } from "../utils/analysis";
 import { exportToHtmlFile } from "../utils/exportHtml";
 
@@ -109,10 +109,10 @@ export const FundamentalScanTab: React.FC<{ onAnalyze?: (sym: string) => void }>
       await new Promise((r) => setTimeout(r, 25));
 
       try {
-        const dataList: any[] = await invoke("fetch_batch_stock_data_full", { symbols: chunk, range: "3mo" });
+        const dataList = await stockService.getBatchStockDataFull(chunk, "3mo");
         for (const data of dataList) {
           if (cancelRef.current) break;
-          const info: StockInfoFull = data.info;
+          const info: StockInfoFull = data.info as StockInfoFull;
           const name = info.name || info.symbol;
 
           let score = 0;
@@ -250,7 +250,7 @@ export const FundamentalScanTab: React.FC<{ onAnalyze?: (sym: string) => void }>
       const title = `基本面選股結果 (最低評分門檻: ${minScore}分)`;
       const filename = `scan_fundamental.html`;
       const htmlContent = await exportToHtmlFile(title, results, "fundamental");
-      const savedPath = await invoke("export_txt_file", { filename, content: htmlContent });
+      const savedPath = await stockService.exportTxtFile(filename, htmlContent);
       alert(`選股名單匯出成功！已產生精美網頁檔案！\n已儲存至您的【下載】資料夾：\n${savedPath}`);
     } catch (err) {
       alert(`匯出失敗: ${err}`);

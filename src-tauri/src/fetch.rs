@@ -1,320 +1,54 @@
-use reqwest::Client;
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::OnceLock;
+use serde_json::Value;
 
-static STOCK_NAMES: OnceLock<HashMap<String, String>> = OnceLock::new();
+pub use crate::models::{NewsItem, OhlcvData, StockData, StockInfo, TwFundamental};
+use crate::providers::{
+    extract_f64, extract_i64, make_client, opt_f64, opt_str,
+    news::fetch_google_news,
+    tpex::fetch_tpex_peratio,
+    twse::fetch_twse_bwibbu,
+    yahoo::{
+        fetch_tw_business_summary, fetch_yahoo_quote_summary, fetch_yahoo_tw_store,
+        get_yahoo_session,
+    },
+};
+
+// ─── 台股代號中文名稱對照表 ───────────────────────────────────────────────────
 
 fn get_chinese_stock_name(symbol: &str) -> Option<String> {
-    let map = STOCK_NAMES.get_or_init(|| {
+    static CHINESE_NAMES: OnceLock<HashMap<&'static str, &'static str>> = OnceLock::new();
+    let map = CHINESE_NAMES.get_or_init(|| {
         let mut m = HashMap::new();
-        if let Ok(json) = serde_json::from_str::<serde_json::Value>(include_str!("../assets/taiwan_stocks.json")) {
-            if let Some(arr) = json.as_array() {
-                for item in arr {
-                    if let (Some(sym), Some(name)) = (item["symbol"].as_str(), item["name"].as_str()) {
-                        m.insert(sym.to_string(), name.to_string());
-                    }
-                }
-            }
-        }
+        m.insert("2330.TW", "台積電");
+        m.insert("2317.TW", "鴻海");
+        m.insert("2454.TW", "聯發科");
+        m.insert("2308.TW", "台達電");
+        m.insert("2382.TW", "廣達");
+        m.insert("2881.TW", "富邦金");
+        m.insert("2882.TW", "國泰金");
+        m.insert("2412.TW", "中華電");
+        m.insert("6505.TW", "台塑化");
+        m.insert("1301.TW", "台塑");
+        m.insert("1303.TW", "南亞");
+        m.insert("2002.TW", "中鋼");
+        m.insert("2891.TW", "中信金");
+        m.insert("2886.TW", "兆豐金");
+        m.insert("3711.TW", "日月光投控");
+        m.insert("2357.TW", "華碩");
+        m.insert("3231.TW", "緯創");
+        m.insert("2379.TW", "瑞昱");
+        m.insert("3008.TW", "大立光");
+        m.insert("2327.TW", "國巨");
         m
     });
-    map.get(symbol).cloned()
+    map.get(symbol).cloned().map(|s| s.to_string())
 }
 
-async fn fetch_yahoo_tw_store(co_id: &str, page: &str) -> Option<serde_json::Value> {
-    let client = make_client();
-    let url = format!("https://tw.stock.yahoo.com/quote/{}/{}", co_id, page);
-    if let Ok(resp) = client.get(&url).send().await {
-        if resp.status() == 200 {
-            if let Ok(html) = resp.text().await {
-                if let Some(start_pos) = html.find("root.App.main = ") {
-                    let start_idx = start_pos + "root.App.main = ".len();
-                    let rest = &html[start_idx..];
-                    if let Some(end_pos) = rest.find("}(this));") {
-                        let mut json_end = end_pos;
-                        // trim trailing semicolons or whitespace
-                        while json_end > 0 && (rest.as_bytes()[json_end - 1] == b';' || rest.as_bytes()[json_end - 1] == b'\n' || rest.as_bytes()[json_end - 1] == b'\r' || rest.as_bytes()[json_end - 1] == b' ') {
-                            json_end -= 1;
-                        }
-                        let json_str = &rest[..json_end];
-                        let cleaned = json_str.replace(":undefined", ":null").replace(":NaN", ":null");
-                        if let Ok(json_val) = serde_json::from_str::<serde_json::Value>(&cleaned) {
-                            if let Some(store) = json_val
-                                .get("context")
-                                .and_then(|c| c.get("dispatcher"))
-                                .and_then(|d| d.get("stores"))
-                                .and_then(|s| s.get("QuoteFinanceStore"))
-                            {
-                                return Some(store.clone());
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    None
-}
-
-// ─── 回傳資料結構 ─────────────────────────────────────────────────────────────
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct OhlcvData {
-    pub timestamp: Vec<i64>,
-    pub open: Vec<f64>,
-    pub high: Vec<f64>,
-    pub low: Vec<f64>,
-    pub close: Vec<f64>,
-    pub volume: Vec<f64>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct StockInfo {
-    pub symbol: String,
-    pub name: String,
-    pub sector: Option<String>,
-    pub industry: Option<String>,
-    pub current_price: Option<f64>,
-    pub previous_close: Option<f64>,
-    pub pe: Option<f64>,
-    pub forward_pe: Option<f64>,
-    pub pb: Option<f64>,
-    pub dividend_yield: Option<f64>,
-    pub eps: Option<f64>,
-    pub roe: Option<f64>,
-    pub gross_margins: Option<f64>,
-    pub operating_margins: Option<f64>,
-    pub profit_margins: Option<f64>,
-    pub revenue_growth: Option<f64>,
-    pub earnings_growth: Option<f64>,
-    pub current_ratio: Option<f64>,
-    pub quick_ratio: Option<f64>,
-    pub debt_to_equity: Option<f64>,
-    pub free_cashflow: Option<f64>,
-    pub operating_cashflow: Option<f64>,
-    pub net_income: Option<f64>,
-    pub market_cap: Option<f64>,
-    pub long_business_summary: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct StockData {
-    pub ohlcv: OhlcvData,
-    pub info: StockInfo,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct NewsItem {
-    pub title: String,
-    pub link: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct TwFundamental {
-    pub pe: Option<f64>,
-    pub pb: Option<f64>,
-    pub yield_rate: Option<f64>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct BatchQuote {
-    pub symbol: String,
-    pub name: String,
-    pub close: f64,
-    pub change_pct: f64,
-}
-
-// ─── 輔助函數 ─────────────────────────────────────────────────────────────────
-
-fn make_client() -> Client {
-    Client::builder()
-        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-        .timeout(std::time::Duration::from_secs(15))
-        .build()
-        .expect("建立 HTTPS 客戶端失敗")
-}
-
-fn extract_f64(v: &serde_json::Value) -> Vec<f64> {
-    match v.as_array() {
-        Some(arr) => arr.iter().map(|x| x.as_f64().unwrap_or(f64::NAN)).collect(),
-        None => vec![],
-    }
-}
-
-fn extract_i64(v: &serde_json::Value) -> Vec<i64> {
-    match v.as_array() {
-        Some(arr) => arr.iter().filter_map(|x| x.as_i64()).collect(),
-        None => vec![],
-    }
-}
-
-fn opt_f64(v: &serde_json::Value) -> Option<f64> {
-    if v.is_null() { None } else { v.as_f64() }
-}
-
-fn opt_str(v: &serde_json::Value) -> Option<String> {
-    if v.is_null() { None } else { v.as_str().map(|s| s.to_string()) }
-}
-
-fn unescape_unicode(input: &str) -> String {
-    let mut result = String::new();
-    let mut chars = input.chars().peekable();
-    while let Some(c) = chars.next() {
-        if c == '\\' {
-            match chars.next() {
-                Some('n') => result.push('\n'),
-                Some('r') => result.push('\r'),
-                Some('t') => result.push('\t'),
-                Some('\"') => result.push('\"'),
-                Some('\\') => result.push('\\'),
-                Some('u') => {
-                    let mut hex = String::new();
-                    for _ in 0..4 {
-                        if let Some(&h) = chars.peek() {
-                            if h.is_ascii_hexdigit() {
-                                hex.push(chars.next().unwrap());
-                            } else {
-                                break;
-                            }
-                        }
-                    }
-                    if hex.len() == 4 {
-                        if let Ok(val) = u32::from_str_radix(&hex, 16) {
-                            if let Some(unicode_char) = std::char::from_u32(val) {
-                                result.push(unicode_char);
-                                continue;
-                            }
-                        }
-                    }
-                    result.push_str("\\u");
-                    result.push_str(&hex);
-                }
-                Some(other) => {
-                    result.push('\\');
-                    result.push(other);
-                }
-                None => {
-                    result.push('\\');
-                }
-            }
-        } else {
-            result.push(c);
-        }
-    }
-    result
-}
-
-async fn fetch_tw_business_summary(co_id: &str) -> Option<String> {
-    let client = make_client();
-    let url = format!("https://tw.stock.yahoo.com/quote/{}/profile", co_id);
-    
-    if let Ok(resp) = client.get(&url).send().await {
-        if resp.status() == 200 {
-            if let Ok(html) = resp.text().await {
-                if let Some(pos) = html.find("\"business\":\"") {
-                    let start = pos + 12;
-                    let rest = &html[start..];
-                    if let Some(end) = rest.find('"') {
-                        let raw_desc = &rest[..end];
-                        let decoded = unescape_unicode(raw_desc);
-                        return Some(decoded);
-                    }
-                }
-            }
-        }
-    }
-    None
-}
-
-// ─── Yahoo Finance Cookie & Crumb 取得 ────────────────────────────────────────
-
-struct YahooSession {
-    cookie: String,
-    crumb: String,
-    fetched_at: std::time::Instant,
-}
-
-static YAHOO_SESSION: OnceLock<tokio::sync::Mutex<Option<YahooSession>>> = OnceLock::new();
-
-async fn get_yahoo_session() -> Result<(String, String), String> {
-    let lock = YAHOO_SESSION.get_or_init(|| tokio::sync::Mutex::new(None));
-    let mut session_guard = lock.lock().await;
-    
-    if let Some(session) = &*session_guard {
-        if session.fetched_at.elapsed() < std::time::Duration::from_secs(1800) {
-            return Ok((session.cookie.clone(), session.crumb.clone()));
-        }
-    }
-    
-    let client = make_client();
-    let fc_resp = client.get("https://fc.yahoo.com")
-        .send()
-        .await
-        .map_err(|e| format!("連線 fc.yahoo.com 失敗: {}", e))?;
-    
-    let mut cookie_value = String::new();
-    if let Some(cookie_header) = fc_resp.headers().get("set-cookie") {
-        if let Ok(cookie_str) = cookie_header.to_str() {
-            if let Some(first_part) = cookie_str.split(';').next() {
-                cookie_value = first_part.to_string();
-            }
-        }
-    }
-    
-    if cookie_value.is_empty() {
-        return Err("Yahoo Finance 未回傳有效 Session Cookie，請檢查網路連線或稍後重試".to_string());
-    }
-
-    let crumb_url = "https://query2.finance.yahoo.com/v1/test/getcrumb";
-    let crumb_resp = client.get(crumb_url)
-        .header("cookie", &cookie_value)
-        .send()
-        .await
-        .map_err(|e| format!("取得 Yahoo Crumb 失敗: {}", e))?;
-    
-    let crumb = crumb_resp.text().await
-        .map_err(|e| format!("讀取 Crumb 失敗: {}", e))?
-        .trim()
-        .to_string();
-
-    if crumb.is_empty() {
-        return Err("取得的 Yahoo Crumb 為空".to_string());
-    }
-
-    let session = YahooSession {
-        cookie: cookie_value.clone(),
-        crumb: crumb.clone(),
-        fetched_at: std::time::Instant::now(),
-    };
-    *session_guard = Some(session);
-
-    Ok((cookie_value, crumb))
-}
-
-async fn fetch_yahoo_quote_summary(symbol: &str) -> Result<serde_json::Value, String> {
-    let client = make_client();
-    let (cookie_value, crumb) = get_yahoo_session().await?;
-
-    let summary_url = format!(
-        "https://query2.finance.yahoo.com/v10/finance/quoteSummary/{}?modules=assetProfile,financialData,defaultKeyStatistics,summaryDetail,earnings&crumb={}",
-        symbol, crumb
-    );
-    
-    let summary_resp = client.get(&summary_url)
-        .header("cookie", &cookie_value)
-        .send()
-        .await
-        .map_err(|e| format!("連線 quoteSummary 失敗: {}", e))?;
-        
-    let summary_json = summary_resp.json::<serde_json::Value>().await
-        .map_err(|e| format!("解析 quoteSummary 失敗: {}", e))?;
-        
-    Ok(summary_json)
-}
+// ─── 取得個股詳細財務報表 (損益表、資產負債表、現金流量表) ────────────────────
 
 #[tauri::command]
-pub async fn fetch_detailed_fundamentals(symbol: String) -> Result<serde_json::Value, String> {
+pub async fn fetch_detailed_fundamentals(symbol: String) -> Result<Value, String> {
     let co_id = symbol.split('.').next().unwrap_or(&symbol).to_string();
     let is_tw = symbol.ends_with(".TW") || symbol.ends_with(".TWO") || co_id.chars().all(|c| c.is_ascii_digit());
 
@@ -343,24 +77,23 @@ pub async fn fetch_detailed_fundamentals(symbol: String) -> Result<serde_json::V
             }
         }
         if !merged_store.is_empty() {
-            return Ok(serde_json::Value::Object(merged_store));
+            return Ok(Value::Object(merged_store));
         }
     }
 
     let client = make_client();
-    let (cookie_value, crumb) = get_yahoo_session().await.map_err(|e| e.to_string())?;
+    let (cookie_value, crumb) = get_yahoo_session().await?;
 
     let modules = "incomeStatementHistory,incomeStatementHistoryQuarterly,balanceSheetHistory,balanceSheetHistoryQuarterly,cashflowStatementHistory,cashflowStatementHistoryQuarterly";
     let url = format!("https://query2.finance.yahoo.com/v10/finance/quoteSummary/{}?modules={}&crumb={}", symbol, modules, crumb);
     
     let summary_resp = client.get(&url).header("cookie", &cookie_value).send().await.map_err(|e| e.to_string())?;
-    let summary_json = summary_resp.json::<serde_json::Value>().await.map_err(|e| e.to_string())?;
+    let summary_json = summary_resp.json::<Value>().await.map_err(|e| e.to_string())?;
     Ok(summary_json)
 }
 
-// ─── 取得個股 K 線資料 (Yahoo Finance) ───────────────────────────────────────────────────────────────
+// ─── 取得個股 K 線資料 (Yahoo Finance) ────────────────────────────────────────
 
-/// 抓取單一股票的 OHLCV 歷史資料與基本資訊
 #[tauri::command]
 pub async fn fetch_stock_data(symbol: String, range: String) -> Result<StockData, String> {
     let client = make_client();
@@ -376,13 +109,16 @@ pub async fn fetch_stock_data(symbol: String, range: String) -> Result<StockData
         .send()
         .await
         .map_err(|e| format!("無法連線 Yahoo Finance: {}", e))?
-        .json::<serde_json::Value>()
+        .json::<Value>()
         .await
-        .map_err(|e| format!("解析回應失敗: {}", e))?;
+        .map_err(|e| format!("無法解析 Yahoo Finance K線 JSON: {}", e))?;
 
     let result = &chart_res["chart"]["result"][0];
     if result.is_null() {
-        return Err(format!("找不到股票代碼: {}", symbol));
+        let err_msg = chart_res["chart"]["error"]["description"]
+            .as_str()
+            .unwrap_or("查無此股票資料或代號錯誤");
+        return Err(format!("Yahoo Finance 錯誤: {}", err_msg));
     }
 
     let timestamps = extract_i64(&result["timestamp"]);
@@ -394,7 +130,6 @@ pub async fn fetch_stock_data(symbol: String, range: String) -> Result<StockData
     let volumes = extract_f64(&quote["volume"]);
 
     let meta = &result["meta"];
-    let _currency_symbol = meta["currency"].as_str().unwrap_or("$").to_string();
     let current_price = meta["regularMarketPrice"].as_f64();
     let previous_close = meta["chartPreviousClose"].as_f64();
     let mut long_name = meta.get("longName")
@@ -473,7 +208,7 @@ pub async fn fetch_stock_data(symbol: String, range: String) -> Result<StockData
         }
     }
 
-    // ③ 對於台股，優先抓取中文業務簡介與備用整合台灣 OpenAPI 最新估值 (PE/PB/殖利率)
+    // 補充台股官方估值 (PE/PB/殖利率)
     let co_id = symbol.split('.').next().unwrap_or(&symbol);
     let symbol_upper = symbol.to_uppercase();
     if symbol_upper.ends_with(".TW") || symbol_upper.ends_with(".TWO") {
@@ -507,15 +242,83 @@ pub async fn fetch_stock_data(symbol: String, range: String) -> Result<StockData
     Ok(StockData { ohlcv, info })
 }
 
+// ─── 取得個股基本資訊 ─────────────────────────────────────────────────────────
+
+#[tauri::command]
+pub async fn fetch_stock_info(symbol: String) -> Result<StockInfo, String> {
+    let summary_json = fetch_yahoo_quote_summary(&symbol).await?;
+    let qs = &summary_json["quoteSummary"]["result"][0];
+    if qs.is_null() {
+        return Err(format!("找不到股票基本資訊: {}", symbol));
+    }
+
+    let ap = &qs["assetProfile"];
+    let fd = &qs["financialData"];
+    let ks = &qs["defaultKeyStatistics"];
+    let sd = &qs["summaryDetail"];
+
+    let mut name = symbol.clone();
+    if let Some(zh_name) = get_chinese_stock_name(&symbol) {
+        name = zh_name;
+    }
+
+    let mut info = StockInfo {
+        symbol: symbol.clone(),
+        name,
+        sector: opt_str(&ap["sector"]),
+        industry: opt_str(&ap["industry"]),
+        current_price: opt_f64(&fd["currentPrice"]["raw"]),
+        previous_close: opt_f64(&sd["previousClose"]["raw"]),
+        pe: opt_f64(&sd["trailingPE"]["raw"]),
+        forward_pe: opt_f64(&ks["forwardPE"]["raw"]),
+        pb: opt_f64(&ks["priceToBook"]["raw"]),
+        dividend_yield: opt_f64(&sd["dividendYield"]["raw"]),
+        eps: opt_f64(&ks["trailingEps"]["raw"]),
+        roe: opt_f64(&fd["returnOnEquity"]["raw"]),
+        gross_margins: opt_f64(&fd["grossMargins"]["raw"]),
+        operating_margins: opt_f64(&fd["operatingMargins"]["raw"]),
+        profit_margins: opt_f64(&fd["profitMargins"]["raw"]),
+        revenue_growth: opt_f64(&fd["revenueGrowth"]["raw"]),
+        earnings_growth: opt_f64(&fd["earningsGrowth"]["raw"]),
+        current_ratio: opt_f64(&fd["currentRatio"]["raw"]),
+        quick_ratio: opt_f64(&fd["quickRatio"]["raw"]),
+        debt_to_equity: opt_f64(&fd["debtToEquity"]["raw"]),
+        free_cashflow: opt_f64(&fd["freeCashflow"]["raw"]),
+        operating_cashflow: opt_f64(&fd["operatingCashflow"]["raw"]),
+        net_income: None,
+        market_cap: opt_f64(&sd["marketCap"]["raw"]),
+        long_business_summary: opt_str(&ap["longBusinessSummary"]),
+    };
+
+    if let Ok(tw_map) = fetch_tw_fundamentals().await {
+        let co_id = symbol.split('.').next().unwrap_or(&symbol);
+        if let Some(fund) = tw_map.get(co_id) {
+            if fund.pe.is_some() { info.pe = fund.pe; }
+            if fund.pb.is_some() { info.pb = fund.pb; }
+            if fund.yield_rate.is_some() { info.dividend_yield = fund.yield_rate; }
+        }
+    }
+
+    if info.long_business_summary.is_none() {
+        let co_id = symbol.split('.').next().unwrap_or(&symbol);
+        if let Some(summary) = fetch_tw_business_summary(co_id).await {
+            info.long_business_summary = Some(summary);
+        }
+    }
+
+    Ok(info)
+}
+
+// ─── 取得 TWSE / TPEx 官方估值快取 ──────────────────────────────────────────
+
 static TW_FUNDAMENTALS_CACHE: OnceLock<std::sync::Mutex<Option<(std::time::Instant, HashMap<String, TwFundamental>)>>> = OnceLock::new();
 
-/// 抓取台灣證交所與櫃買中心的基本面資料 (PE/PB/殖利率)
 #[tauri::command]
 pub async fn fetch_tw_fundamentals() -> Result<HashMap<String, TwFundamental>, String> {
     let cache_mutex = TW_FUNDAMENTALS_CACHE.get_or_init(|| std::sync::Mutex::new(None));
     {
-        if let Ok(cache) = cache_mutex.lock() {
-            if let Some((fetched_at, data)) = &*cache {
+        if let Ok(guard) = cache_mutex.lock() {
+            if let Some((fetched_at, ref data)) = *guard {
                 if fetched_at.elapsed().as_secs() < 3600 {
                     return Ok(data.clone());
                 }
@@ -524,50 +327,15 @@ pub async fn fetch_tw_fundamentals() -> Result<HashMap<String, TwFundamental>, S
     }
 
     let mut map = HashMap::new();
-    let client = make_client();
 
-    // TWSE 上市
-    if let Ok(res) = client
-        .get("https://openapi.twse.com.tw/v1/exchangeReport/BWIBBU_ALL")
-        .send()
-        .await
-    {
-        if let Ok(json) = res.json::<Vec<serde_json::Value>>().await {
-            for item in json {
-                if let Some(code) = item["Code"].as_str() {
-                    let pe = item["PEratio"].as_str()
-                        .and_then(|s| s.replace(',', "").parse::<f64>().ok());
-                    let pb = item["PBratio"].as_str()
-                        .and_then(|s| s.replace(',', "").parse::<f64>().ok());
-                    let yr = item["DividendYield"].as_str()
-                        .and_then(|s| s.replace(',', "").parse::<f64>().ok())
-                        .map(|v| v / 100.0);
-                    map.insert(code.to_string(), TwFundamental { pe, pb, yield_rate: yr });
-                }
-            }
-        }
+    // 1. TWSE 上市
+    if let Ok(twse_map) = fetch_twse_bwibbu().await {
+        map.extend(twse_map);
     }
 
-    // TPEx 上櫃
-    if let Ok(res) = client
-        .get("https://www.tpex.org.tw/openapi/v1/tpex_mainboard_peratio_analysis")
-        .send()
-        .await
-    {
-        if let Ok(json) = res.json::<Vec<serde_json::Value>>().await {
-            for item in json {
-                if let Some(code) = item["SecuritiesCompanyCode"].as_str() {
-                    let pe = item["PERatio"].as_str()
-                        .and_then(|s| s.replace(',', "").parse::<f64>().ok());
-                    let pb = item["PriceBookRatio"].as_str()
-                        .and_then(|s| s.replace(',', "").parse::<f64>().ok());
-                    let yr = item["DividendYield"].as_str()
-                        .and_then(|s| s.replace(',', "").parse::<f64>().ok())
-                        .map(|v| v / 100.0);
-                    map.insert(code.to_string(), TwFundamental { pe, pb, yield_rate: yr });
-                }
-            }
-        }
+    // 2. TPEx 上櫃
+    if let Ok(tpex_map) = fetch_tpex_peratio().await {
+        map.extend(tpex_map);
     }
 
     {
@@ -579,66 +347,22 @@ pub async fn fetch_tw_fundamentals() -> Result<HashMap<String, TwFundamental>, S
     Ok(map)
 }
 
-/// 抓取相關新聞 (Google News RSS)
+// ─── 抓取相關新聞 ─────────────────────────────────────────────────────────────
+
 #[tauri::command]
 pub async fn fetch_news(query: String) -> Result<Vec<NewsItem>, String> {
-    let client = make_client();
-    let url = format!(
-        "https://news.google.com/rss/search?q={}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant",
-        urlencoding::encode(&query)
-    );
-
-    let res = client
-        .get(&url)
-        .send()
-        .await
-        .map_err(|e| e.to_string())?
-        .text()
-        .await
-        .map_err(|e| e.to_string())?;
-
-    let mut items = vec![];
-    // 使用簡單的字串解析找到 <item> 區塊
-    for chunk in res.split("<item>").skip(1).take(8) {
-        let title = extract_xml_tag(chunk, "title")
-            .unwrap_or_default()
-            .split(" - ")
-            .next()
-            .unwrap_or_default()
-            .replace("<![CDATA[", "")
-            .replace("]]>", "")
-            .trim()
-            .to_string();
-
-        let link = extract_xml_tag(chunk, "link").unwrap_or_default();
-
-        if !title.is_empty() && !link.is_empty() {
-            items.push(NewsItem { title, link });
-        }
-    }
-
-    Ok(items)
+    fetch_google_news(&query).await
 }
 
-fn extract_xml_tag(text: &str, tag: &str) -> Option<String> {
-    let open = format!("<{}>", tag);
-    let close = format!("</{}>", tag);
-    let start = text.find(&open)? + open.len();
-    let end = text.find(&close)?;
-    if start < end {
-        Some(text[start..end].to_string())
-    } else {
-        None
-    }
-}
+// ─── 批次抓取股票報價 ─────────────────────────────────────────────────────────
 
-async fn fetch_single_stock_data_limited(client: &Client, symbol: &str) -> Option<StockData> {
+async fn fetch_single_stock_data_limited(client: &reqwest::Client, symbol: &str) -> Option<StockData> {
     let url = format!(
         "https://query1.finance.yahoo.com/v8/finance/chart/{}?range=1y&interval=1d",
         symbol
     );
     if let Ok(resp) = client.get(&url).send().await {
-        if let Ok(json) = resp.json::<serde_json::Value>().await {
+        if let Ok(json) = resp.json::<Value>().await {
             let result = &json["chart"]["result"][0];
             if result.is_null() { return None; }
 
@@ -705,12 +429,10 @@ async fn fetch_single_stock_data_limited(client: &Client, symbol: &str) -> Optio
     None
 }
 
-/// 批次抓取股票最新報價 (用於選股器)
 #[tauri::command]
 pub async fn fetch_batch_stock_data(symbols: Vec<String>) -> Result<Vec<StockData>, String> {
     use std::sync::Arc;
-    let client = make_client();
-    let client = Arc::new(client);
+    let client = Arc::new(make_client());
     let semaphore = Arc::new(tokio::sync::Semaphore::new(8));
     let mut tasks = vec![];
 
@@ -733,7 +455,6 @@ pub async fn fetch_batch_stock_data(symbols: Vec<String>) -> Result<Vec<StockDat
     Ok(results)
 }
 
-/// 批次抓取股票 K 線與完整基本面資料
 #[tauri::command]
 pub async fn fetch_batch_stock_data_full(symbols: Vec<String>, range: String) -> Result<Vec<StockData>, String> {
     use std::sync::Arc;
@@ -765,7 +486,7 @@ pub async fn fetch_batch_stock_data_full(symbols: Vec<String>, range: String) ->
 // ─── 股票清單取得與更新 ─────────────────────────────────────────────────────────
 
 #[tauri::command]
-pub async fn get_stock_list(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
+pub async fn get_stock_list(app: tauri::AppHandle) -> Result<Value, String> {
     use tauri::Manager;
     let local_path = app.path().app_data_dir()
         .map(|p| p.join("taiwan_stocks.json"))
@@ -773,20 +494,69 @@ pub async fn get_stock_list(app: tauri::AppHandle) -> Result<serde_json::Value, 
 
     if local_path.exists() {
         if let Ok(content) = std::fs::read_to_string(&local_path) {
-            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
+            if let Ok(json) = serde_json::from_str::<Value>(&content) {
                 return Ok(json);
             }
         }
     }
 
     // 回退到嵌入的預設清單
-    let default_stocks: serde_json::Value = serde_json::from_str(include_str!("../assets/taiwan_stocks.json"))
+    let default_stocks: Value = serde_json::from_str(include_str!("../assets/taiwan_stocks.json"))
         .map_err(|e| format!("解析內建股票資料庫失敗: {}", e))?;
     Ok(default_stocks)
 }
 
+fn clean_html(input: &str) -> String {
+    let mut output = String::new();
+    let mut in_tag = false;
+    for c in input.chars() {
+        if c == '<' {
+            in_tag = true;
+        } else if c == '>' {
+            in_tag = false;
+        } else if !in_tag {
+            output.push(c);
+        }
+    }
+    output
+}
+
+fn parse_isin_html(html: &str, suffix: &str) -> Vec<Value> {
+    let mut stocks = Vec::new();
+    for tr_part in html.split("<tr") {
+        if tr_part.is_empty() {
+            continue;
+        }
+        if let Some(td_start) = tr_part.find("<td") {
+            let td_content_part = &tr_part[td_start..];
+            if let Some(td_close_start) = td_content_part.find('>') {
+                let td_inner_part = &td_content_part[td_close_start + 1..];
+                if let Some(td_end) = td_inner_part.find("</td>") {
+                    let text = &td_inner_part[..td_end];
+                    let cleaned = clean_html(text);
+                    let cleaned_trimmed = cleaned.trim();
+                    let parts: Vec<&str> = cleaned_trimmed.split(|c| c == ' ' || c == '　').collect();
+                    if parts.len() >= 2 {
+                        let code = parts[0].trim();
+                        let name = parts[1..].join(" ").trim().to_string();
+                        if code.len() == 4 && code.chars().all(|c| c.is_ascii_digit()) {
+                            let mut obj = serde_json::Map::new();
+                            obj.insert("code".to_string(), Value::String(code.to_string()));
+                            obj.insert("name".to_string(), Value::String(name));
+                            obj.insert("symbol".to_string(), Value::String(format!("{}.{}", code, suffix)));
+                            obj.insert("market".to_string(), Value::String(if suffix == "TW" { "上市".to_string() } else { "上櫃".to_string() }));
+                            stocks.push(Value::Object(obj));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    stocks
+}
+
 #[tauri::command]
-pub async fn update_stock_list(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
+pub async fn update_stock_list(app: tauri::AppHandle) -> Result<Value, String> {
     use tauri::Manager;
     let client = make_client();
     
@@ -817,69 +587,15 @@ pub async fn update_stock_list(app: tauri::AppHandle) -> Result<serde_json::Valu
         return Err("下載失敗：未取得任何股票資料，請檢查網路連線。".to_string());
     }
 
-    // 3. 儲存至本地應用程式目錄
-    let local_dir = app.path().app_data_dir()
-        .map_err(|e| e.to_string())?;
-    
-    std::fs::create_dir_all(&local_dir)
-        .map_err(|e| format!("無法建立應用程式資料夾: {}", e))?;
-        
+    let final_json = Value::Array(all_stocks);
+
+    let local_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&local_dir).map_err(|e| e.to_string())?;
     let local_path = local_dir.join("taiwan_stocks.json");
-    let content = serde_json::to_string_pretty(&all_stocks)
-        .map_err(|e| e.to_string())?;
-        
-    std::fs::write(&local_path, content)
-        .map_err(|e| format!("儲存股票清單失敗: {}", e))?;
-
-    Ok(serde_json::json!({
-        "status": "success",
-        "count": all_stocks.len()
-    }))
-}
-
-fn parse_isin_html(html: &str, suffix: &str) -> Vec<serde_json::Value> {
-    let mut stocks = Vec::new();
-    for tr_part in html.split("<tr") {
-        if tr_part.is_empty() {
-            continue;
-        }
-        if let Some(td_start) = tr_part.find("<td") {
-            let td_content_part = &tr_part[td_start..];
-            if let Some(td_close_start) = td_content_part.find('>') {
-                let td_inner_part = &td_content_part[td_close_start + 1..];
-                if let Some(td_end) = td_inner_part.find("</td>") {
-                    let text = &td_inner_part[..td_end];
-                    let cleaned = clean_html(text);
-                    let cleaned_trimmed = cleaned.trim();
-                    let parts: Vec<&str> = cleaned_trimmed.split(|c| c == ' ' || c == '　').collect();
-                    if parts.len() >= 2 {
-                        let code = parts[0].trim();
-                        let name = parts[1..].join(" ").trim().to_string();
-                        if code.len() >= 4 && code.chars().all(|c| c.is_alphanumeric()) {
-                            stocks.push(serde_json::json!({
-                                "symbol": format!("{}.{}", code, suffix),
-                                "name": name
-                            }));
-                        }
-                    }
-                }
-            }
-        }
+    
+    if let Ok(serialized) = serde_json::to_string_pretty(&final_json) {
+        let _ = std::fs::write(&local_path, serialized);
     }
-    stocks
-}
 
-fn clean_html(input: &str) -> String {
-    let mut output = String::new();
-    let mut in_tag = false;
-    for c in input.chars() {
-        if c == '<' {
-            in_tag = true;
-        } else if c == '>' {
-            in_tag = false;
-        } else if !in_tag {
-            output.push(c);
-        }
-    }
-    output.replace("&nbsp;", " ")
+    Ok(final_json)
 }

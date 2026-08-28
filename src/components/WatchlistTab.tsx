@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { User } from "firebase/auth";
 import { subscribeWatchlist, saveWatchlistToCloud, loadWatchlistFromCloud } from "../utils/firebase";
 import { getCachedStocks, subscribeStocks, StockEntry } from "../utils/stocks";
-import { invoke } from "../utils/platform";
+import { stockService } from "../services";
 import twseFundamentals from "../utils/twse_mops_fundamentals.json";
 import { evaluateAIAlpha, fmtFixed } from "../utils/aiAlphaModel";
 
@@ -194,7 +194,7 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
     try {
       const promises = allSymbols.map(async (sym) => {
         try {
-          const d = await invoke("fetch_stock_data", { symbol: sym, range: "1mo" });
+          const d = await stockService.getStockData(sym, "1mo");
           if (d?.info?.symbol && d?.info?.current_price) {
             return { symbol: d.info.symbol, rawSym: sym, price: Number(d.info.current_price) };
           }
@@ -634,7 +634,7 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
     let curP = prices[stock.symbol] || 0;
     if (!curP) {
       try {
-        const data: any = await invoke("fetch_stock_data", { symbol: stock.symbol, range: "1mo" });
+        const data = await stockService.getStockData(stock.symbol, "1mo");
         if (data?.info?.current_price) {
           curP = Number(data.info.current_price);
           setPrices((prev) => ({ ...prev, [stock.symbol]: curP }));
