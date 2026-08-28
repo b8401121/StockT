@@ -1,0 +1,30 @@
+{
+  "manifest_id": "MANIFEST-FREEZE-1787935967077",
+  "freeze_date": "2026-08-29",
+  "freeze_timestamp": "2026-08-28T16:52:47.077Z",
+  "model_hash": "8cc1ea6e539bcd6cfa8b2eb66acf46f58334605c01a271a19cb0db496c92d5ea",
+  "feature_schema": [
+    "momentum20",
+    "momentum60",
+    "momentum120",
+    "ma20Bias",
+    "ma60Bias",
+    "ma120Bias",
+    "ma240Bias",
+    "volumeRatio",
+    "roe",
+    "pe",
+    "pb",
+    "dividendYield",
+    "grossMargins",
+    "profitMargins",
+    "debtToEquity"
+  ],
+  "ensemble_weights": {
+    "rule_heuristic_pct": 60,
+    "ml_decision_tree_pct": 40
+  },
+  "evaluation_horizon_trading_days": 20,
+  "cost_friction_bps": 63.5,
+  "status": "FROZEN_PROSPECTIVE_EVALUATION"
+}

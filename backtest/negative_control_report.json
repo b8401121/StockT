@@ -1,27 +1,27 @@
 {
   "experiment": "Negative Control / Placebo Feature Sanity Check",
-  "timestamp": "2026-08-28T16:49:49.775Z",
+  "timestamp": "2026-08-28T16:53:38.433Z",
   "results": {
     "real_features_oos_ic": 0.1111,
-    "placebo_noise_oos_ic": 0.0256,
-    "mixed_features_oos_ic": 0.0974,
+    "placebo_noise_oos_ic": 0.035,
+    "mixed_features_oos_ic": 0.0987,
     "is_pipeline_clean": true,
     "placebo_feature_weights": [
       {
         "name": "placebo_gaussian_noise",
-        "learned_weight": 0.0014713428781783025
+        "learned_weight": -0.0015624913661906208
       },
       {
         "name": "placebo_uniform_noise",
-        "learned_weight": 0.0007410406425942027
+        "learned_weight": 0.005188871735681094
       },
       {
-        "name": "placebo_stock_id_hash",
-        "learned_weight": 0.0006947422221171063
+        "name": "placebo_bernoulli_coinflip",
+        "learned_weight": 0.0013261330159937013
       },
       {
-        "name": "placebo_parity_code",
-        "learned_weight": 0.0050793868387729885
+        "name": "placebo_exponential_noise",
+        "learned_weight": 0.002653257871249234
       }
     ]
   }
