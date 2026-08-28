@@ -23,22 +23,6 @@ export interface AIAlphaResult {
   hwTier: HardwareTier;
 }
 
-/**
- * 神經網路多因子模型權重矩陣 (17維輸入特徵 -> 32隱藏層 -> 16隱藏層 -> 1輸出)
- * 針對台股高勝率因子（高ROE、高毛利、營收成長動能、合理本益比、低負債）加權
- */
-const W1_BIAS = [
-  0.15, 0.22, 0.08, -0.05, 0.18, 0.25, 0.12, -0.10, 0.14, 0.09,
-  0.20, -0.08, 0.16, 0.11, 0.23, -0.04, 0.19, 0.07, 0.13, -0.12,
-  0.17, 0.21, -0.06, 0.10, 0.24, 0.05, 0.15, -0.09, 0.18, 0.12,
-  0.22, -0.03
-];
-
-const W2_BIAS = [
-  0.12, 0.18, -0.05, 0.15, 0.22, 0.08, -0.04, 0.19,
-  0.11, 0.25, -0.08, 0.14, 0.17, 0.06, 0.20, -0.02
-];
-
 function leakyRelu(x: number): number {
   return x > 0 ? x : 0.05 * x;
 }
@@ -230,53 +214,50 @@ export function evaluateAIAlpha(
   const hwInfo = getCachedHardwareInfo();
   const { features, posLabels, negLabels, riskPenalty } = extract17Features(info, curPrice, prevClose);
 
-  // Layer 1 Forward: 17 -> 32
+  // Layer 1 Forward: 17 -> 32 (He Scaled)
   const hidden1 = new Float32Array(32);
   for (let i = 0; i < 32; i++) {
-    let sum = W1_BIAS[i];
+    let sum = 0;
     for (let j = 0; j < 17; j++) {
-      const w = Math.sin((i + 1) * (j + 1) * 0.45) * 0.28 + (j < 6 ? 0.35 : 0.15);
+      const w = Math.sin((i + 1) * (j + 1) * 0.5) * 0.18 + (j === 0 ? 0.35 : j < 4 ? 0.20 : 0.08);
       sum += features[j] * w;
     }
     hidden1[i] = leakyRelu(sum);
   }
 
-  // Layer 2 Forward: 32 -> 16
+  // Layer 2 Forward: 32 -> 16 (He Scaled)
   const hidden2 = new Float32Array(16);
   for (let i = 0; i < 16; i++) {
-    let sum = W2_BIAS[i];
+    let sum = 0;
     for (let j = 0; j < 32; j++) {
-      const w = Math.cos((i + 1) * (j + 1) * 0.32) * 0.25 + 0.18;
+      const w = (Math.cos((i + 1) * (j + 1) * 0.4) * 0.15 + 0.12) / Math.sqrt(32);
       sum += hidden1[j] * w;
     }
     hidden2[i] = leakyRelu(sum);
   }
 
   // Output Head: 16 -> 1 (Logit -> Sigmoid)
-  // 中性先驗，並帶入重大財務風險直接懲罰項
-  let outLogit = 0.05;
+  let outLogit = 0.0;
   for (let i = 0; i < 16; i++) {
-    outLogit += hidden2[i] * 0.22;
+    outLogit += (hidden2[i] * 0.35) / Math.sqrt(16);
   }
 
-  // 扣除重大財務地雷懲罰 (如同時虧損、高負債、流動性不足)
-  outLogit -= riskPenalty * 0.55;
+  const isLossMaking = (info.roe != null && info.roe < 0) || (info.eps != null && info.eps < 0) || (info.profit_margins != null && info.profit_margins < 0);
+  if (isLossMaking) {
+    outLogit -= 2.5 + riskPenalty * 0.3;
+  }
 
-  // 計算勝率百分比 (0 ~ 100)
   let rawProb = sigmoid(outLogit);
 
-  // 🛡️ 基本面硬性安全閥與「無基之彈」過濾機制 (Fundamental Safety Guard)
-  // 若公司核心獲利指標為負 (ROE < 0 或 EPS < 0 或 淨利虧損)，即使盤面短線大漲亦屬「投機短彈/逃命波」，絕不可評為強烈看多！
-  const isLossMaking = (info.roe != null && info.roe < 0) || (info.eps != null && info.eps < 0) || (info.profit_margins != null && info.profit_margins < 0);
-  
+  // 🛡️ 基本面硬性安全閥
   if (isLossMaking) {
-    // 虧損股勝率嚴格封頂在 42% 以下，若營收衰退且現金流為負則進一步壓至 25%~35%
-    const maxCap = (info.revenue_growth != null && info.revenue_growth < 0) ? 0.35 : 0.42;
+    const maxCap = (info.revenue_growth != null && info.revenue_growth < 0) ? 0.15 : 0.28;
     rawProb = Math.min(rawProb, maxCap);
     negLabels.unshift("⚠️ 虧損無基之彈 (追高風險極大)");
   }
 
-  // 17 維因子完整明細列表
+  const winRatePct = Number((rawProb * 100).toFixed(1));
+  const expectedAlphaPct = Number(((rawProb - 0.50) * 24.0).toFixed(1));
   const roeVal = info.roe ?? 0.08;
   const gmVal = info.gross_margins ?? 0.20;
   const nmVal = info.profit_margins ?? 0.08;
@@ -446,9 +427,6 @@ export function evaluateAIAlpha(
       explanation: "防範流動性危機與財務槓桿斷鏈之安全閥門",
     },
   ];
-
-  const winRatePct = Number((rawProb * 100).toFixed(1));
-  const expectedAlphaPct = Number(((rawProb - 0.50) * 24.0).toFixed(1));
 
   let convictionTier: AIAlphaResult["convictionTier"] = "⭐⭐⭐ 中性盤整";
   if (isLossMaking) {

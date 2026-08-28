@@ -3,6 +3,9 @@ import { StockInfoFull } from "../utils/analysis";
 import { evaluateAIAlpha, AIAlphaResult } from "../utils/aiAlphaModel";
 import { HardwareBadge } from "./HardwareBadge";
 import { AddToWatchlistBtn } from "./AddToWatchlistBtn";
+import twseFundamentals from "../utils/twse_mops_fundamentals.json";
+
+const fundamentalsMap: Record<string, any> = twseFundamentals as any;
 
 interface AIAlphaScanTabProps {
   onAnalyze?: (symbol: string) => void;
@@ -93,12 +96,10 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
     cancelRef.current = false;
     setScanning(true);
     setProgress(0);
-    setProgressMsg("正在載入全市場財務與動能矩陣資料庫...");
+    setProgressMsg("正在進行全市場 17 維神經網路 AI 推論...");
     setResults([]);
 
     try {
-      const mopsModule = await import("../utils/twse_mops_fundamentals.json");
-      const fundamentalsMap: Record<string, any> = (mopsModule as any).default || mopsModule;
       const allKeys = Object.keys(fundamentalsMap);
       const targetKeys = filterSymbolsByMarket(allKeys, fundamentalsMap, market);
 
