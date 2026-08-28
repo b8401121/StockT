@@ -1,11 +1,12 @@
 use serde::{Deserialize, Serialize};
 
-/// 帶 Institutional-Grade Point-in-Time (PIT) 數據特徵與來源標籤的量化指標容器
+/// 帶 Institutional-Grade Point-in-Time (PIT) 數據特徵、來源標籤與可用性政策的量化指標容器
 /// 
-/// 區分四個關鍵維度以徹底杜絕 Look-Ahead Bias 與時間點偏誤：
+/// 區分四個關鍵時間維度與明確的政策策略，徹底杜絕 Look-Ahead Bias 與時間點偏誤：
 /// - `period`: 數據所屬期間 (例如 "2024Q2", "2024-07", "2026-08-28")
 /// - `published_at`: 公司或交易所實際公告時間 (例如 "2024-08-07T16:30:00+08:00")
 /// - `available_at`: Backtest 模型允許使用該特徵的最早時間點 (例如法定最晚截止日 "2024-08-14" 或盤後 "2026-08-28T13:30:00+08:00")
+/// - `availability_policy`: 可用性生成政策 ("immediate" | "next_market_open" | "market_close" | "conservative_statutory_deadline")
 /// - `fetched_at`: StockT 實際發送 HTTP 請求抓取時間 (ISO 8601 UTC)
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct MetricF64 {
@@ -14,6 +15,7 @@ pub struct MetricF64 {
     pub period: Option<String>,
     pub published_at: Option<String>,
     pub available_at: Option<String>,
+    pub availability_policy: Option<String>,
     pub fetched_at: String,
 }
 
@@ -25,6 +27,7 @@ impl MetricF64 {
             period: None,
             published_at: None,
             available_at: None,
+            availability_policy: Some("immediate".to_string()),
             fetched_at: fetched_at.to_string(),
         }
     }
@@ -34,6 +37,7 @@ impl MetricF64 {
         period: Option<String>,
         published_at: Option<String>,
         available_at: Option<String>,
+        availability_policy: Option<String>,
         fetched_at: &str,
     ) -> Self {
         Self {
@@ -42,6 +46,7 @@ impl MetricF64 {
             period,
             published_at,
             available_at,
+            availability_policy,
             fetched_at: fetched_at.to_string(),
         }
     }
@@ -51,6 +56,7 @@ impl MetricF64 {
         period: Option<String>,
         published_at: Option<String>,
         available_at: Option<String>,
+        availability_policy: Option<String>,
         fetched_at: &str,
     ) -> Self {
         Self {
@@ -59,6 +65,7 @@ impl MetricF64 {
             period,
             published_at,
             available_at,
+            availability_policy,
             fetched_at: fetched_at.to_string(),
         }
     }
@@ -68,6 +75,7 @@ impl MetricF64 {
         period: Option<String>,
         published_at: Option<String>,
         available_at: Option<String>,
+        availability_policy: Option<String>,
         fetched_at: &str,
     ) -> Self {
         Self {
@@ -76,6 +84,7 @@ impl MetricF64 {
             period,
             published_at,
             available_at,
+            availability_policy,
             fetched_at: fetched_at.to_string(),
         }
     }
@@ -100,7 +109,7 @@ pub struct StockInfo {
     pub industry: Option<String>,
     pub long_business_summary: Option<String>,
 
-    // ─── 量化指標 (帶 PIT provenance: value, source, period, published_at, available_at, fetched_at)
+    // ─── 量化指標 (帶 PIT provenance: value, source, period, published_at, available_at, availability_policy, fetched_at)
     pub current_price:      Option<MetricF64>,
     pub previous_close:     Option<MetricF64>,
     pub pe:                 Option<MetricF64>,

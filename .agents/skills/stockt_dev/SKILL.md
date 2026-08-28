@@ -54,23 +54,38 @@ All quantitative financial metrics flow through a typed provenance container dis
 | `period` | 數據所屬財務/交易期間 | `2024Q2`, `2024-07`, `2026-08-28` |
 | `publishedAt` | 公司或交易所實際公告時間 (Actual Announcement) | `2024-08-07T16:30:00+08:00` |
 | `availableAt` | Backtest/模型允許使用該特徵的最早時間點 (Point-in-Time) | `2024-08-14` (最晚法定截止日) 或 `2026-08-28T13:30:00+08:00` (收盤) |
+| `availabilityPolicy` | 可用性生成政策 (Policy Type) | `"conservative_statutory_deadline"`, `"market_close"`, `"next_market_open"` |
 | `fetchedAt` | StockT 實際發送 HTTP 請求抓取時間 (ISO 8601 UTC) | `2026-08-28T14:45:00Z` |
 
 ```
 Rust Backend (fetch.rs / yahoo.rs / twse.rs / tpex.rs)
-  ↓ MetricF64 { value, source, period, published_at, available_at, fetched_at }
+  ↓ MetricF64 { value, source, period, published_at, available_at, availability_policy, fetched_at }
 Tauri IPC / Deserialization
-  ↓ Metric<number> { value, source, period, publishedAt, availableAt, fetchedAt }
+  ↓ Metric<number> { value, source, period, publishedAt, availableAt, availabilityPolicy, fetchedAt }
 StockInfo / StockInfoFull (TypeScript)
-  ↓ metricVal, metricSource, metricPeriod, metricPublishedAt, metricAvailableAt, formatAsOf
+  ↓ metricVal, metricSource, metricPeriod, metricPublishedAt, metricAvailableAt, metricPolicy, formatAsOf
 AI Alpha Multi-Factor Engine (aiAlphaModel.ts)
   ↓ FactorResult { value, source, asOf: "2024Q2 (生效: 2024-08-14)", status, available }
 UI (AnalysisTab / Scanners) -> Transparently displays real data provenance & PIT dates
 ```
 
-#### Point-in-Time & Execution Timing Rules:
-- **Financial Statements (財報)**: 現階段 `availableAt` 設為最晚法定公告截止日（Q1: 05-15, Q2: 08-14, Q3: 11-14, Q4: 次年 03-31），回測僅在該日期後方可消費該季度特徵；未來接 MOPS 實際公告日後，`availableAt` 即為公告後第一個可交易時點。
-- **Daily Market Valuations (當日收盤估值)**: 收盤 PE/PB/DY 與收盤價之 `availableAt` 嚴格標記為當日收盤時間 `T 13:30:00+08:00`，禁止在盤中 (如 10:00) 假設已知收盤指標；回測策略預設於 `T` 收盤產生訊號，`T+1` 開盤執行交易。
+#### Availability Policy Taxonomy:
+- `"immediate"`: 即時盤中行情 (即時報價，當下有效)。
+- `"market_close"`: 盤後結算數據 (例如 TWSE/TPEx 收盤 PE/PB/殖利率，每日 13:30 收盤結算後生效)。
+- `"next_market_open"`: 盤後公告數據 (公告時間後之次一交易日 09:00 開盤生效)。
+- `"conservative_statutory_deadline"`: 最晚法定公告截止日推定 (Q1: 05-15, Q2: 08-14, Q3: 11-14, Q4: 次年 03-31)。
+
+#### Backtest Configuration Specification:
+```json
+{
+  "signal_time": "market_close",
+  "execution_time": "next_market_open",
+  "holding_period": 20,
+  "benchmark": "TAIEX",
+  "timezone": "Asia/Taipei",
+  "availability_rule": "feature.availableAt <= signalTimestamp"
+}
+```
 
 #### Helper Functions:
 - `metricVal(m)`: Null-safe extraction of `m?.value ?? null`.
@@ -78,6 +93,7 @@ UI (AnalysisTab / Scanners) -> Transparently displays real data provenance & PIT
 - `metricPeriod(m, fallback)`: Returns data period (e.g. `"2024Q2"`).
 - `metricPublishedAt(m)`: Returns formal publication date (e.g. `"2024-08-07"`).
 - `metricAvailableAt(m)`: Returns earliest backtest accessible timestamp (e.g. `"2024-08-14"`).
+- `metricPolicy(m)`: Returns availability policy (`"market_close"`, `"conservative_statutory_deadline"`, etc.).
 - `formatAsOf(m)`: Formats Point-in-Time display string, e.g. `"2024Q2 (生效: 2024-08-14)"`.
 - `metricTs(m)`: Returns ISO-8601 UTC fetch timestamp string (`m?.fetchedAt`).
 

@@ -1,5 +1,5 @@
 import { StockInfoFull } from "./analysis";
-import type { Metric } from "./platform";
+import type { AvailabilityPolicy, Metric } from "./platform";
 import { HardwareTier, getCachedHardwareInfo } from "./hardwareDetector";
 import { OhlcvData } from "./indicators";
 
@@ -120,6 +120,11 @@ export function metricPublishedAt(m: Metric<number> | null | undefined): string 
 /** Extract availableAt (Point-in-Time backtest permission timestamp) from a Metric<number> field */
 export function metricAvailableAt(m: Metric<number> | null | undefined): string | undefined {
   return m?.availableAt;
+}
+
+/** Extract availabilityPolicy from a Metric<number> field */
+export function metricPolicy(m: Metric<number> | null | undefined): AvailabilityPolicy | undefined {
+  return m?.availabilityPolicy;
 }
 
 /**

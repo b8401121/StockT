@@ -24,6 +24,13 @@ export interface OhlcvData {
 
 export type DataSource = "Yahoo Finance" | "TWSE" | "TPEx" | "MOPS" | "K線計算" | "FinMind";
 
+export type AvailabilityPolicy =
+  | "immediate"
+  | "next_market_open"
+  | "market_close"
+  | "next_market_close"
+  | "conservative_statutory_deadline";
+
 export interface Metric<T = number> {
   value: T;
   source: DataSource;
@@ -33,21 +40,41 @@ export interface Metric<T = number> {
   publishedAt?: string;
   /** Backtest 模型允許使用該資料的最早時間點 (例如法定最晚截止日 "2024-08-14" 或盤後 "2026-08-28T13:30:00+08:00") */
   availableAt?: string;
+  /** 可用性生成政策 ("immediate" | "next_market_open" | "market_close" | "conservative_statutory_deadline") */
+  availabilityPolicy?: AvailabilityPolicy;
   /** StockT 抓取時間 (ISO 8601 UTC) */
   fetchedAt: string;
 }
 
 /** Create a Yahoo Finance Metric wrapper */
-export function mkYahoo(value: number, period?: string, publishedAt?: string, availableAt?: string): Metric<number> {
-  return { value, source: "Yahoo Finance", period, publishedAt, availableAt, fetchedAt: new Date().toISOString() };
+export function mkYahoo(
+  value: number,
+  period?: string,
+  publishedAt?: string,
+  availableAt?: string,
+  availabilityPolicy: AvailabilityPolicy = "market_close"
+): Metric<number> {
+  return { value, source: "Yahoo Finance", period, publishedAt, availableAt, availabilityPolicy, fetchedAt: new Date().toISOString() };
 }
 /** Create a MOPS static Metric wrapper */
-export function mkMops(value: number, period = "2024Q2", publishedAt?: string, availableAt = "2024-08-14"): Metric<number> {
-  return { value, source: "MOPS", period, publishedAt, availableAt, fetchedAt: new Date().toISOString() };
+export function mkMops(
+  value: number,
+  period = "2024Q2",
+  publishedAt?: string,
+  availableAt = "2024-08-14",
+  availabilityPolicy: AvailabilityPolicy = "conservative_statutory_deadline"
+): Metric<number> {
+  return { value, source: "MOPS", period, publishedAt, availableAt, availabilityPolicy, fetchedAt: new Date().toISOString() };
 }
 /** Create a TWSE Metric wrapper */
-export function mkTWSE(value: number, period?: string, publishedAt?: string, availableAt?: string): Metric<number> {
-  return { value, source: "TWSE", period, publishedAt, availableAt, fetchedAt: new Date().toISOString() };
+export function mkTWSE(
+  value: number,
+  period?: string,
+  publishedAt?: string,
+  availableAt?: string,
+  availabilityPolicy: AvailabilityPolicy = "market_close"
+): Metric<number> {
+  return { value, source: "TWSE", period, publishedAt, availableAt, availabilityPolicy, fetchedAt: new Date().toISOString() };
 }
 
 export interface StockInfo {
