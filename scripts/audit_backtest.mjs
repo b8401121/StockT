@@ -1,20 +1,22 @@
 #!/usr/bin/env node
 
 /**
- * Institutional Backtest Cryptographic & Mathematical Auditor (v2.0)
+ * Institutional Backtest Cryptographic & Mathematical Auditor (v2.1 Real Execution)
  * 
  * Verifies:
- * 1. Canonical SHA-256 Config Hash Integrity (RFC 8785)
- * 2. Canonical SHA-256 Dataset Hash Integrity (RFC 8785)
- * 3. Engine SHA-256 & Git Commit Integrity
- * 4. Mathematical Invariants: Commission + Tax + Slippage == Total Friction
- * 5. Mathematical Invariants: Cost / NAV Ratio & Friction Drag
- * 6. Honest Out-of-Sample Nomenclature Verification
+ * 1. Canonical SHA-256 Config Hash Integrity
+ * 2. Canonical SHA-256 Dataset Hash Integrity (Full Dataset Object)
+ * 3. Real Engine Source Code Fingerprint (SHA-256 of all engine source files)
+ * 4. Git Commit Identity Tracking (Zero fallback)
+ * 5. Mathematical Invariants: Commission + Tax + Slippage == Total Friction
+ * 6. Mathematical Invariants: Cost / NAV Ratio & Friction Drag
+ * 7. Honest Out-of-Sample Nomenclature Verification
  */
 
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
+import { execSync } from "child_process";
 import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -41,6 +43,40 @@ function computeCanonicalSha256(value) {
   return crypto.createHash("sha256").update(canonicalStr, "utf-8").digest("hex");
 }
 
+function getGitCommit() {
+  try {
+    return execSync("git rev-parse --short HEAD", { cwd: rootDir, encoding: "utf-8" }).trim();
+  } catch (err) {
+    console.error("❌ ERROR: Failed to get git commit hash in auditor.");
+    process.exit(1);
+  }
+}
+
+function computeEngineSourceSha256() {
+  const engineFiles = [
+    "src/backtest/types.ts",
+    "src/backtest/costModel.ts",
+    "src/backtest/priceModel.ts",
+    "src/backtest/universe.ts",
+    "src/backtest/portfolioEngine.ts",
+    "src/backtest/backtestEngine.ts",
+    "src/backtest/backtestRunner.ts",
+    "src/utils/aiAlphaModel.ts",
+    "src/utils/marketCalendar.ts",
+    "src/utils/pitValidator.ts",
+  ];
+
+  const hasher = crypto.createHash("sha256");
+  for (const relPath of engineFiles) {
+    const fullPath = path.join(rootDir, relPath);
+    if (fs.existsSync(fullPath)) {
+      const code = fs.readFileSync(fullPath, "utf-8");
+      hasher.update(code);
+    }
+  }
+  return hasher.digest("hex");
+}
+
 function runAudit() {
   console.log("\n========================================================");
   console.log(" 🔍 StockT Institutional Backtest Cryptographic Auditor ");
@@ -50,22 +86,19 @@ function runAudit() {
   const datasetPath = path.join(rootDir, "backtest", "dataset", "taiwan_equities_2018_2026.json");
   const resultsPath = path.join(rootDir, "backtest", "results.json");
 
-  if (!fs.existsSync(configPath) || !fs.existsSync(resultsPath)) {
-    console.error("❌ ERROR: config.json or results.json not found in backtest/");
+  if (!fs.existsSync(configPath) || !fs.existsSync(datasetPath) || !fs.existsSync(resultsPath)) {
+    console.error("❌ ERROR: Missing config.json, dataset, or results.json in backtest/");
     process.exit(1);
   }
 
   const configJson = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+  const datasetJson = JSON.parse(fs.readFileSync(datasetPath, "utf-8"));
   const resultsJson = JSON.parse(fs.readFileSync(resultsPath, "utf-8"));
 
-  let datasetMetadata = null;
-  if (fs.existsSync(datasetPath)) {
-    datasetMetadata = JSON.parse(fs.readFileSync(datasetPath, "utf-8")).dataset_metadata;
-  }
-
+  const gitCommit = getGitCommit();
   const computedConfigSha = computeCanonicalSha256(configJson);
-  const computedDatasetSha = datasetMetadata ? computeCanonicalSha256(datasetMetadata) : null;
-  const computedEngineSha = crypto.createHash("sha256").update("StockT_Backtest_Engine_v1.0.0-pit-audited").digest("hex");
+  const computedDatasetSha = computeCanonicalSha256(datasetJson);
+  const computedEngineSha = computeEngineSourceSha256();
 
   let passed = 0;
   let failed = 0;
@@ -93,25 +126,24 @@ function runAudit() {
   );
 
   const recordedDatasetSha = resultsJson.provenance?.dataset_sha256;
-  if (computedDatasetSha) {
-    assertRule(
-      recordedDatasetSha === computedDatasetSha,
-      "Dataset Canonical SHA-256 Cryptographic Match",
-      `Computed: ${computedDatasetSha}\n   Recorded: ${recordedDatasetSha}`
-    );
-  }
+  assertRule(
+    recordedDatasetSha === computedDatasetSha,
+    "Full Dataset Canonical SHA-256 Cryptographic Match",
+    `Computed: ${computedDatasetSha}\n   Recorded: ${recordedDatasetSha}`
+  );
 
   const recordedEngineSha = resultsJson.provenance?.engine_sha256;
   assertRule(
     recordedEngineSha === computedEngineSha,
-    "Engine SHA-256 Cryptographic Match",
+    "Engine Source Code SHA-256 Fingerprint Match",
     `Computed: ${computedEngineSha}\n   Recorded: ${recordedEngineSha}`
   );
 
+  const recordedGitCommit = resultsJson.provenance?.git_commit;
   assertRule(
-    typeof resultsJson.provenance?.git_commit === "string" && resultsJson.provenance?.git_commit.length >= 7,
-    "Git Commit Identity Tracking",
-    `Git Commit: ${resultsJson.provenance?.git_commit}`
+    typeof recordedGitCommit === "string" && recordedGitCommit.length >= 7,
+    "Git Commit Identity Tracking (Zero Fallback)",
+    `Git Commit: ${recordedGitCommit}`
   );
 
   // ──────────────────────────────────────────────────────────────────────────

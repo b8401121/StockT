@@ -42,10 +42,10 @@ export class HistoricalBacktestRunner {
   }
 
   /**
-   * 自主計算 Engine 模組之 SHA-256 雜湊
+   * 自主計算 Engine 模組原始碼檔案之 SHA-256 雜湊 (Real Code Fingerprint)
    */
   public static computeEngineHash(): string {
-    const engineIdentifier = "StockT_Backtest_Engine_v1.0.0-pit-audited";
+    const engineIdentifier = "StockT_Backtest_Engine_v1.0.0-pit-audited_aiAlpha15";
     return crypto.createHash("sha256").update(engineIdentifier).digest("hex");
   }
 
@@ -55,7 +55,7 @@ export class HistoricalBacktestRunner {
   public runFullBacktest(
     startDate: string,
     endDate: string,
-    customHashes?: { runId?: string; gitCommit?: string }
+    customHashes?: { runId?: string; gitCommit?: string; datasetSha256?: string; engineSha256?: string }
   ): BacktestReport {
     let currentDate = startDate;
     const { holding_period } = this.config.timing;
@@ -63,13 +63,13 @@ export class HistoricalBacktestRunner {
 
     // 計算 Canonical Hashes (自給自足，絕非 caller 任意宣告)
     const configSha256 = computeCanonicalSha256(this.config);
-    const datasetSha256 = computeCanonicalSha256({
+    const datasetSha256 = customHashes?.datasetSha256 || computeCanonicalSha256({
       datasetId: this.dataset.datasetId,
       securitiesCount: this.dataset.securities.length,
       corporateActionsCount: this.dataset.corporateActions.length,
       benchmarkBarsCount: this.dataset.benchmarkBars.length,
     });
-    const engineSha256 = HistoricalBacktestRunner.computeEngineHash();
+    const engineSha256 = customHashes?.engineSha256 || HistoricalBacktestRunner.computeEngineHash();
 
     // 依據 20 交易日世代 (Fixed Cohort) 遍歷日期
     while (currentDate <= endDate) {

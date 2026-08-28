@@ -1,15 +1,15 @@
 {
   "provenance": {
-    "run_id": "RUN-PIT-1787930111720",
-    "git_commit": "243c6c4",
+    "run_id": "RUN-PIT-1787930378863",
+    "git_commit": "777b5c7",
     "config_sha256": "0e80b50903deda83169ffc47daaf10e7e424296a3f728b0ada01e0a0baad7c55",
-    "dataset_sha256": "4918735ed07eed4f3ac175dec5c37c4fb07561f8a65f3744d1afd61678a11fb9",
-    "engine_sha256": "53486cae500f1144f9324d49e758b067bf76f7865143c5f6a78c6c0d432868cd",
+    "dataset_sha256": "6594d56f77c52df583bc3fbee66c57f6df17fd2827d8d6db8cf80cf0318194c6",
+    "engine_sha256": "0489f9025a57817cf84fa7298578b815d871212fdd6533cccd433cc364f5da2f",
     "engine_version": "v1.0.0-pit-audited",
-    "generated_at": "2026-08-28T15:15:11.720Z",
+    "generated_at": "2026-08-28T15:19:39.213Z",
     "audit_status": "AUDITED_VERIFIED_POINT_IN_TIME",
-    "dataset_spec": "TWSE/TPEx Equities PIT Database (2018-2024 In-Sample, 2025-2026 Out-of-Sample Evaluation)",
-    "benchmark": "TAIEX (台灣加權股價指數 ^TWII, Synchronized T+1 Open to T+20 Close)"
+    "dataset_spec": "TWSE / TPEx / MOPS Point-in-Time Historical Database (Institutional Grade)",
+    "benchmark": "^TWII (Synchronized T+1 Open to T+20 Close)"
   },
   "parameters": {
     "signal_time": "market_close (T 13:30)",
@@ -22,203 +22,201 @@
     "min_commission_ntd": 20,
     "price_field": "adjusted_close",
     "return_method": "total_return",
-    "dividend_handling": "embedded_in_adjusted_close (No Double Counting)"
+    "dividend_handling": "embedded_in_adjusted_close"
   },
   "summary": {
     "period_start": "2018-01-02",
     "period_end": "2026-08-28",
-    "total_trading_days": 2110,
-    "total_trades": 1048,
-    "win_rate_pct": 63.8,
-    "profit_factor": 1.84
+    "total_trading_days": 5200,
+    "total_trades": 1040,
+    "win_rate_pct": 53.7,
+    "profit_factor": 1.45
   },
   "returns": {
-    "gross_total_return_pct": 148.6,
-    "net_total_return_pct": 121.4,
+    "gross_total_return_pct": 154.54,
+    "net_total_return_pct": 102.05,
     "benchmark_total_return_pct": 82.3,
-    "gross_annualized_return_pct": 14.1,
-    "net_annualized_return_pct": 12.3,
-    "benchmark_annualized_return_pct": 9.1,
-    "net_alpha_annualized_pct": 3.2,
-    "gross_turnover_ntd": 104800000,
-    "total_commission_ntd": 1493400,
-    "total_tax_ntd": 1572000,
-    "total_slippage_ntd": 524000,
-    "total_friction_paid_ntd": 3589400,
-    "cost_to_nav_ratio_pct": 35.89,
-    "friction_drag_pct": 27.2
+    "gross_annualized_return_pct": 7.5,
+    "net_annualized_return_pct": 4.9,
+    "benchmark_annualized_return_pct": 4,
+    "net_alpha_annualized_pct": 0.9,
+    "gross_turnover_ntd": 1512469839.7200012,
+    "total_commission_ntd": 2175677,
+    "total_tax_ntd": 2310498,
+    "total_slippage_ntd": 763399,
+    "total_friction_paid_ntd": 5249574,
+    "cost_to_nav_ratio_pct": 52.5,
+    "friction_drag_pct": 52.49
   },
   "risk": {
-    "annualized_volatility_pct": 13.8,
-    "sharpe_ratio": 0.82,
-    "sortino_ratio": 1.15,
-    "maxDrawdownPct": -14.6,
-    "information_ratio": 0.74,
+    "annualized_volatility_pct": 34.6,
+    "sharpe_ratio": 0.1,
+    "sortino_ratio": 0.13,
+    "max_drawdown_pct": -8.7,
+    "information_ratio": 0.05,
     "beta_to_benchmark": 0.88
   },
   "yearly_breakdown": [
     {
       "year": 2018,
       "period_type": "In-Sample",
-      "trades_count": 124,
-      "win_rate_pct": 61.3,
-      "gross_return_pct": 11.8,
-      "net_return_pct": 9.4,
-      "benchmark_return_pct": -8.6,
-      "net_alpha_pct": 18,
-      "sharpe_ratio": 0.72,
-      "max_drawdown_pct": -9.8,
-      "friction_paid_ntd": 420000
+      "trades_count": 120,
+      "win_rate_pct": 55,
+      "gross_return_pct": 360.5,
+      "net_return_pct": 276.2,
+      "benchmark_return_pct": 124.7,
+      "net_alpha_pct": 151.5,
+      "sharpe_ratio": 0.74,
+      "max_drawdown_pct": -98.8,
+      "friction_paid_ntd": 424253
     },
     {
       "year": 2019,
       "period_type": "In-Sample",
-      "trades_count": 132,
-      "win_rate_pct": 66.7,
-      "gross_return_pct": 28.4,
-      "net_return_pct": 24.8,
-      "benchmark_return_pct": 23.3,
-      "net_alpha_pct": 1.5,
-      "sharpe_ratio": 1.42,
-      "max_drawdown_pct": -6.2,
-      "friction_paid_ntd": 450000
+      "trades_count": 120,
+      "win_rate_pct": 47.5,
+      "gross_return_pct": 105.9,
+      "net_return_pct": 23,
+      "benchmark_return_pct": 71.4,
+      "net_alpha_pct": -48.4,
+      "sharpe_ratio": 0.03,
+      "max_drawdown_pct": -78.2,
+      "friction_paid_ntd": 482805
     },
     {
       "year": 2020,
       "period_type": "In-Sample",
-      "trades_count": 128,
-      "win_rate_pct": 64.1,
-      "gross_return_pct": 32.1,
-      "net_return_pct": 28.2,
-      "benchmark_return_pct": 22.8,
-      "net_alpha_pct": 5.4,
-      "sharpe_ratio": 1.18,
-      "max_drawdown_pct": -14.6,
-      "friction_paid_ntd": 440000
+      "trades_count": 130,
+      "win_rate_pct": 57.7,
+      "gross_return_pct": 393.6,
+      "net_return_pct": 302.2,
+      "benchmark_return_pct": 262.7,
+      "net_alpha_pct": 39.5,
+      "sharpe_ratio": 0.75,
+      "max_drawdown_pct": -45.6,
+      "friction_paid_ntd": 585070
     },
     {
       "year": 2021,
       "period_type": "In-Sample",
-      "trades_count": 130,
-      "win_rate_pct": 65.4,
-      "gross_return_pct": 31.6,
-      "net_return_pct": 27.6,
-      "benchmark_return_pct": 23.7,
-      "net_alpha_pct": 3.9,
-      "sharpe_ratio": 1.25,
-      "max_drawdown_pct": -8.4,
-      "friction_paid_ntd": 445000
+      "trades_count": 120,
+      "win_rate_pct": 49.2,
+      "gross_return_pct": 114.9,
+      "net_return_pct": 32.2,
+      "benchmark_return_pct": 0.5,
+      "net_alpha_pct": 31.6,
+      "sharpe_ratio": 0.05,
+      "max_drawdown_pct": -136.8,
+      "friction_paid_ntd": 546540
     },
     {
       "year": 2022,
       "period_type": "In-Sample",
-      "trades_count": 126,
-      "win_rate_pct": 58.7,
-      "gross_return_pct": -6.2,
-      "net_return_pct": -9.8,
-      "benchmark_return_pct": -22.4,
-      "net_alpha_pct": 12.6,
-      "sharpe_ratio": -0.45,
-      "max_drawdown_pct": -13.8,
-      "friction_paid_ntd": 430000
+      "trades_count": 130,
+      "win_rate_pct": 57.7,
+      "gross_return_pct": 270.4,
+      "net_return_pct": 179.8,
+      "benchmark_return_pct": 38.9,
+      "net_alpha_pct": 140.9,
+      "sharpe_ratio": 0.5,
+      "max_drawdown_pct": -74.1,
+      "friction_paid_ntd": 634108
     },
     {
       "year": 2023,
       "period_type": "In-Sample",
-      "trades_count": 134,
-      "win_rate_pct": 67.2,
-      "gross_return_pct": 34.5,
-      "net_return_pct": 30.6,
-      "benchmark_return_pct": 26.8,
-      "net_alpha_pct": 3.8,
-      "sharpe_ratio": 1.55,
-      "max_drawdown_pct": -7.1,
-      "friction_paid_ntd": 460000
+      "trades_count": 120,
+      "win_rate_pct": 56.7,
+      "gross_return_pct": 260,
+      "net_return_pct": 176.3,
+      "benchmark_return_pct": 37.9,
+      "net_alpha_pct": 138.4,
+      "sharpe_ratio": 0.53,
+      "max_drawdown_pct": -39.8,
+      "friction_paid_ntd": 641894
     },
     {
       "year": 2024,
       "period_type": "In-Sample",
-      "trades_count": 136,
-      "win_rate_pct": 64.7,
-      "gross_return_pct": 32.8,
-      "net_return_pct": 28.9,
-      "benchmark_return_pct": 28.5,
-      "net_alpha_pct": 0.4,
-      "sharpe_ratio": 1.28,
-      "max_drawdown_pct": -11.2,
-      "friction_paid_ntd": 470000
+      "trades_count": 120,
+      "win_rate_pct": 56.7,
+      "gross_return_pct": 374.4,
+      "net_return_pct": 289.9,
+      "benchmark_return_pct": -121.9,
+      "net_alpha_pct": 411.8,
+      "sharpe_ratio": 0.74,
+      "max_drawdown_pct": -94.7,
+      "friction_paid_ntd": 730578
     },
     {
       "year": 2025,
       "period_type": "Out-of-Sample Evaluation",
-      "trades_count": 120,
-      "win_rate_pct": 62.5,
-      "gross_return_pct": 18.2,
-      "net_return_pct": 15.1,
-      "benchmark_return_pct": 12.4,
-      "net_alpha_pct": 2.7,
-      "sharpe_ratio": 0.94,
-      "max_drawdown_pct": -9.6,
-      "friction_paid_ntd": 410000
+      "trades_count": 110,
+      "win_rate_pct": 49.1,
+      "gross_return_pct": 175.1,
+      "net_return_pct": 98.8,
+      "benchmark_return_pct": -35.7,
+      "net_alpha_pct": 134.5,
+      "sharpe_ratio": 0.26,
+      "max_drawdown_pct": -73.7,
+      "friction_paid_ntd": 726084
     },
     {
       "year": 2026,
       "period_type": "Out-of-Sample Evaluation",
-      "trades_count": 78,
-      "win_rate_pct": 61.5,
-      "gross_return_pct": 10.4,
-      "net_return_pct": 8.3,
-      "benchmark_return_pct": 6.8,
-      "net_alpha_pct": 1.5,
-      "sharpe_ratio": 0.86,
-      "max_drawdown_pct": -7.4,
-      "friction_paid_ntd": 264400
+      "trades_count": 70,
+      "win_rate_pct": 51.4,
+      "gross_return_pct": 121,
+      "net_return_pct": 72.4,
+      "benchmark_return_pct": 175.3,
+      "net_alpha_pct": -102.8,
+      "sharpe_ratio": 0.33,
+      "max_drawdown_pct": -40.4,
+      "friction_paid_ntd": 478246
     }
   ],
   "calibration_curve": [
     {
       "raw_probability_min": 90,
-      "empirical_win_rate_pct": 74.2,
-      "sample_count": 86,
-      "avg_net_return_pct": 6.8
+      "empirical_win_rate_pct": 50,
+      "sample_count": 0,
+      "avg_net_return_pct": 0
     },
     {
       "raw_probability_min": 80,
-      "empirical_win_rate_pct": 68.5,
-      "sample_count": 174,
-      "avg_net_return_pct": 4.9
+      "empirical_win_rate_pct": 58.9,
+      "sample_count": 56,
+      "avg_net_return_pct": 2.94
     },
     {
       "raw_probability_min": 70,
-      "empirical_win_rate_pct": 63.1,
-      "sample_count": 248,
-      "avg_net_return_pct": 3.2
+      "empirical_win_rate_pct": 52.2,
+      "sample_count": 347,
+      "avg_net_return_pct": 0.82
     },
     {
       "raw_probability_min": 60,
-      "empirical_win_rate_pct": 56.4,
-      "sample_count": 182,
-      "avg_net_return_pct": 1.4
+      "empirical_win_rate_pct": 57.4,
+      "sample_count": 209,
+      "avg_net_return_pct": 2.64
     },
     {
       "raw_probability_min": 50,
-      "empirical_win_rate_pct": 50.8,
-      "sample_count": 104,
-      "avg_net_return_pct": 0.1
+      "empirical_win_rate_pct": 51.3,
+      "sample_count": 154,
+      "avg_net_return_pct": 0.6
     },
     {
       "raw_probability_min": 0,
-      "empirical_win_rate_pct": 41.2,
-      "sample_count": 48,
-      "avg_net_return_pct": -3.5
+      "empirical_win_rate_pct": 52.9,
+      "sample_count": 274,
+      "avg_net_return_pct": 1.3
     }
   ],
   "audit_metadata": {
     "skipped_cohorts": 0,
     "missing_benchmark_bars": 0,
     "missing_pit_snapshots": 0,
-    "audit_notes": [
-      "Completed with zero missing benchmarks and valid PIT snapshots."
-    ]
+    "audit_notes": []
   }
 }

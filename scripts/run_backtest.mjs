@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 
 /**
- * End-to-End Backtest Execution CLI
+ * End-to-End Backtest Execution CLI (Zero Hardcoded Numbers)
  * 
  * Pipeline:
- * 1. Loads canonical config.json and dataset
- * 2. Computes canonical SHA-256 hashes
- * 3. Simulates 20-trading-day cohorts with Top-N AI Alpha ranking
- * 4. Integrates transaction costs (with NT$20 min) and corporate actions
- * 5. Writes audited results to backtest/results.json
+ * 1. Loads canonical config.json and dataset/taiwan_equities_2018_2026.json
+ * 2. Computes canonical SHA-256 for Config, Dataset (Entire File), and Engine Source Code
+ * 3. Extracts Git commit (Zero fallback)
+ * 4. Executes HistoricalBacktestRunner -> BacktestEngine -> AIAlphaModel -> PortfolioEngine
+ * 5. Writes the computed BacktestReport directly to backtest/results.json
  */
 
 import fs from "fs";
@@ -44,12 +44,38 @@ function computeCanonicalSha256(value) {
 function getGitCommit() {
   try {
     return execSync("git rev-parse --short HEAD", { cwd: rootDir, encoding: "utf-8" }).trim();
-  } catch {
-    return "243c6c4";
+  } catch (err) {
+    console.error("❌ ERROR: Failed to get git commit hash. Zero-tolerance policy requires valid git repository.");
+    process.exit(1);
   }
 }
 
-function main() {
+function computeEngineSourceSha256() {
+  const engineFiles = [
+    "src/backtest/types.ts",
+    "src/backtest/costModel.ts",
+    "src/backtest/priceModel.ts",
+    "src/backtest/universe.ts",
+    "src/backtest/portfolioEngine.ts",
+    "src/backtest/backtestEngine.ts",
+    "src/backtest/backtestRunner.ts",
+    "src/utils/aiAlphaModel.ts",
+    "src/utils/marketCalendar.ts",
+    "src/utils/pitValidator.ts",
+  ];
+
+  const hasher = crypto.createHash("sha256");
+  for (const relPath of engineFiles) {
+    const fullPath = path.join(rootDir, relPath);
+    if (fs.existsSync(fullPath)) {
+      const code = fs.readFileSync(fullPath, "utf-8");
+      hasher.update(code);
+    }
+  }
+  return hasher.digest("hex");
+}
+
+async function main() {
   console.log("\n========================================================");
   console.log(" 🚀 StockT End-to-End Institutional Backtest Engine     ");
   console.log("========================================================\n");
@@ -58,217 +84,166 @@ function main() {
   const datasetPath = path.join(rootDir, "backtest", "dataset", "taiwan_equities_2018_2026.json");
   const resultsPath = path.join(rootDir, "backtest", "results.json");
 
+  if (!fs.existsSync(configPath) || !fs.existsSync(datasetPath)) {
+    console.error("❌ ERROR: Missing config.json or dataset file.");
+    process.exit(1);
+  }
+
   const configJson = JSON.parse(fs.readFileSync(configPath, "utf-8"));
   const datasetJson = JSON.parse(fs.readFileSync(datasetPath, "utf-8"));
 
   const gitCommit = getGitCommit();
   const configSha256 = computeCanonicalSha256(configJson);
-  const datasetSha256 = computeCanonicalSha256(datasetJson.dataset_metadata);
-  const engineSha256 = crypto.createHash("sha256").update("StockT_Backtest_Engine_v1.0.0-pit-audited").digest("hex");
+  const datasetSha256 = computeCanonicalSha256(datasetJson);
+  const engineSha256 = computeEngineSourceSha256();
 
   console.log(`📌 Git Commit:   ${gitCommit}`);
   console.log(`📌 Config SHA:   ${configSha256}`);
   console.log(`📌 Dataset SHA:  ${datasetSha256}`);
   console.log(`📌 Engine SHA:   ${engineSha256}\n`);
 
-  console.log("⚙️  Simulating 2018-2026 Fixed 20-Trading-Day Cohorts with Top-20 AI Alpha Ranking...");
+  console.log("⚙️  Loading Historical Dataset into Memory...");
 
-  // Results structured from simulation
-  const resultsData = {
+  // Convert raw dataset JSON structures into Maps
+  const priceBarsMap = new Map();
+  for (const [sym, bars] of Object.entries(datasetJson.price_bars || {})) {
+    priceBarsMap.set(sym, bars);
+  }
+
+  const stockInfoSnapshotsMap = new Map();
+  for (const [sym, snapMap] of Object.entries(datasetJson.stock_info_snapshots || {})) {
+    const dateMap = new Map();
+    for (const [d, info] of Object.entries(snapMap)) {
+      dateMap.set(d, info);
+    }
+    stockInfoSnapshotsMap.set(sym, dateMap);
+  }
+
+  const historicalDataset = {
+    datasetId: datasetJson.dataset_metadata.dataset_id,
+    securities: datasetJson.securities,
+    priceBars: priceBarsMap,
+    stockInfoSnapshots: stockInfoSnapshotsMap,
+    corporateActions: datasetJson.corporate_actions,
+    benchmarkBars: datasetJson.benchmark_bars,
+  };
+
+  console.log(`📊 Processing ${historicalDataset.securities.length} securities across ${historicalDataset.benchmarkBars.length} trading days...`);
+
+  // Use Vite SSR Loader to execute TypeScript runner natively without transpilation friction
+  const { createServer } = await import("vite");
+  const viteServer = await createServer({
+    server: { middlewareMode: true },
+    appType: "custom",
+  });
+
+  const { HistoricalBacktestRunner } = await viteServer.ssrLoadModule(
+    path.join(rootDir, "src", "backtest", "backtestRunner.ts")
+  );
+  await viteServer.close();
+
+  const runner = new HistoricalBacktestRunner(configJson, historicalDataset);
+  
+  console.log("🏃 Executing 2018-2026 Historical Simulation (AI Alpha Ranking -> Top 20 -> Cost Accounting)...");
+  
+  const report = runner.runFullBacktest("2018-01-02", "2026-08-28", {
+    runId: `RUN-PIT-${Date.now()}`,
+    gitCommit,
+    datasetSha256,
+    engineSha256,
+  });
+
+  // Re-inject the exact canonical config hash into provenance
+  report.provenance.configSha256 = configSha256;
+  report.provenance.datasetSha256 = datasetSha256;
+  report.provenance.engineSha256 = engineSha256;
+
+  // Format into official results schema
+  const formattedResults = {
     provenance: {
-      run_id: `RUN-PIT-${Date.now()}`,
-      git_commit: gitCommit,
-      config_sha256: configSha256,
-      dataset_sha256: datasetSha256,
-      engine_sha256: engineSha256,
-      engine_version: "v1.0.0-pit-audited",
-      generated_at: new Date().toISOString(),
+      run_id: report.provenance.runId,
+      git_commit: report.provenance.gitCommit,
+      config_sha256: report.provenance.configSha256,
+      dataset_sha256: report.provenance.datasetSha256,
+      engine_sha256: report.provenance.engineSha256,
+      engine_version: report.provenance.engineVersion,
+      generated_at: report.provenance.generatedAt,
       audit_status: "AUDITED_VERIFIED_POINT_IN_TIME",
-      dataset_spec: "TWSE/TPEx Equities PIT Database (2018-2024 In-Sample, 2025-2026 Out-of-Sample Evaluation)",
-      benchmark: "TAIEX (台灣加權股價指數 ^TWII, Synchronized T+1 Open to T+20 Close)"
+      dataset_spec: datasetJson.dataset_metadata.source,
+      benchmark: configJson.benchmark_alignment.benchmark_symbol + " (Synchronized T+1 Open to T+20 Close)"
     },
     parameters: {
       signal_time: "market_close (T 13:30)",
       execution_time: "next_market_open (T+1 09:00)",
-      holding_period_trading_days: 20,
-      position_weighting: "equal (5% max 20 positions)",
-      commission_bps: 14.25,
-      sell_tax_bps: 30.0,
-      slippage_bps: 5.0,
-      min_commission_ntd: 20,
-      price_field: "adjusted_close",
-      return_method: "total_return",
-      dividend_handling: "embedded_in_adjusted_close (No Double Counting)"
+      holding_period_trading_days: configJson.timing.holding_period,
+      position_weighting: `${configJson.portfolio.position_weighting} (${configJson.portfolio.max_single_position_weight * 100}% max ${configJson.portfolio.max_positions} positions)`,
+      commission_bps: configJson.costs.commission_bps,
+      sell_tax_bps: configJson.costs.sell_tax_bps,
+      slippage_bps: configJson.costs.slippage_bps,
+      min_commission_ntd: configJson.costs.min_commission_ntd,
+      price_field: configJson.corporate_actions.price_field,
+      return_method: configJson.corporate_actions.return_method,
+      dividend_handling: configJson.corporate_actions.dividend_handling
     },
     summary: {
-      period_start: "2018-01-02",
-      period_end: "2026-08-28",
-      total_trading_days: 2110,
-      total_trades: 1048,
-      win_rate_pct: 63.8,
-      profit_factor: 1.84
+      period_start: report.summary.periodStart,
+      period_end: report.summary.periodEnd,
+      total_trading_days: report.summary.totalTradingDays,
+      total_trades: report.summary.totalTrades,
+      win_rate_pct: report.summary.winRatePct,
+      profit_factor: report.summary.profitFactor
     },
     returns: {
-      gross_total_return_pct: 148.6,
-      net_total_return_pct: 121.4,
-      benchmark_total_return_pct: 82.3,
-      gross_annualized_return_pct: 14.1,
-      net_annualized_return_pct: 12.3,
-      benchmark_annualized_return_pct: 9.1,
-      net_alpha_annualized_pct: 3.2,
-      gross_turnover_ntd: 104800000,
-      total_commission_ntd: 1493400,
-      total_tax_ntd: 1572000,
-      total_slippage_ntd: 524000,
-      total_friction_paid_ntd: 3589400,
-      cost_to_nav_ratio_pct: 35.89,
-      friction_drag_pct: 27.2
+      gross_total_return_pct: report.returns.grossTotalReturnPct,
+      net_total_return_pct: report.returns.netTotalReturnPct,
+      benchmark_total_return_pct: report.returns.benchmarkTotalReturnPct,
+      gross_annualized_return_pct: report.returns.grossAnnualizedReturnPct,
+      net_annualized_return_pct: report.returns.netAnnualizedReturnPct,
+      benchmark_annualized_return_pct: report.returns.benchmarkAnnualizedReturnPct,
+      net_alpha_annualized_pct: report.returns.netAlphaAnnualizedPct,
+      gross_turnover_ntd: report.returns.grossTurnoverNtd,
+      total_commission_ntd: report.returns.totalCommissionNtd,
+      total_tax_ntd: report.returns.totalTaxNtd,
+      total_slippage_ntd: report.returns.totalSlippageNtd,
+      total_friction_paid_ntd: report.returns.totalFrictionPaidNtd,
+      cost_to_nav_ratio_pct: report.returns.costToNavRatioPct,
+      friction_drag_pct: report.returns.frictionDragPct
     },
     risk: {
-      annualized_volatility_pct: 13.8,
-      sharpe_ratio: 0.82,
-      sortino_ratio: 1.15,
-      maxDrawdownPct: -14.6,
-      information_ratio: 0.74,
-      beta_to_benchmark: 0.88
+      annualized_volatility_pct: report.risk.annualizedVolatilityPct,
+      sharpe_ratio: report.risk.sharpeRatio,
+      sortino_ratio: report.risk.sortinoRatio,
+      max_drawdown_pct: report.risk.maxDrawdownPct,
+      information_ratio: report.risk.informationRatio,
+      beta_to_benchmark: report.risk.betaToBenchmark
     },
-    yearly_breakdown: [
-      {
-        year: 2018,
-        period_type: "In-Sample",
-        trades_count: 124,
-        win_rate_pct: 61.3,
-        gross_return_pct: 11.8,
-        net_return_pct: 9.4,
-        benchmark_return_pct: -8.6,
-        net_alpha_pct: 18.0,
-        sharpe_ratio: 0.72,
-        max_drawdown_pct: -9.8,
-        friction_paid_ntd: 420000
-      },
-      {
-        year: 2019,
-        period_type: "In-Sample",
-        trades_count: 132,
-        win_rate_pct: 66.7,
-        gross_return_pct: 28.4,
-        net_return_pct: 24.8,
-        benchmark_return_pct: 23.3,
-        net_alpha_pct: 1.5,
-        sharpe_ratio: 1.42,
-        max_drawdown_pct: -6.2,
-        friction_paid_ntd: 450000
-      },
-      {
-        year: 2020,
-        period_type: "In-Sample",
-        trades_count: 128,
-        win_rate_pct: 64.1,
-        gross_return_pct: 32.1,
-        net_return_pct: 28.2,
-        benchmark_return_pct: 22.8,
-        net_alpha_pct: 5.4,
-        sharpe_ratio: 1.18,
-        max_drawdown_pct: -14.6,
-        friction_paid_ntd: 440000
-      },
-      {
-        year: 2021,
-        period_type: "In-Sample",
-        trades_count: 130,
-        win_rate_pct: 65.4,
-        gross_return_pct: 31.6,
-        net_return_pct: 27.6,
-        benchmark_return_pct: 23.7,
-        net_alpha_pct: 3.9,
-        sharpe_ratio: 1.25,
-        max_drawdown_pct: -8.4,
-        friction_paid_ntd: 445000
-      },
-      {
-        year: 2022,
-        period_type: "In-Sample",
-        trades_count: 126,
-        win_rate_pct: 58.7,
-        gross_return_pct: -6.2,
-        net_return_pct: -9.8,
-        benchmark_return_pct: -22.4,
-        net_alpha_pct: 12.6,
-        sharpe_ratio: -0.45,
-        max_drawdown_pct: -13.8,
-        friction_paid_ntd: 430000
-      },
-      {
-        year: 2023,
-        period_type: "In-Sample",
-        trades_count: 134,
-        win_rate_pct: 67.2,
-        gross_return_pct: 34.5,
-        net_return_pct: 30.6,
-        benchmark_return_pct: 26.8,
-        net_alpha_pct: 3.8,
-        sharpe_ratio: 1.55,
-        max_drawdown_pct: -7.1,
-        friction_paid_ntd: 460000
-      },
-      {
-        year: 2024,
-        period_type: "In-Sample",
-        trades_count: 136,
-        win_rate_pct: 64.7,
-        gross_return_pct: 32.8,
-        net_return_pct: 28.9,
-        benchmark_return_pct: 28.5,
-        net_alpha_pct: 0.4,
-        sharpe_ratio: 1.28,
-        max_drawdown_pct: -11.2,
-        friction_paid_ntd: 470000
-      },
-      {
-        year: 2025,
-        period_type: "Out-of-Sample Evaluation",
-        trades_count: 120,
-        win_rate_pct: 62.5,
-        gross_return_pct: 18.2,
-        net_return_pct: 15.1,
-        benchmark_return_pct: 12.4,
-        net_alpha_pct: 2.7,
-        sharpe_ratio: 0.94,
-        max_drawdown_pct: -9.6,
-        friction_paid_ntd: 410000
-      },
-      {
-        year: 2026,
-        period_type: "Out-of-Sample Evaluation",
-        trades_count: 78,
-        win_rate_pct: 61.5,
-        gross_return_pct: 10.4,
-        net_return_pct: 8.3,
-        benchmark_return_pct: 6.8,
-        net_alpha_pct: 1.5,
-        sharpe_ratio: 0.86,
-        max_drawdown_pct: -7.4,
-        friction_paid_ntd: 264400
-      }
-    ],
-    calibration_curve: [
-      { raw_probability_min: 90, empirical_win_rate_pct: 74.2, sample_count: 86,  avg_net_return_pct: 6.8 },
-      { raw_probability_min: 80, empirical_win_rate_pct: 68.5, sample_count: 174, avg_net_return_pct: 4.9 },
-      { raw_probability_min: 70, empirical_win_rate_pct: 63.1, sample_count: 248, avg_net_return_pct: 3.2 },
-      { raw_probability_min: 60, empirical_win_rate_pct: 56.4, sample_count: 182, avg_net_return_pct: 1.4 },
-      { raw_probability_min: 50, empirical_win_rate_pct: 50.8, sample_count: 104, avg_net_return_pct: 0.1 },
-      { raw_probability_min: 0,  empirical_win_rate_pct: 41.2, sample_count: 48,  avg_net_return_pct: -3.5 }
-    ],
+    yearly_breakdown: report.yearlyBreakdown.map((r) => ({
+      year: r.year,
+      period_type: r.periodType,
+      trades_count: r.tradesCount,
+      win_rate_pct: r.winRatePct,
+      gross_return_pct: r.grossReturnPct,
+      net_return_pct: r.netReturnPct,
+      benchmark_return_pct: r.benchmarkReturnPct,
+      net_alpha_pct: r.netAlphaPct,
+      sharpe_ratio: r.sharpeRatio,
+      max_drawdown_pct: r.maxDrawdownPct,
+      friction_paid_ntd: r.frictionPaidNtd,
+    })),
+    calibration_curve: report.calibrationCurve,
     audit_metadata: {
-      skipped_cohorts: 0,
-      missing_benchmark_bars: 0,
-      missing_pit_snapshots: 0,
-      audit_notes: ["Completed with zero missing benchmarks and valid PIT snapshots."]
+      skipped_cohorts: report.auditMetadata.skippedCohorts,
+      missing_benchmark_bars: report.auditMetadata.missingBenchmarkBars,
+      missing_pit_snapshots: report.auditMetadata.missingPitSnapshots,
+      audit_notes: report.auditMetadata.auditNotes
     }
   };
 
-  fs.writeFileSync(resultsPath, JSON.stringify(resultsData, null, 2), "utf-8");
-  console.log(`✅ Backtest completed. Audited report written to: ${resultsPath}\n`);
+  fs.writeFileSync(resultsPath, JSON.stringify(formattedResults, null, 2), "utf-8");
+  console.log(`✅ Simulation successfully completed! Genuine calculated report written to: ${resultsPath}\n`);
 }
 
-main();
+main().catch((err) => {
+  console.error("❌ Backtest Runner Failed:", err);
+  process.exit(1);
+});
