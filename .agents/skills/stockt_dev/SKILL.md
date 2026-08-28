@@ -41,30 +41,39 @@ The app uses `src/utils/platform.ts` with `isTauri()` to dynamically switch betw
 | Feature | Tauri Desktop (`isTauri() === true`) | GitHub Pages (`isTauri() === false`) |
 | :--- | :--- | :--- |
 | **Market Data** | Rust backend (`fetch.rs`) via `invoke()` | Yahoo Web API + CORS Proxy + Bundled TWSE/MOPS DB |
-| **Data Provenance** | `MetricF64` (`value`, `source`, `fetched_at`) | `Metric<number>` (`value`, `source`, `fetchedAt`) |
+| **Data Provenance** | `MetricF64` (`value`, `source`, `period`, `published_at`, `fetched_at`) | `Metric<number>` (`value`, `source`, `period`, `publishedAt`, `fetchedAt`) |
 | **Watchlist Storage** | Local JSON files in root folder | Firebase Firestore with client-side AES-GCM encryption |
 | **File Export** | Rust IPC writes directly to OS `Downloads/` | Browser dynamic `Blob` download |
 | **Window Controls** | Tauri Native Window API (`@tauri-apps/api`) | Browser standard Fullscreen API |
 
-### End-to-End Metric<T> Data Provenance Pipeline
-All quantitative financial metrics flow through a typed provenance container from data providers to UI:
+### End-to-End Metric<T> Data Provenance & Point-in-Time (PIT) Pipeline
+All quantitative financial metrics flow through a typed provenance container distinguishing **three crucial time dimensions** to prevent Look-Ahead Bias:
+
+| Time Field | Meaning | Example |
+| :--- | :--- | :--- |
+| `period` | 數據所屬財務/交易期間 | `2024Q2`, `2024-07`, `2026-08-28` |
+| `publishedAt` | 市場主管機關/公告正式生效日 (Point-in-Time) | `2024-08-14` (半年報截止日) |
+| `fetchedAt` | StockT 實際發送 HTTP 請求抓取時間 | `2026-08-28T14:45:00Z` |
 
 ```
 Rust Backend (fetch.rs / yahoo.rs / twse.rs / tpex.rs)
-  ↓ MetricF64 { value, source: "Yahoo Finance" | "TWSE" | "TPEx", fetched_at }
+  ↓ MetricF64 { value, source, period, published_at, fetched_at }
 Tauri IPC / Deserialization
-  ↓ Metric<number> { value, source, fetchedAt }
+  ↓ Metric<number> { value, source, period, publishedAt, fetchedAt }
 StockInfo / StockInfoFull (TypeScript)
-  ↓ metricVal(info.roe), metricSource(info.roe), metricTs(info.roe)
+  ↓ metricVal, metricSource, metricPeriod, metricPublishedAt, formatAsOf
 AI Alpha Multi-Factor Engine (aiAlphaModel.ts)
-  ↓ FactorResult { value, source, asOf, status, available }
-UI (AnalysisTab / Scanners) -> Transparently displays real data provenance
+  ↓ FactorResult { value, source, asOf: "2024Q2 (公告: 2024-08-14)", status, available }
+UI (AnalysisTab / Scanners) -> Transparently displays real data provenance & PIT dates
 ```
 
 #### Helper Functions:
 - `metricVal(m)`: Null-safe extraction of `m?.value ?? null`.
 - `metricSource(m, fallback)`: Returns provenance source (`"TWSE"`, `"Yahoo Finance"`, `"MOPS"`, etc.).
-- `metricTs(m)`: Returns ISO-8601 timestamp string (`m?.fetchedAt`).
+- `metricPeriod(m, fallback)`: Returns data period (e.g. `"2024Q2"`).
+- `metricPublishedAt(m)`: Returns formal publication date (e.g. `"2024-08-14"`).
+- `formatAsOf(m)`: Formats Point-in-Time display string, e.g. `"2024Q2 (公告: 2024-08-14)"`.
+- `metricTs(m)`: Returns ISO-8601 UTC fetch timestamp string (`m?.fetchedAt`).
 
 ---
 

@@ -107,6 +107,31 @@ export function metricTs(m: Metric<number> | null | undefined): string | undefin
   return m?.fetchedAt;
 }
 
+/** Extract period from a Metric<number> field */
+export function metricPeriod(m: Metric<number> | null | undefined, fallback = "最新"): string {
+  return m?.period ?? fallback;
+}
+
+/** Extract publishedAt from a Metric<number> field */
+export function metricPublishedAt(m: Metric<number> | null | undefined): string | undefined {
+  return m?.publishedAt;
+}
+
+/**
+ * Format asOf display combining period and publishedAt for Point-in-Time transparency.
+ * E.g. "2024Q2 (公告: 2024-08-14)" or "2026-08-28"
+ */
+export function formatAsOf(m: Metric<number> | null | undefined, defaultPeriod = "最新"): string {
+  if (!m) return defaultPeriod;
+  if (m.period && m.publishedAt) {
+    if (m.period === m.publishedAt) return m.period; // e.g. Daily market valuation "2026-08-28"
+    return `${m.period} (公告: ${m.publishedAt})`;
+  }
+  if (m.period) return m.period;
+  if (m.publishedAt) return `公告: ${m.publishedAt}`;
+  return defaultPeriod;
+}
+
 export function fmtFixed(v: any, digits = 1, fallback = "-"): string {
   if (v == null || v === "" || v === "Infinity" || v === "-Infinity" || v === "NaN") return fallback;
   const num = Number(v);
@@ -155,6 +180,9 @@ export function evaluateAIAlpha(
   // ═══════════════════════════════════════════════════════════════════════════
   let closes = ohlcv?.close || [];
   let volumes = ohlcv?.volume || [];
+  const latestKDate = ohlcv?.timestamp && ohlcv.timestamp.length > 0
+    ? new Date(ohlcv.timestamp[ohlcv.timestamp.length - 1] * 1000).toISOString().slice(0, 10)
+    : "最新交易日";
 
   // 1.1 momentum20 (20日波段報酬率)
   let m20: number | null = null;
@@ -183,7 +211,7 @@ export function evaluateAIAlpha(
       weight: 0.12,
       available: true,
       source: "Yahoo Finance (K線)",
-      asOf: "最新交易日",
+      asOf: latestKDate,
       status,
       explanation: m20 >= 3 ? "近月股價呈強勢多頭推升" : m20 <= -3 ? "近月波段偏弱探底" : "近月區間震盪整理",
     });
@@ -221,7 +249,7 @@ export function evaluateAIAlpha(
       weight: 0.10,
       available: true,
       source: "Yahoo Finance (K線)",
-      asOf: "最新季",
+      asOf: latestKDate,
       status: score > 0 ? "positive" : score < 0 ? "negative" : "neutral",
       explanation: m60 >= 5 ? "中線季趨勢維持多頭多頭結構" : "中線偏弱整理",
     });
@@ -259,7 +287,7 @@ export function evaluateAIAlpha(
       weight: 0.08,
       available: true,
       source: "Yahoo Finance (K線)",
-      asOf: "最新半年",
+      asOf: latestKDate,
       status: score > 0 ? "positive" : score < 0 ? "negative" : "neutral",
       explanation: m120 >= 8 ? "半年大多頭主升浪結構" : "中長期偏弱",
     });
@@ -293,7 +321,7 @@ export function evaluateAIAlpha(
       weight: 0.09,
       available: true,
       source: "Yahoo Finance (K線)",
-      asOf: "最新交易日",
+      asOf: latestKDate,
       status: bias20 >= 0 ? "positive" : "negative",
       explanation: bias20 >= 0 ? "股價站穩月線生命線之上" : "股價跌破月線轉弱",
     });
@@ -327,7 +355,7 @@ export function evaluateAIAlpha(
       weight: 0.08,
       available: true,
       source: "Yahoo Finance (K線)",
-      asOf: "最新季",
+      asOf: latestKDate,
       status: bias60 >= 0 ? "positive" : "negative",
       explanation: bias60 >= 0 ? "中線季線保護多方架構" : "處於季線之下整理",
     });
@@ -361,7 +389,7 @@ export function evaluateAIAlpha(
       weight: 0.07,
       available: true,
       source: "Yahoo Finance (K線)",
-      asOf: "最新半年",
+      asOf: latestKDate,
       status: bias120 >= 0 ? "positive" : "negative",
       explanation: bias120 >= 0 ? "位居半年線之上具長線多頭支撐" : "半年線下承壓",
     });
@@ -395,7 +423,7 @@ export function evaluateAIAlpha(
       weight: 0.09,
       available: true,
       source: "Yahoo Finance (K線)",
-      asOf: "最新年度",
+      asOf: latestKDate,
       status: bias240 >= 0 ? "positive" : "negative",
       explanation: bias240 >= 0 ? "股價位於年線之上，標準長多牛市結構" : "股價跌破年線，長線結構偏空",
     });
@@ -430,7 +458,7 @@ export function evaluateAIAlpha(
       weight: 0.08,
       available: true,
       source: "Yahoo Finance (K線)",
-      asOf: "最新交易日",
+      asOf: latestKDate,
       status: vRatio >= 1.0 ? "positive" : "neutral",
       explanation: vRatio >= 1.2 ? "近期量能明顯放大，主力買盤活躍" : vRatio >= 0.8 ? "量能溫和持平" : "量縮整理",
     });
@@ -468,7 +496,7 @@ export function evaluateAIAlpha(
       weight: 0.15,
       available: true,
       source: metricSource(info.roe),
-      asOf: "最新季報",
+      asOf: formatAsOf(info.roe, "最新季報"),
       status: roePct >= 10 ? "positive" : roePct < 5 ? "negative" : "neutral",
       explanation: roePct >= 15 ? "股東資本回報率卓越 (>15%)" : roePct >= 10 ? "獲利資本報酬良好" : "資本報酬率偏低",
     });
@@ -503,7 +531,7 @@ export function evaluateAIAlpha(
       weight: 0.12,
       available: true,
       source: metricSource(info.revenue_growth),
-      asOf: "最新月份",
+      asOf: formatAsOf(info.revenue_growth, "最新營收"),
       status: revPct >= 10 ? "positive" : revPct < 0 ? "negative" : "neutral",
       explanation: revPct >= 15 ? "營收高速擴張期" : revPct >= 0 ? "營收穩定增長" : "營收年減衰退",
     });
@@ -538,7 +566,7 @@ export function evaluateAIAlpha(
       weight: 0.12,
       available: true,
       source: metricSource(info.earnings_growth),
-      asOf: "最新季報",
+      asOf: formatAsOf(info.earnings_growth, "最新季報"),
       status: earnPct >= 15 ? "positive" : earnPct < 0 ? "negative" : "neutral",
       explanation: earnPct >= 15 ? "本業獲利大幅成長" : earnPct >= 0 ? "獲利維持增長" : "獲利同比衰退",
     });
@@ -575,7 +603,7 @@ export function evaluateAIAlpha(
       weight: 0.10,
       available: true,
       source: metricSource(info.gross_margins ?? info.operating_margins),
-      asOf: "最新季報",
+      asOf: formatAsOf(info.gross_margins ?? info.operating_margins, "最新季報"),
       status: gmPct >= 25 ? "positive" : gmPct < 10 ? "negative" : "neutral",
       explanation: gmPct >= 30 ? "具備高定價權與護城河" : "利潤率一般",
     });
@@ -609,7 +637,7 @@ export function evaluateAIAlpha(
       weight: 0.08,
       available: true,
       source: metricSource(info.debt_to_equity),
-      asOf: "最新季報",
+      asOf: formatAsOf(info.debt_to_equity, "最新季報"),
       status: debtVal <= 80 ? "positive" : debtVal > 150 ? "negative" : "neutral",
       explanation: debtVal <= 80 ? "負債比低，財務體質極其健康" : debtVal > 150 ? "財務槓桿偏高注意利息負擔" : "負債結構中規中矩",
     });
@@ -644,7 +672,7 @@ export function evaluateAIAlpha(
       weight: 0.08,
       available: true,
       source: metricSource(info.free_cashflow),
-      asOf: "最新季報",
+      asOf: formatAsOf(info.free_cashflow, "最新季報"),
       status: fcfVal > 0 ? "positive" : "negative",
       explanation: fcfVal > 0 ? "本業持續產生充沛真金白銀" : "現金流呈現流出需留意營運資金",
     });
@@ -685,7 +713,7 @@ export function evaluateAIAlpha(
       weight: 0.08,
       available: true,
       source: metricSource(peMet),
-      asOf: "今日收盤",
+      asOf: formatAsOf(peMet, "今日收盤"),
       status: peVal <= 16 ? "positive" : peVal > 30 ? "negative" : "neutral",
       explanation: peVal <= 15 ? "本益比位階具安全邊際" : peVal > 30 ? "估值偏高需高成長支撐" : "估值合理",
     });
@@ -703,7 +731,7 @@ export function evaluateAIAlpha(
       weight: 0.06,
       available: true,
       source: metricSource(pbMet),
-      asOf: "今日收盤",
+      asOf: formatAsOf(pbMet, "今日收盤"),
       status: pbVal <= 1.5 ? "positive" : pbVal > 3.5 ? "negative" : "neutral",
       explanation: pbVal <= 1.5 ? "股價淨值比處於低檔價值區" : pbVal > 3.5 ? "淨值比偏高需高 ROE 支撐" : "淨值比合理",
     });
@@ -722,7 +750,7 @@ export function evaluateAIAlpha(
       weight: 0.06,
       available: true,
       source: metricSource(dyMet),
-      asOf: "最新公告",
+      asOf: formatAsOf(dyMet, "最新公告"),
       status: dyPct >= 4 ? "positive" : "neutral",
       explanation: dyPct >= 5 ? "高殖利率具下檔防禦優勢" : "殖利率一般",
     });

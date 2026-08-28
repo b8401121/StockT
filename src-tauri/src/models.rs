@@ -1,24 +1,64 @@
 use serde::{Deserialize, Serialize};
 
-/// 帶資料來源標籤的量化指標容器
-/// source: "Yahoo Finance" | "TWSE" | "TPEx" | "MOPS"
-/// fetched_at: ISO 8601 UTC (e.g. "2026-08-28T14:00:00Z")
+/// 帶 Point-in-Time (PIT) 數據特徵與來源標籤的量化指標容器
+/// 
+/// 區分三個關鍵時間概念以杜絕 Look-Ahead Bias：
+/// - `period`: 數據所屬期間 (例如 "2024Q2", "2024-07", "2026-08-28")
+/// - `published_at`: 市場/主管機關正式公告時間 (例如 "2024-08-14", "2024-08-10")
+/// - `fetched_at`: StockT 實際發送 HTTP 請求抓取時間 (ISO 8601 UTC)
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct MetricF64 {
     pub value: f64,
     pub source: String,
+    pub period: Option<String>,
+    pub published_at: Option<String>,
     pub fetched_at: String,
 }
 
 impl MetricF64 {
     pub fn yahoo(value: f64, fetched_at: &str) -> Self {
-        Self { value, source: "Yahoo Finance".to_string(), fetched_at: fetched_at.to_string() }
+        Self {
+            value,
+            source: "Yahoo Finance".to_string(),
+            period: None,
+            published_at: None,
+            fetched_at: fetched_at.to_string(),
+        }
     }
-    pub fn twse(value: f64, fetched_at: &str) -> Self {
-        Self { value, source: "TWSE".to_string(), fetched_at: fetched_at.to_string() }
+
+    pub fn yahoo_fundamental(
+        value: f64,
+        period: Option<String>,
+        published_at: Option<String>,
+        fetched_at: &str,
+    ) -> Self {
+        Self {
+            value,
+            source: "Yahoo Finance".to_string(),
+            period,
+            published_at,
+            fetched_at: fetched_at.to_string(),
+        }
     }
-    pub fn tpex(value: f64, fetched_at: &str) -> Self {
-        Self { value, source: "TPEx".to_string(), fetched_at: fetched_at.to_string() }
+
+    pub fn twse(value: f64, period: Option<String>, published_at: Option<String>, fetched_at: &str) -> Self {
+        Self {
+            value,
+            source: "TWSE".to_string(),
+            period,
+            published_at,
+            fetched_at: fetched_at.to_string(),
+        }
+    }
+
+    pub fn tpex(value: f64, period: Option<String>, published_at: Option<String>, fetched_at: &str) -> Self {
+        Self {
+            value,
+            source: "TPEx".to_string(),
+            period,
+            published_at,
+            fetched_at: fetched_at.to_string(),
+        }
     }
 }
 
@@ -41,7 +81,7 @@ pub struct StockInfo {
     pub industry: Option<String>,
     pub long_business_summary: Option<String>,
 
-    // ─── 量化指標 (帶 provenance) ──────────────────────────────────────────────
+    // ─── 量化指標 (帶 PIT provenance: value, source, period, published_at, fetched_at)
     pub current_price:      Option<MetricF64>,
     pub previous_close:     Option<MetricF64>,
     pub pe:                 Option<MetricF64>,

@@ -22,23 +22,30 @@ export interface OhlcvData {
   volume: number[];
 }
 
+export type DataSource = "Yahoo Finance" | "TWSE" | "TPEx" | "MOPS" | "K線計算" | "FinMind";
+
 export interface Metric<T = number> {
   value: T;
-  source: "Yahoo Finance" | "TWSE" | "TPEx" | "MOPS" | "K線計算";
+  source: DataSource;
+  /** 財務資料對應期間，例如 "2024Q2", "2026-08-28", "2026-07" */
+  period?: string;
+  /** 該數據正式發布時間 (ISO 8601 或 YYYY-MM-DD)，用於 Point-in-Time 避免 Look-ahead bias */
+  publishedAt?: string;
+  /** StockT 抓取時間 (ISO 8601 UTC) */
   fetchedAt: string;
 }
 
 /** Create a Yahoo Finance Metric wrapper */
-export function mkYahoo(value: number): Metric<number> {
-  return { value, source: "Yahoo Finance", fetchedAt: new Date().toISOString() };
+export function mkYahoo(value: number, period?: string, publishedAt?: string): Metric<number> {
+  return { value, source: "Yahoo Finance", period, publishedAt, fetchedAt: new Date().toISOString() };
 }
 /** Create a MOPS static Metric wrapper */
-export function mkMops(value: number): Metric<number> {
-  return { value, source: "MOPS", fetchedAt: new Date().toISOString() };
+export function mkMops(value: number, period = "2024Q2", publishedAt = "2024-08-14"): Metric<number> {
+  return { value, source: "MOPS", period, publishedAt, fetchedAt: new Date().toISOString() };
 }
 /** Create a TWSE Metric wrapper */
-export function mkTWSE(value: number): Metric<number> {
-  return { value, source: "TWSE", fetchedAt: new Date().toISOString() };
+export function mkTWSE(value: number, period?: string, publishedAt?: string): Metric<number> {
+  return { value, source: "TWSE", period, publishedAt, fetchedAt: new Date().toISOString() };
 }
 
 export interface StockInfo {
