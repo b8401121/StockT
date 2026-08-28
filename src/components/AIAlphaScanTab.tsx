@@ -127,12 +127,13 @@ const STRATEGIES = [
 
 import {
   DeterministicProvenanceReport,
-  CANONICAL_MODEL_HASH,
   CANONICAL_RANKING_ALGORITHM,
+  computeModelHash,
   computeUniverseHash,
   computeInputSnapshotHash,
   computeStrategyConfigHash,
   computeResultHash,
+  computeDeterministicRunId,
 } from "../utils/quantProvenance";
 
 /**
@@ -374,26 +375,37 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
       setProgressMsg(`🎉 評估完成！共精選出 ${finalRanked.length} 檔 17 維多因子即時標的`);
       setAuditMetrics({ ...runningAudit });
 
-      // 🛡️ Priority 6: Deterministic Provenance Fingerprint Generation
+      // 🛡️ Priority 6: Institutional-Grade Cryptographic Provenance Generation
       const scanTimestamp = new Date().toISOString();
-      const scanId = `SCAN-${scanTimestamp.slice(0, 10).replace(/-/g, "")}-${strategy.toUpperCase()}-${Math.floor(Date.now() / 1000).toString(36)}`;
-      const [uHash, inHash, stratHash, resHash] = await Promise.all([
+      const scanId = `EXEC-${scanTimestamp.slice(0, 10).replace(/-/g, "")}-${strategy.toUpperCase()}-${Math.floor(Date.now() / 1000).toString(36)}`;
+      const [mHash, uHash, inHash, stratHash, resHash] = await Promise.all([
+        computeModelHash(),
         computeUniverseHash(targetKeys),
         computeInputSnapshotHash(targetKeys, fundamentalsMap),
         computeStrategyConfigHash(selectedStrat.id, selectedStrat.label),
         computeResultHash(finalRanked),
       ]);
 
+      const deterministicRunId = await computeDeterministicRunId(
+        uHash,
+        inHash,
+        mHash,
+        stratHash,
+        CANONICAL_RANKING_ALGORITHM
+      );
+
       const provReport: DeterministicProvenanceReport = {
         scanId,
+        deterministicRunId,
         scanTimestamp,
         rankingAlgorithm: CANONICAL_RANKING_ALGORITHM,
-        modelHash: CANONICAL_MODEL_HASH,
+        modelHash: mHash,
         universeHash: uHash,
         inputSnapshotHash: inHash,
         strategyConfigHash: stratHash,
         resultHash: resHash,
         itemCount: finalRanked.length,
+        isCryptographicallyReproducible: true,
       };
       setProvenanceReport(provReport);
     } catch (e: any) {
@@ -525,11 +537,11 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
                 color: isWarm ? "#57534e" : "#94a3b8",
                 display: "flex",
                 flexDirection: "column",
-                gap: "3px"
+                gap: "4px"
               }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <span style={{ fontWeight: 700, color: isWarm ? "#0284c7" : "#38bdf8" }}>
-                    📜 可重現審計指紋 (Provenance Hashes)：
+                    📜 密碼學可重現審計指紋 (Deterministic Provenance)：
                   </span>
                   <button
                     onClick={copyProvenanceJson}
@@ -547,10 +559,13 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
                   </button>
                 </div>
                 <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", fontFamily: "monospace" }}>
-                  <span>Scan ID: <b style={{ color: isWarm ? "#18181b" : "#f8fafc" }}>{provenanceReport.scanId}</b></span>
-                  <span>Model: <b>{provenanceReport.modelHash.slice(0, 15)}...</b></span>
-                  <span>Snapshot: <b>{provenanceReport.inputSnapshotHash.slice(0, 15)}...</b></span>
-                  <span>Result: <b style={{ color: isWarm ? "#15803d" : "#4ade80" }}>{provenanceReport.resultHash.slice(0, 15)}...</b></span>
+                  <span style={{ background: isWarm ? "rgba(2,132,199,0.1)" : "rgba(56,189,248,0.15)", padding: "1px 6px", borderRadius: "3px" }}>
+                    Deterministic Run ID: <b style={{ color: isWarm ? "#0369a1" : "#38bdf8" }}>{provenanceReport.deterministicRunId.slice(0, 18)}...</b>
+                  </span>
+                  <span>Event ID: <b style={{ color: isWarm ? "#18181b" : "#f8fafc" }}>{provenanceReport.scanId}</b></span>
+                  <span>Model: <b>{provenanceReport.modelHash.slice(0, 14)}...</b></span>
+                  <span>Snapshot: <b>{provenanceReport.inputSnapshotHash.slice(0, 14)}...</b></span>
+                  <span>Result: <b style={{ color: isWarm ? "#15803d" : "#4ade80" }}>{provenanceReport.resultHash.slice(0, 14)}...</b></span>
                 </div>
               </div>
             )}

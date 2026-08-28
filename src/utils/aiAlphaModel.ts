@@ -23,6 +23,27 @@ export interface FactorResult {
   explanation: string;
 }
 
+export const CANONICAL_FACTOR_DEFINITIONS = [
+  { name: "momentum20", category: "OHLCV", weight: 0.12 },
+  { name: "momentum60", category: "OHLCV", weight: 0.10 },
+  { name: "momentum120", category: "OHLCV", weight: 0.08 },
+  { name: "MA20", category: "OHLCV", weight: 0.09 },
+  { name: "MA60", category: "OHLCV", weight: 0.08 },
+  { name: "MA120", category: "OHLCV", weight: 0.07 },
+  { name: "MA240", category: "OHLCV", weight: 0.09 },
+  { name: "VolumeSurge", category: "OHLCV", weight: 0.08 },
+  { name: "ROE", category: "Fundamental", weight: 0.14 },
+  { name: "GrossMargins", category: "Fundamental", weight: 0.08 },
+  { name: "OperatingMargins", category: "Fundamental", weight: 0.09 },
+  { name: "RevenueGrowthYoY", category: "Fundamental", weight: 0.12 },
+  { name: "DebtToEquity", category: "Safety", weight: 0.08 },
+  { name: "CurrentRatio", category: "Safety", weight: 0.06 },
+  { name: "FCF", category: "Fundamental", weight: 0.08 },
+  { name: "PE", category: "Valuation", weight: 0.08 },
+  { name: "PB", category: "Valuation", weight: 0.06 },
+  { name: "Dividend Yield", category: "Valuation", weight: 0.06 },
+];
+
 /** 舊版相容性介面 */
 export type AIFactorItem = {
   id: number;

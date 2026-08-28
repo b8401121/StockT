@@ -38,14 +38,14 @@ const LINEAR_WEIGHTS = [-0.004683,-0.002131,0.004821,0.001786,0.010496,-0.005974
 const MODEL_BIAS = 0.012844;
 const LEARNING_RATE = 0.15;
 
-interface DecisionTree {
+export interface DecisionTree {
   fIdx: number;
   thresh: number;
   leftVal: number;
   rightVal: number;
 }
 
-const TREES: DecisionTree[] = [
+export const TREES: DecisionTree[] = [
   { fIdx: 8, thresh: -1.023939, leftVal: -0.000226, rightVal: 0.018445 },
   { fIdx: 12, thresh: -0.901958, leftVal: -0.000877, rightVal: 0.015972 },
   { fIdx: 8, thresh: -1.023939, leftVal: -0.001746, rightVal: 0.014005 },
@@ -55,6 +55,16 @@ const TREES: DecisionTree[] = [
   { fIdx: 12, thresh: -0.901958, leftVal: -0.003608, rightVal: 0.008466 },
   { fIdx: 2, thresh: -0.765588, leftVal: 0.015046, rightVal: 0.001377 }
 ];
+
+export const CANONICAL_ML_MODEL_SPEC = {
+  featureNames: FEATURE_NAMES,
+  featureMeans: FEATURE_MEANS,
+  featureStds: FEATURE_STDS,
+  linearWeights: LINEAR_WEIGHTS,
+  modelBias: MODEL_BIAS,
+  learningRate: LEARNING_RATE,
+  trees: TREES,
+};
 
 /**
  * Execute Pure Client-Side Machine Learning Inference on 17 Point-in-Time Features
