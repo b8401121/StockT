@@ -45,27 +45,28 @@ function isCommonStockOrValidEtf(symbol: string, market: string): boolean {
 }
 
 function filterSymbolsByMarket(allKeys: string[], fundamentalsMap: Record<string, any>, market: string): string[] {
+  const m = (market || "ALL").toUpperCase();
   return allKeys.filter((k) => {
     const p = fundamentalsMap[k] || {};
     const sym = p.symbol || `${k}.TW`;
     if (!isCommonStockOrValidEtf(sym, market)) return false;
     const code = k.replace(/\D/g, "");
     if (!code || code.length > 5) return false;
-    if (market === "ALL") return true;
-    if (market === "TW") return sym.endsWith(".TW");
-    if (market === "TWO") return sym.endsWith(".TWO");
-    if (market === "00") return code.startsWith("00");
+    if (m === "ALL") return true;
+    if (m === "TW" || m === "TWSE") return sym.endsWith(".TW");
+    if (m === "TWO" || m === "TPEX") return sym.endsWith(".TWO");
+    if (m === "00") return code.startsWith("00");
     const n = parseInt(code, 10);
     if (isNaN(n)) return false;
-    if (market === "1A") return n >= 1100 && n < 1700;
-    if (market === "1B") return n >= 1700 && n < 2000;
-    if (market === "2A") return n >= 2000 && n < 3000;
-    if (market === "3A") return n >= 3000 && n < 3700;
-    if (market === "3B") return n >= 3700 && n < 3900;
-    if (market === "4A") return n >= 4100 && n < 5000;
-    if (market === "5A") return n >= 5000 && n < 6000;
-    if (market === "6A") return n >= 6000 && n < 7000;
-    if (market === "8A") return n >= 8000;
+    if (m === "1A" || m === "11-16" || m.includes("11~16")) return n >= 1100 && n < 1700;
+    if (m === "1B" || m === "17-19" || m.includes("17~19")) return n >= 1700 && n < 2000;
+    if (m === "2A" || m === "20-29" || m === "23-24" || m.includes("20~29")) return n >= 2000 && n < 3000;
+    if (m === "3A" || m === "30-36" || m.includes("30~36")) return n >= 3000 && n < 3700;
+    if (m === "3B" || m === "37-38" || m.includes("37~38")) return n >= 3700 && n < 3900;
+    if (m === "4A" || m === "41-49" || m === "41-47" || m.includes("41~49")) return n >= 4100 && n < 5000;
+    if (m === "5A" || m === "50-59" || m.includes("50~59")) return n >= 5000 && n < 6000;
+    if (m === "6A" || m === "60-69" || m === "61-68" || m.includes("60~69")) return n >= 6000 && n < 7000;
+    if (m === "8A" || m === "80-99" || m.includes("80~99")) return n >= 8000;
     return false;
   });
 }
@@ -80,7 +81,7 @@ const STRATEGIES = [
 ];
 
 export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => {
-  const [market, setMarket] = useState("3A");
+  const [market, setMarket] = useState("ALL");
   const [strategy, setStrategy] = useState("strong_bull");
   const [scanning, setScanning] = useState(false);
   const [hasScanned, setHasScanned] = useState(false);
