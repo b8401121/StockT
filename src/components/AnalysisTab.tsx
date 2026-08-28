@@ -437,6 +437,14 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
   const fs = info ? computeFundamentalScore(info) : null;
   const fsScore = fs?.score ?? 0;
   const fsGrade = (() => {
+    if (isWarm) {
+      if (fsScore >= 10) return { label: "S 頂級", color: "#15803d", bg: "rgba(22,163,74,0.1)", border: "rgba(22,163,74,0.35)" };
+      if (fsScore >= 7) return { label: "A 優質", color: "#0284c7", bg: "rgba(2,132,199,0.1)", border: "rgba(2,132,199,0.35)" };
+      if (fsScore >= 4) return { label: "B 良好", color: "#7e22ce", bg: "rgba(126,34,206,0.1)", border: "rgba(126,34,206,0.35)" };
+      if (fsScore >= 1) return { label: "C 普通", color: "#b45309", bg: "rgba(217,119,6,0.1)", border: "rgba(217,119,6,0.35)" };
+      if (fsScore >= -2) return { label: "D 偏弱", color: "#c2410c", bg: "rgba(234,88,12,0.1)", border: "rgba(234,88,12,0.35)" };
+      return { label: "F 危險", color: "#dc2626", bg: "rgba(220,38,38,0.12)", border: "rgba(220,38,38,0.35)" };
+    }
     if (fsScore >= 10) return { label: "S 頂級", color: "#4ade80", bg: "rgba(74,222,128,0.1)", border: "rgba(74,222,128,0.4)" };
     if (fsScore >= 7) return { label: "A 優質", color: "#38bdf8", bg: "rgba(56,189,248,0.1)", border: "rgba(56,189,248,0.4)" };
     if (fsScore >= 4) return { label: "B 良好", color: "#818cf8", bg: "rgba(129,140,248,0.1)", border: "rgba(129,140,248,0.4)" };
@@ -448,6 +456,13 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
   // ── 技術建議
   const finalScore = techScore - risks.length;
   const advice = (() => {
+    if (isWarm) {
+      if (finalScore >= 3) return { title: "🚀 強力買進 (Strong Buy)", color: "#0369a1", bg: "rgba(2,132,199,0.1)", border: "rgba(2,132,199,0.35)" };
+      if (finalScore >= 1) return { title: "📈 偏多進場 (Bullish)", color: "#4338ca", bg: "rgba(99,102,241,0.1)", border: "rgba(99,102,241,0.3)" };
+      if (finalScore <= -3) return { title: "💀 建議賣出 (Sell)", color: "#dc2626", bg: "rgba(220,38,38,0.12)", border: "rgba(220,38,38,0.35)" };
+      if (finalScore <= -1) return { title: "📉 偏空觀望 (Bearish)", color: "#b91c1c", bg: "rgba(220,38,38,0.08)", border: "rgba(220,38,38,0.25)" };
+      return { title: "⚖️ 中性持有 (Hold)", color: "#57534e", bg: "rgba(120,113,108,0.08)", border: "rgba(120,113,108,0.25)" };
+    }
     if (finalScore >= 3) return { title: "🚀 強力買進 (Strong Buy)", color: "#38bdf8", bg: "rgba(56,189,248,0.08)", border: "rgba(56,189,248,0.35)" };
     if (finalScore >= 1) return { title: "📈 偏多進場 (Bullish)", color: "#818cf8", bg: "rgba(129,140,248,0.08)", border: "rgba(129,140,248,0.25)" };
     if (finalScore <= -3) return { title: "💀 建議賣出 (Sell)", color: "#ef4444", bg: "rgba(239,68,68,0.12)", border: "rgba(239,68,68,0.4)" };
@@ -594,10 +609,10 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                     className="score-card"
                     onClick={() => setShowAIModal(true)}
                     style={{
-                      background: isWarm ? "linear-gradient(135deg, rgba(217, 119, 6, 0.08), rgba(245, 158, 11, 0.12))" : "linear-gradient(135deg, rgba(123, 31, 162, 0.18), rgba(74, 20, 140, 0.28))",
-                      borderColor: isWarm ? "rgba(217, 119, 6, 0.35)" : "rgba(168, 85, 247, 0.5)",
+                      background: isWarm ? "#ffffff" : "linear-gradient(135deg, rgba(123, 31, 162, 0.18), rgba(74, 20, 140, 0.28))",
+                      borderColor: isWarm ? "rgba(140, 110, 80, 0.25)" : "rgba(168, 85, 247, 0.5)",
                       marginBottom: "12px",
-                      boxShadow: isWarm ? "0 4px 14px rgba(217, 119, 6, 0.1)" : "0 4px 14px rgba(123, 31, 162, 0.15)",
+                      boxShadow: isWarm ? "0 2px 8px rgba(90, 60, 30, 0.08)" : "0 4px 14px rgba(123, 31, 162, 0.15)",
                       cursor: "pointer",
                       transition: "transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease",
                     }}
@@ -610,7 +625,7 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                       <HardwareBadge />
                     </div>
 
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: isWarm ? "rgba(255, 255, 255, 0.95)" : "rgba(0,0,0,0.28)", padding: "10px 12px", borderRadius: "8px", marginBottom: "10px", border: isWarm ? "1px solid rgba(140, 110, 80, 0.15)" : "none" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: isWarm ? "#fcfaf6" : "rgba(0,0,0,0.28)", padding: "10px 12px", borderRadius: "8px", marginBottom: "10px", border: isWarm ? "1px solid rgba(140, 110, 80, 0.18)" : "none" }}>
                       <div>
                         <div style={{ fontSize: "0.76rem", color: isWarm ? "#57534e" : "#cbd5e1", marginBottom: "2px" }}>預估 20 日超額勝率</div>
                         <div style={{ fontSize: "1.45rem", fontWeight: 800, color: alphaColor }}>
@@ -632,7 +647,7 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
 
                     {/* 🛡️ 資料品質與可信度分析 (Data Quality Report) */}
                     <div style={{
-                      background: isWarm ? "rgba(255, 255, 255, 0.95)" : "rgba(15, 23, 42, 0.5)",
+                      background: isWarm ? "#fcfaf6" : "rgba(15, 23, 42, 0.5)",
                       border: isWarm ? "1px solid rgba(140, 110, 80, 0.18)" : "1px solid rgba(148, 163, 184, 0.2)",
                       borderRadius: "6px",
                       padding: "8px 10px",
@@ -686,21 +701,21 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
 
               {/* 獲利能力 */}
               <div className="info-section">
-                <div className="info-section-header"><span style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700 }}>一、獲利能力</span> <span style={{ fontSize: "0.80rem", color: isWarm ? "#0284c7" : "#93c5fd", fontWeight: 600 }}>(2026 Q2 財報 / 7月營收)</span></div>
+                <div className="info-section-header"><span style={{ color: isWarm ? "#9a3412" : "#ffffff", fontWeight: 800 }}>一、獲利能力</span> <span style={{ fontSize: "0.80rem", color: isWarm ? "#0369a1" : "#93c5fd", fontWeight: 600 }}>(2026 Q2 財報 / 7月營收)</span></div>
                 <div className="info-section-body">
-                  <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("EPS")}>EPS <small style={{ color: isWarm ? "#0284c7" : "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(TTM)</small></span><span className="info-value" style={{ color: (info.eps?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (info.eps?.value ?? 0) >= 6 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{n2s(info.eps?.value)}</span></div>
-                  <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("ROE")}>ROE <small style={{ color: isWarm ? "#0284c7" : "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(Q2累計)</small></span><span className="info-value" style={{ color: (info.roe?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (info.roe?.value ?? 0) >= 0.15 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.roe?.value)}</span></div>
-                  <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("毛利率")}>毛利率 <small style={{ color: isWarm ? "#0284c7" : "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(Q2)</small></span><span className="info-value" style={{ color: (info.gross_margins?.value ?? 0) < 0.10 ? (isWarm ? "#dc2626" : "#ff5252") : (info.gross_margins?.value ?? 0) >= 0.35 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.gross_margins?.value)}</span></div>
-                  <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("營業利益率")}>營業利益率 <small style={{ color: isWarm ? "#0284c7" : "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(Q2)</small></span><span className="info-value" style={{ color: (info.operating_margins?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (info.operating_margins?.value ?? 0) >= 0.15 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.operating_margins?.value)}</span></div>
-                  <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("淨利率")}>淨利率 <small style={{ color: isWarm ? "#0284c7" : "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(Q2)</small></span><span className="info-value" style={{ color: (info.profit_margins?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (info.profit_margins?.value ?? 0) >= 0.15 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.profit_margins?.value)}</span></div>
-                  <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("營收YoY")}>營收成長 YoY <small style={{ color: isWarm ? "#0284c7" : "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(2026/07)</small></span><span className="info-value" style={{ color: (info.revenue_growth?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (info.revenue_growth?.value ?? 0) >= 0.15 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.revenue_growth?.value)}</span></div>
-                  <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("盈餘YoY")}>盈餘成長 YoY <small style={{ color: isWarm ? "#0284c7" : "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(Q2)</small></span><span className="info-value" style={{ color: (info.earnings_growth?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (info.earnings_growth?.value ?? 0) >= 0.20 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.earnings_growth?.value)}</span></div>
+                  <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("EPS")}>EPS <small style={{ color: isWarm ? "#0369a1" : "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(TTM)</small></span><span className="info-value" style={{ color: (info.eps?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (info.eps?.value ?? 0) >= 6 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{n2s(info.eps?.value)}</span></div>
+                  <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("ROE")}>ROE <small style={{ color: isWarm ? "#0369a1" : "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(Q2累計)</small></span><span className="info-value" style={{ color: (info.roe?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (info.roe?.value ?? 0) >= 0.15 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.roe?.value)}</span></div>
+                  <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("毛利率")}>毛利率 <small style={{ color: isWarm ? "#0369a1" : "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(Q2)</small></span><span className="info-value" style={{ color: (info.gross_margins?.value ?? 0) < 0.10 ? (isWarm ? "#dc2626" : "#ff5252") : (info.gross_margins?.value ?? 0) >= 0.35 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.gross_margins?.value)}</span></div>
+                  <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("營業利益率")}>營業利益率 <small style={{ color: isWarm ? "#0369a1" : "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(Q2)</small></span><span className="info-value" style={{ color: (info.operating_margins?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (info.operating_margins?.value ?? 0) >= 0.15 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.operating_margins?.value)}</span></div>
+                  <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("淨利率")}>淨利率 <small style={{ color: isWarm ? "#0369a1" : "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(Q2)</small></span><span className="info-value" style={{ color: (info.profit_margins?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (info.profit_margins?.value ?? 0) >= 0.15 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.profit_margins?.value)}</span></div>
+                  <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("營收YoY")}>營收成長 YoY <small style={{ color: isWarm ? "#0369a1" : "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(2026/07)</small></span><span className="info-value" style={{ color: (info.revenue_growth?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (info.revenue_growth?.value ?? 0) >= 0.15 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.revenue_growth?.value)}</span></div>
+                  <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("盈餘YoY")}>盈餘成長 YoY <small style={{ color: isWarm ? "#0369a1" : "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(Q2)</small></span><span className="info-value" style={{ color: (info.earnings_growth?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (info.earnings_growth?.value ?? 0) >= 0.20 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.earnings_growth?.value)}</span></div>
                 </div>
               </div>
 
               {/* 財務穩健度 */}
               <div className="info-section">
-                <div className="info-section-header"><span style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700 }}>二、財務穩健度</span> <span style={{ fontSize: "0.80rem", color: isWarm ? "#0284c7" : "#93c5fd", fontWeight: 600 }}>(2026 Q2 資產負債與現金流)</span></div>
+                <div className="info-section-header"><span style={{ color: isWarm ? "#9a3412" : "#ffffff", fontWeight: 800 }}>二、財務穩健度</span> <span style={{ fontSize: "0.80rem", color: isWarm ? "#0369a1" : "#93c5fd", fontWeight: 600 }}>(2026 Q2 資產負債與現金流)</span></div>
                 <div className="info-section-body">
                   <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("自由現金流")}>自由現金流</span><span className="info-value" style={{ color: (info.free_cashflow?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (isWarm ? "#15803d" : "#4ade80"), fontWeight: 800, fontSize: "1.02rem" }}>{fmtNum(info.free_cashflow?.value)}</span></div>
                   <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("營業現金流")}>營業現金流</span><span className="info-value" style={{ color: (info.operating_cashflow?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (isWarm ? "#15803d" : "#4ade80"), fontWeight: 800, fontSize: "1.02rem" }}>{fmtNum(info.operating_cashflow?.value)}</span></div>
@@ -721,19 +736,19 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
 
                 return (
                   <div className="info-section">
-                    <div className="info-section-header"><span style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700 }}>三、估值與除權息指標</span> <span style={{ fontSize: "0.80rem", color: isWarm ? "#0284c7" : "#93c5fd", fontWeight: 600 }}>(最新公佈 / 每日收盤)</span></div>
+                    <div className="info-section-header"><span style={{ color: isWarm ? "#9a3412" : "#ffffff", fontWeight: 800 }}>三、估值與除權息指標</span> <span style={{ fontSize: "0.80rem", color: isWarm ? "#0369a1" : "#93c5fd", fontWeight: 600 }}>(最新公佈 / 每日收盤)</span></div>
                     <div className="info-section-body">
-                      <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("PE")}>本益比 (PE)</span><span className="info-value" style={{ color: isWarm ? "#0284c7" : "#60a5fa", fontWeight: 800, fontSize: "1.02rem" }}>{n2s(info.tw_pe?.value ?? info.pe?.value)}</span></div>
-                      <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("PB")}>股價淨值比 (PB)</span><span className="info-value" style={{ color: isWarm ? "#0284c7" : "#60a5fa", fontWeight: 800, fontSize: "1.02rem" }}>{n2s(info.tw_pb?.value ?? info.pb?.value)}</span></div>
+                      <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("PE")}>本益比 (PE)</span><span className="info-value" style={{ color: isWarm ? "#0369a1" : "#60a5fa", fontWeight: 800, fontSize: "1.02rem" }}>{n2s(info.tw_pe?.value ?? info.pe?.value)}</span></div>
+                      <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("PB")}>股價淨值比 (PB)</span><span className="info-value" style={{ color: isWarm ? "#0369a1" : "#60a5fa", fontWeight: 800, fontSize: "1.02rem" }}>{n2s(info.tw_pb?.value ?? info.pb?.value)}</span></div>
                       <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("殖利率")}>現金殖利率</span><span className="info-value" style={{ color: isWarm ? "#b45309" : "#facc15", fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.tw_yield?.value ?? info.dividend_yield?.value)}</span></div>
                       <div className="info-row"><span className="info-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }}>每股現金股利 (除息)</span><span className="info-value" style={{ color: isWarm ? "#b45309" : "#facc15", fontWeight: 800, fontSize: "1.02rem" }}>{cashDiv > 0 ? `${cashDiv.toFixed(2)} 元` : "無配息"}</span></div>
                       <div className="info-row"><span className="info-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }}>每股股票股利 (除權)</span><span className="info-value" style={{ color: stockDiv > 0 ? (isWarm ? "#7e22ce" : "#c084fc") : (isWarm ? "#57534e" : "#94a3b8"), fontWeight: 800, fontSize: "1.02rem" }}>{stockDiv > 0 ? `${stockDiv.toFixed(2)} 元` : "0.00 元 (未除權)"}</span></div>
-                      <div className="info-row"><span className="info-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }}>除權息性質</span><span className="info-value" style={{ color: isWarm ? "#0284c7" : "#38bdf8", fontWeight: 800, fontSize: "0.95rem" }}>{exType}</span></div>
+                      <div className="info-row"><span className="info-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }}>除權息性質</span><span className="info-value" style={{ color: isWarm ? "#0369a1" : "#38bdf8", fontWeight: 800, fontSize: "0.95rem" }}>{exType}</span></div>
                       <div className="info-row"><span className="info-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }}>除息交易日</span><span className="info-value" style={{ color: fund?.ex_dividend_date ? (isWarm ? "#b45309" : "#facc15") : (isWarm ? "#57534e" : "#94a3b8"), fontWeight: 800, fontSize: "0.95rem" }}>{fund?.ex_dividend_date || "尚待公告"}</span></div>
                       <div className="info-row"><span className="info-label" style={{ color: isWarm ? "#57534e" : "#cbd5e1", fontSize: "0.82rem" }}>二代健保補充保費 (2.11%)</span><span className="info-value" style={{ color: isWarm ? "#57534e" : "#cbd5e1", fontSize: "0.82rem" }}>單筆達 2 萬元代扣 2.11%</span></div>
-                      <div className="info-row"><span className="info-label" style={{ color: isWarm ? "#57534e" : "#cbd5e1", fontSize: "0.82rem" }}>股利抵減稅額 (8.5%)</span><span className="info-value" style={{ color: isWarm ? "#0284c7" : "#38bdf8", fontSize: "0.82rem" }}>可抵減稅額 8.5% (上限 8 萬)</span></div>
+                      <div className="info-row"><span className="info-label" style={{ color: isWarm ? "#57534e" : "#cbd5e1", fontSize: "0.82rem" }}>股利抵減稅額 (8.5%)</span><span className="info-value" style={{ color: isWarm ? "#0369a1" : "#38bdf8", fontSize: "0.82rem" }}>可抵減稅額 8.5% (上限 8 萬)</span></div>
                       <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("市值")}>市值</span><span className="info-value" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 800, fontSize: "1.02rem" }}>{fmtNum(info.market_cap?.value)}</span></div>
-                      <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("所屬產業")}>所屬產業</span><span className="info-value" style={{ color: isWarm ? "#0284c7" : "#67e8f9", fontWeight: 700, fontSize: "0.92rem" }}>{info.sector ?? "N/A"}</span></div>
+                      <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("所屬產業")}>所屬產業</span><span className="info-value" style={{ color: isWarm ? "#0369a1" : "#67e8f9", fontWeight: 700, fontSize: "0.92rem" }}>{info.sector ?? "N/A"}</span></div>
                     </div>
                   </div>
                 );
@@ -745,7 +760,7 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                 const summary = getCompanyBusinessSummary(coId, info.symbol, info.name || info.symbol, info.sector || undefined);
                 return (
                   <div className="info-section">
-                    <div className="info-section-header"><span style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700 }}>🏢 四、公司業務與營業項目介紹</span> <span style={{ fontSize: "0.80rem", color: isWarm ? "#0284c7" : "#93c5fd", fontWeight: 600 }}>(官方公開資訊與產業深度分析)</span></div>
+                    <div className="info-section-header"><span style={{ color: isWarm ? "#9a3412" : "#ffffff", fontWeight: 800 }}>🏢 四、公司業務與營業項目介紹</span> <span style={{ fontSize: "0.80rem", color: isWarm ? "#0369a1" : "#93c5fd", fontWeight: 600 }}>(官方公開資訊與產業深度分析)</span></div>
                     <div className="info-section-body" style={{ fontSize: "0.86rem", color: isWarm ? "#292524" : "#e2e8f0", lineHeight: 1.75, whiteSpace: "pre-line", padding: "10px 14px", background: isWarm ? "rgba(255, 255, 255, 0.95)" : "rgba(15, 23, 42, 0.4)", border: isWarm ? "1px solid rgba(140, 110, 80, 0.15)" : "none", borderRadius: "6px" }}>
                       {summary}
                     </div>

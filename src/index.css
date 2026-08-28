@@ -120,23 +120,46 @@
 
 [data-theme="warm"] .info-section {
   background: #ffffff;
-  border: 1px solid rgba(140, 110, 80, 0.18);
-  box-shadow: 0 1px 3px rgba(140, 110, 80, 0.05);
+  border: 1px solid rgba(140, 110, 80, 0.22);
+  box-shadow: 0 1px 4px rgba(90, 60, 30, 0.06);
 }
 
 [data-theme="warm"] .info-section-header {
-  background: rgba(217, 119, 6, 0.08);
-  color: #9a3412;
-  border-bottom: 1px solid rgba(140, 110, 80, 0.15);
+  background: rgba(217, 119, 6, 0.1);
+  color: #9a3412 !important;
+  border-bottom: 1px solid rgba(140, 110, 80, 0.18);
   font-weight: 700;
 }
 
+[data-theme="warm"] .info-row {
+  border-bottom: 1px solid rgba(140, 110, 80, 0.08);
+}
+
 [data-theme="warm"] .info-label {
-  color: #57534e;
+  color: #18181b !important;
+  font-weight: 600;
+}
+
+[data-theme="warm"] .info-label.clickable-label {
+  border-bottom: 1px dashed rgba(140, 110, 80, 0.4);
+  color: #18181b !important;
+}
+
+[data-theme="warm"] .info-label.clickable-label:hover {
+  color: #0284c7 !important;
+  border-bottom-color: #0284c7;
 }
 
 [data-theme="warm"] .info-value {
-  color: #18181b;
+  color: #18181b !important;
+}
+
+[data-theme="warm"] .advice-card {
+  box-shadow: 0 2px 8px rgba(90, 60, 30, 0.08);
+}
+
+[data-theme="warm"] .score-card {
+  box-shadow: 0 2px 8px rgba(90, 60, 30, 0.08);
 }
 
 [data-theme="warm"] .news-item {
