@@ -193,7 +193,25 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
 
         // 基本面資料保護：至少具備 5 項以上財務/估值因子
         if (aiResult.dataQuality.availableCount >= 5) {
-          if (selectedStrat.filterFn(aiResult, info)) {
+          // 💡 階段 1 初篩智慧寬鬆閥：由於尚未載入日K線(缺少6項價量動能)，需以寬鬆閥門保留具備爆發潛力的個股
+          let isPreCandidate = false;
+          if (strategy === "strong_bull") {
+            isPreCandidate = aiResult.winRatePct >= 54.0 || (metricVal(info.roe) ?? 0) >= 0.10 || (metricVal(info.revenue_growth) ?? 0) >= 0.08;
+          } else if (strategy === "solid_bull") {
+            isPreCandidate = aiResult.winRatePct >= 50.0 || (metricVal(info.roe) ?? 0) >= 0.08;
+          } else if (strategy === "finlab_momentum") {
+            isPreCandidate = aiResult.winRatePct >= 48.0 && (metricVal(info.roe) ?? 0) >= 0.05;
+          } else if (strategy === "value_alpha") {
+            isPreCandidate = (metricVal(info.roe) ?? 0) >= 0.10 && (metricVal(info.tw_pe ?? info.pe) ?? 20) <= 28;
+          } else if (strategy === "growth_alpha") {
+            isPreCandidate = (metricVal(info.revenue_growth) ?? 0) >= 0.06 || aiResult.winRatePct >= 52.0;
+          } else if (strategy === "landmine_risk") {
+            isPreCandidate = aiResult.winRatePct <= 52.0 || (metricVal(info.roe) ?? 0) < 0 || (metricVal(info.debt_to_equity) ?? 0) > 200;
+          } else {
+            isPreCandidate = selectedStrat.filterFn(aiResult, info);
+          }
+
+          if (isPreCandidate) {
             preliminaryList.push({ key, symbol, curP, prevP, info, aiResult });
           }
         }
@@ -214,26 +232,26 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
         }
       }
 
-      // 排序並選出前 35 檔優質標的進行階段 2 深度即時 OHLCV K 線加載
+      // 排序並選出前 80 檔優質標的進行階段 2 深度即時 OHLCV K 線加載與 17 維多因子精算
       if (strategy === "landmine_risk") {
         preliminaryList.sort((a, b) => a.aiResult.winRatePct - b.aiResult.winRatePct);
       } else {
         preliminaryList.sort((a, b) => b.aiResult.winRatePct - a.aiResult.winRatePct);
       }
 
-      const topCandidates = preliminaryList.slice(0, 35);
+      const topCandidates = preliminaryList.slice(0, 80);
       const evaluatedList: RankedAlphaStock[] = [];
 
       // ──────────────────────────────────────────────────────────────────────────
       // 階段 2：深度載入即時真實 1 年期日 K 線，啟動完整 17 維價量動能技術因子
       // ──────────────────────────────────────────────────────────────────────────
-      const BATCH_SIZE = 4;
+      const BATCH_SIZE = 6;
       for (let i = 0; i < topCandidates.length; i += BATCH_SIZE) {
         if (cancelRef.current) break;
         const chunk = topCandidates.slice(i, i + BATCH_SIZE);
         const stockNames = chunk.map(c => c.info.name).join("、");
 
-        setProgressMsg(`【階段 2/2】連線抓取 ${stockNames} 之即時日 K 線 (${i + 1}/${topCandidates.length})...`);
+        setProgressMsg(`【階段 2/2】連線分析 ${stockNames} 之即時日 K 線與動能 (${i + 1}/${topCandidates.length})...`);
 
         const chunkResults = await Promise.allSettled(
           chunk.map(async (cand) => {
@@ -265,8 +283,8 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
           if (res.status === "fulfilled") {
             const { aiResult, info } = res.value;
 
-            // 🛡️ Data Quality Gate: 非偏空策略要求至少 12 項可用因子
-            if (strategy !== "landmine_risk" && aiResult.dataQuality.availableCount < 12) {
+            // 🛡️ Data Quality Gate: 要求至少 10 項可用因子
+            if (strategy !== "landmine_risk" && aiResult.dataQuality.availableCount < 10) {
               continue;
             }
 
