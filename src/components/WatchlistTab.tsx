@@ -182,7 +182,7 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
     return Object.keys(normalized).length > 0 ? normalized : { "我的自選股": [] };
   }, [stockDb]);
 
-  // 刷新即時行情報價
+  // 刷新即時行情報價（真實連線查詢每檔自選股最新市價）
   const fetchQuotes = useCallback(async (currentLists: Record<string, TradeRecord[]>) => {
     const allSymbols = Array.from(
       new Set(Object.values(currentLists).flatMap((items) => items.map((it) => it.symbol)).filter(Boolean))
@@ -191,14 +191,31 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
 
     setRefreshingPrices(true);
     try {
-      const dataList: any[] = await invoke("fetch_batch_stock_data", { symbols: allSymbols, range: "1mo" });
+      const promises = allSymbols.map(async (sym) => {
+        try {
+          const d = await invoke("fetch_stock_data", { symbol: sym, range: "1mo" });
+          if (d?.info?.symbol && d?.info?.current_price) {
+            return { symbol: d.info.symbol, rawSym: sym, price: Number(d.info.current_price) };
+          }
+        } catch {}
+        return null;
+      });
+
+      const settled = await Promise.allSettled(promises);
       const newPrices: Record<string, number> = {};
-      for (const d of dataList) {
-        if (d?.info?.symbol && d?.info?.current_price) {
-          newPrices[d.info.symbol] = Number(d.info.current_price);
+      for (const res of settled) {
+        if (res.status === "fulfilled" && res.value) {
+          newPrices[res.value.symbol] = res.value.price;
+          newPrices[res.value.rawSym] = res.value.price;
+          const code = res.value.symbol.split(".")[0];
+          newPrices[code] = res.value.price;
+          newPrices[`${code}.TW`] = res.value.price;
+          newPrices[`${code}.TWO`] = res.value.price;
         }
       }
-      setPrices((prev) => ({ ...prev, ...newPrices }));
+      if (Object.keys(newPrices).length > 0) {
+        setPrices((prev) => ({ ...prev, ...newPrices }));
+      }
     } catch (e) {
       console.warn("Fetch quotes error:", e);
     } finally {
