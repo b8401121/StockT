@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "build-update": "node build-update.js",
+    "backtest:run": "node scripts/run_backtest.mjs",
     "backtest:audit": "node scripts/audit_backtest.mjs"
   },
   "dependencies": {

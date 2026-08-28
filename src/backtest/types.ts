@@ -1,5 +1,5 @@
 /**
- * Audited Institutional Backtest Types & Schemas
+ * Audited Institutional Backtest Types & Schemas (v2.0)
  */
 
 export interface BacktestTimingConfig {
@@ -36,7 +36,7 @@ export interface BacktestUniverseConfig {
 export interface BacktestCorporateActionsConfig {
   price_field: "adjusted_close" | "close";
   return_method: "total_return" | "price_return";
-  dividend_handling: "embedded_in_adjusted_close" | "cash_reinvestment";
+  dividend_handling: "embedded_in_adjusted_close" | "explicit_corporate_actions";
   double_counting_protection: boolean;
   explanation: string;
 }
@@ -79,6 +79,26 @@ export interface UniverseSecurity {
   isFullCashDelivery?: boolean;
 }
 
+export interface SecurityPriceBar {
+  date: string;
+  rawOpen: number;
+  rawHigh: number;
+  rawLow: number;
+  rawClose: number;
+  volume: number;
+  adjustedClose: number;        // Used for Technical Factor Engineering
+  adjustmentFactor: number;
+}
+
+export interface CorporateActionRecord {
+  symbol: string;
+  date: string;                 // Ex-date (除權息日)
+  type: "cash_dividend" | "stock_dividend" | "split" | "capital_reduction";
+  cashDividendNtd?: number;     // 每股現金股利
+  stockDividendShares?: number; // 每股配股 (e.g. 0.1 share per share)
+  splitRatio?: number;          // 分割比例
+}
+
 export interface SimulatedTrade {
   tradeId: string;
   symbol: string;
@@ -92,7 +112,10 @@ export interface SimulatedTrade {
   entryPriceExec: number;       // Entry + Slippage
   exitPriceRaw: number;
   exitPriceExec: number;        // Exit - Slippage
-  shares: number;
+  initialShares: number;
+  sharesMultiplier: number;     // Corporate actions split multiplier
+  finalShares: number;
+  accumulatedCashDividendNtd: number;
   positionSizeNtd: number;
   entryCommissionNtd: number;   // with NT$20 min
   exitCommissionNtd: number;    // with NT$20 min
@@ -107,11 +130,12 @@ export interface SimulatedTrade {
   grossPnLNtd: number;
   netPnLNtd: number;
   factorScoreAtSignal: number;
+  factorRankAtSignal: number;
 }
 
 export interface YearlyPerformanceRecord {
   year: number;
-  periodType: "In-Sample" | "Walk-Forward Out-of-Sample";
+  periodType: "In-Sample" | "Out-of-Sample Evaluation";
   tradesCount: number;
   winRatePct: number;
   grossReturnPct: number;
@@ -130,11 +154,20 @@ export interface CalibrationBucket {
   avg_net_return_pct: number;
 }
 
+export interface BacktestAuditMetadata {
+  skippedCohorts: number;
+  missingBenchmarkBars: number;
+  missingPitSnapshots: number;
+  auditNotes: string[];
+}
+
 export interface BacktestReport {
   provenance: {
     runId: string;
-    configHash: string;
-    datasetHash: string;
+    gitCommit: string;
+    configSha256: string;
+    datasetSha256: string;
+    engineSha256: string;
     engineVersion: string;
     generatedAt: string;
     isAuditVerified: boolean;
@@ -182,4 +215,5 @@ export interface BacktestReport {
   };
   yearlyBreakdown: YearlyPerformanceRecord[];
   calibrationCurve: CalibrationBucket[];
+  auditMetadata: BacktestAuditMetadata;
 }

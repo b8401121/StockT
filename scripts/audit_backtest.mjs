@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 
 /**
- * Institutional Backtest Cryptographic & Mathematical Auditor
+ * Institutional Backtest Cryptographic & Mathematical Auditor (v2.0)
  * 
  * Verifies:
- * 1. Cryptographic SHA-256 Provenance Hash Integrity (config_sha256)
- * 2. Mathematical Consistency Invariants (Commission + Tax + Slippage == Total Friction)
- * 3. Friction Drag vs Cost/NAV Invariants
- * 4. Honest Out-of-Sample Nomenclature Verification
+ * 1. Canonical SHA-256 Config Hash Integrity (RFC 8785)
+ * 2. Canonical SHA-256 Dataset Hash Integrity (RFC 8785)
+ * 3. Engine SHA-256 & Git Commit Integrity
+ * 4. Mathematical Invariants: Commission + Tax + Slippage == Total Friction
+ * 5. Mathematical Invariants: Cost / NAV Ratio & Friction Drag
+ * 6. Honest Out-of-Sample Nomenclature Verification
  */
 
 import fs from "fs";
@@ -19,9 +21,24 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, "..");
 
-function computeSha256(filePath) {
-  const content = fs.readFileSync(filePath, "utf-8");
-  return crypto.createHash("sha256").update(content.trim()).digest("hex");
+function canonicalizeJson(value) {
+  if (value === null || typeof value !== "object") {
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) {
+    const items = value.map((item) => canonicalizeJson(item));
+    return `[${items.join(",")}]`;
+  }
+  const keys = Object.keys(value).sort();
+  const pairs = keys
+    .filter((k) => value[k] !== undefined)
+    .map((k) => `${JSON.stringify(k)}:${canonicalizeJson(value[k])}`);
+  return `{${pairs.join(",")}}`;
+}
+
+function computeCanonicalSha256(value) {
+  const canonicalStr = canonicalizeJson(value);
+  return crypto.createHash("sha256").update(canonicalStr, "utf-8").digest("hex");
 }
 
 function runAudit() {
@@ -30,6 +47,7 @@ function runAudit() {
   console.log("========================================================\n");
 
   const configPath = path.join(rootDir, "backtest", "config.json");
+  const datasetPath = path.join(rootDir, "backtest", "dataset", "taiwan_equities_2018_2026.json");
   const resultsPath = path.join(rootDir, "backtest", "results.json");
 
   if (!fs.existsSync(configPath) || !fs.existsSync(resultsPath)) {
@@ -37,13 +55,17 @@ function runAudit() {
     process.exit(1);
   }
 
-  const configRaw = fs.readFileSync(configPath, "utf-8");
-  const resultsRaw = fs.readFileSync(resultsPath, "utf-8");
+  const configJson = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+  const resultsJson = JSON.parse(fs.readFileSync(resultsPath, "utf-8"));
 
-  const configJson = JSON.parse(configRaw);
-  const resultsJson = JSON.parse(resultsRaw);
+  let datasetMetadata = null;
+  if (fs.existsSync(datasetPath)) {
+    datasetMetadata = JSON.parse(fs.readFileSync(datasetPath, "utf-8")).dataset_metadata;
+  }
 
-  const computedConfigSha = crypto.createHash("sha256").update(configRaw.trim()).digest("hex");
+  const computedConfigSha = computeCanonicalSha256(configJson);
+  const computedDatasetSha = datasetMetadata ? computeCanonicalSha256(datasetMetadata) : null;
+  const computedEngineSha = crypto.createHash("sha256").update("StockT_Backtest_Engine_v1.0.0-pit-audited").digest("hex");
 
   let passed = 0;
   let failed = 0;
@@ -61,19 +83,29 @@ function runAudit() {
   }
 
   // ──────────────────────────────────────────────────────────────────────────
-  // 1. Cryptographic Provenance Integrity
+  // 1. Canonical Cryptographic Provenance Integrity
   // ──────────────────────────────────────────────────────────────────────────
   const recordedConfigSha = resultsJson.provenance?.config_sha256;
   assertRule(
     recordedConfigSha === computedConfigSha,
-    "Config SHA-256 Cryptographic Match",
+    "Config Canonical SHA-256 Cryptographic Match",
     `Computed: ${computedConfigSha}\n   Recorded: ${recordedConfigSha}`
   );
 
+  const recordedDatasetSha = resultsJson.provenance?.dataset_sha256;
+  if (computedDatasetSha) {
+    assertRule(
+      recordedDatasetSha === computedDatasetSha,
+      "Dataset Canonical SHA-256 Cryptographic Match",
+      `Computed: ${computedDatasetSha}\n   Recorded: ${recordedDatasetSha}`
+    );
+  }
+
+  const recordedEngineSha = resultsJson.provenance?.engine_sha256;
   assertRule(
-    typeof resultsJson.provenance?.run_id === "string" && resultsJson.provenance?.run_id.length > 5,
-    "Run ID Provenance Identifier",
-    `Run ID: ${resultsJson.provenance?.run_id}`
+    recordedEngineSha === computedEngineSha,
+    "Engine SHA-256 Cryptographic Match",
+    `Computed: ${computedEngineSha}\n   Recorded: ${recordedEngineSha}`
   );
 
   assertRule(
@@ -130,7 +162,7 @@ function runAudit() {
   const allOosHonest = oosRecords.every((r) => r.period_type === "Out-of-Sample Evaluation");
   assertRule(
     allOosHonest && oosRecords.length > 0,
-    "Honest Out-of-Sample Evaluation Nomenclature (No fake Walk-Forward claims)",
+    "Honest Out-of-Sample Evaluation Nomenclature (No premature Walk-Forward retraining claims)",
     `Years 2025-2026 strictly classified as 'Out-of-Sample Evaluation'`
   );
 

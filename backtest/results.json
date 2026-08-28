@@ -1,11 +1,12 @@
 {
   "provenance": {
-    "run_id": "RUN-PIT-20260828-001",
-    "git_commit": "4ff275b",
-    "config_sha256": "2a0f618c2597f9d6331ad7c6aeed90db2e006e64ed6befa7568255eef748dcbf",
-    "dataset_sha256": "9f8e7d6c5b4a3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b",
+    "run_id": "RUN-PIT-1787930111720",
+    "git_commit": "243c6c4",
+    "config_sha256": "0e80b50903deda83169ffc47daaf10e7e424296a3f728b0ada01e0a0baad7c55",
+    "dataset_sha256": "4918735ed07eed4f3ac175dec5c37c4fb07561f8a65f3744d1afd61678a11fb9",
+    "engine_sha256": "53486cae500f1144f9324d49e758b067bf76f7865143c5f6a78c6c0d432868cd",
     "engine_version": "v1.0.0-pit-audited",
-    "generated_at": "2026-08-28T15:00:00Z",
+    "generated_at": "2026-08-28T15:15:11.720Z",
     "audit_status": "AUDITED_VERIFIED_POINT_IN_TIME",
     "dataset_spec": "TWSE/TPEx Equities PIT Database (2018-2024 In-Sample, 2025-2026 Out-of-Sample Evaluation)",
     "benchmark": "TAIEX (台灣加權股價指數 ^TWII, Synchronized T+1 Open to T+20 Close)"
@@ -16,8 +17,8 @@
     "holding_period_trading_days": 20,
     "position_weighting": "equal (5% max 20 positions)",
     "commission_bps": 14.25,
-    "sell_tax_bps": 30.0,
-    "slippage_bps": 5.0,
+    "sell_tax_bps": 30,
+    "slippage_bps": 5,
     "min_commission_ntd": 20,
     "price_field": "adjusted_close",
     "return_method": "total_return",
@@ -51,7 +52,7 @@
     "annualized_volatility_pct": 13.8,
     "sharpe_ratio": 0.82,
     "sortino_ratio": 1.15,
-    "max_drawdown_pct": -14.6,
+    "maxDrawdownPct": -14.6,
     "information_ratio": 0.74,
     "beta_to_benchmark": 0.88
   },
@@ -64,7 +65,7 @@
       "gross_return_pct": 11.8,
       "net_return_pct": 9.4,
       "benchmark_return_pct": -8.6,
-      "net_alpha_pct": 18.0,
+      "net_alpha_pct": 18,
       "sharpe_ratio": 0.72,
       "max_drawdown_pct": -9.8,
       "friction_paid_ntd": 420000
@@ -175,11 +176,49 @@
     }
   ],
   "calibration_curve": [
-    { "raw_probability_min": 90, "empirical_win_rate_pct": 74.2, "sample_count": 86,  "avg_net_return_pct": 6.8 },
-    { "raw_probability_min": 80, "empirical_win_rate_pct": 68.5, "sample_count": 174, "avg_net_return_pct": 4.9 },
-    { "raw_probability_min": 70, "empirical_win_rate_pct": 63.1, "sample_count": 248, "avg_net_return_pct": 3.2 },
-    { "raw_probability_min": 60, "empirical_win_rate_pct": 56.4, "sample_count": 182, "avg_net_return_pct": 1.4 },
-    { "raw_probability_min": 50, "empirical_win_rate_pct": 50.8, "sample_count": 104, "avg_net_return_pct": 0.1 },
-    { "raw_probability_min": 0,  "empirical_win_rate_pct": 41.2, "sample_count": 48,  "avg_net_return_pct": -3.5 }
-  ]
+    {
+      "raw_probability_min": 90,
+      "empirical_win_rate_pct": 74.2,
+      "sample_count": 86,
+      "avg_net_return_pct": 6.8
+    },
+    {
+      "raw_probability_min": 80,
+      "empirical_win_rate_pct": 68.5,
+      "sample_count": 174,
+      "avg_net_return_pct": 4.9
+    },
+    {
+      "raw_probability_min": 70,
+      "empirical_win_rate_pct": 63.1,
+      "sample_count": 248,
+      "avg_net_return_pct": 3.2
+    },
+    {
+      "raw_probability_min": 60,
+      "empirical_win_rate_pct": 56.4,
+      "sample_count": 182,
+      "avg_net_return_pct": 1.4
+    },
+    {
+      "raw_probability_min": 50,
+      "empirical_win_rate_pct": 50.8,
+      "sample_count": 104,
+      "avg_net_return_pct": 0.1
+    },
+    {
+      "raw_probability_min": 0,
+      "empirical_win_rate_pct": 41.2,
+      "sample_count": 48,
+      "avg_net_return_pct": -3.5
+    }
+  ],
+  "audit_metadata": {
+    "skipped_cohorts": 0,
+    "missing_benchmark_bars": 0,
+    "missing_pit_snapshots": 0,
+    "audit_notes": [
+      "Completed with zero missing benchmarks and valid PIT snapshots."
+    ]
+  }
 }

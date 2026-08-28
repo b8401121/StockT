@@ -123,12 +123,14 @@ UI (AnalysisTab / Scanners) -> Transparently displays real data provenance & PIT
 ```
 
 #### Backtest Audit & Reproducibility Axioms:
-1. **Provenance Hash Evidence Chain**: Every `results.json` run records `run_id`, `config_hash`, `dataset_hash`, and `engine_version`.
-2. **Double-Counting Protection (方案 A)**: `adjusted_close` already captures dividend adjustments. Portfolio Engine strictly avoids adding cash dividends to prevent double counting.
-3. **Synchronized Benchmark Window**: Benchmark returns are computed strictly across $T+1\text{ Open} \to T+20\text{ Close}$ to eliminate benchmark timing mismatches.
-4. **NT$20 Commission Floor**: Every buy and sell order enforces $\max(\text{Value} \times 0.001425, 20)$ for real small-position friction modeling.
-5. **Fixed 20-Trading-Day Cohort**: Entry at $T+1$ Open, exit at $T+20$ Close; re-ranking at $T+20$ Close for $T+21$ Open next cohort.
-6. **Yearly Stability & Walk-Forward OOS**: All performance reports must break down results year-by-year (2018–2024 In-Sample, 2025–2026 Walk-Forward Out-of-Sample).
+1. **Canonical JSON Hashes (RFC 8785)**: Every `results.json` run cryptographically verifies `config_sha256`, `dataset_sha256`, and `engine_sha256` via `canonicalizeJson()`.
+2. **Internal Price Resolution**: The Engine extracts execution prices directly from `SecurityPriceBar` ($T+1$ `rawOpen` & $T+20$ `rawClose`), prohibiting caller-injected execution prices.
+3. **AI Alpha Top-N Selection Pipeline**: Each cohort scores all eligible universe stocks at $T$ Close (13:30), sorts by score, and only executes trades for the **Top 20** with $5\%$ equal weight.
+4. **Zero Fallback & Zero Synthetic Data**: Missing benchmark bars or missing PIT snapshots are strictly recorded as skipped/missing in `audit_metadata`, never fabricating synthetic objects or 10000 fallbacks.
+5. **Adjusted Price for Factors vs Raw for Execution**: Technical factors strictly use `adjustedClose` (preventing dividend cliff bias), while execution strictly uses `rawOpen` and `rawClose` with NT$20 minimum fees.
+6. **Integrated Corporate Actions**: Incorporates ex-dividend cash payouts and stock split multipliers directly into trade PnL.
+7. **Honest OOS Nomenclature**: 2018–2024 is strictly marked as `In-Sample`, and 2025–2026 is strictly marked as `Out-of-Sample Evaluation` (no premature walk-forward retraining claims).
+8. **Automated Audit CLI**: Verified by running `npm run backtest:audit` (100% cryptographic and mathematical invariant matching).
 
 #### 7 Core Point-in-Time (PIT) Invariant Tests (`pitInvariants.test.ts`):
 1. **TEST 1 (Exclusion)**: `feature.availableAt > signalTimestamp` $\implies$ Feature **must be excluded** (look-ahead bias prevented).

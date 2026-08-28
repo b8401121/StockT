@@ -1,10 +1,10 @@
 /**
- * Taiwan Stock Exchange Transaction Cost & Friction Model (Audited)
+ * Taiwan Stock Exchange Transaction Cost & Friction Model (Audited with Corporate Actions)
  * 
  * Strict Accounting:
  * - Buy: max(executedAmount * 0.001425, 20) + entry slippage
  * - Sell: max(executedAmount * 0.001425, 20) + round(executedAmount * 0.0030) + exit slippage
- * - Double Counting Protection: No dividend reinvestment added to cash when using adjusted_close
+ * - Corporate Actions: Incorporates split multipliers and ex-dividend cash payouts during holding
  */
 
 import { BacktestCostConfig } from "./types";
@@ -78,18 +78,24 @@ export function calculateSellFriction(
 }
 
 /**
- * 計算單筆交易之毛報酬率 (Gross Return) 與淨報酬率 (Net Return)
+ * 計算單筆交易之毛報酬率 (Gross Return) 與淨報酬率 (Net Return) (完整整合 Corporate Actions)
  */
 export function computeTradePnL(
   entryRawPrice: number,
   exitRawPrice: number,
-  shares: number,
-  config: BacktestCostConfig
+  initialShares: number,
+  config: BacktestCostConfig,
+  corporateAdjustment: { sharesMultiplier: number; accumulatedCashDividendPerShare: number } = {
+    sharesMultiplier: 1.0,
+    accumulatedCashDividendPerShare: 0.0,
+  }
 ): {
   grossReturnPct: number;
   netReturnPct: number;
   grossPnLNtd: number;
   netPnLNtd: number;
+  finalShares: number;
+  accumulatedCashDividendNtd: number;
   entryCommissionNtd: number;
   exitCommissionNtd: number;
   exitTaxNtd: number;
@@ -99,16 +105,23 @@ export function computeTradePnL(
   buyBreakdown: TradeCostBreakdown;
   sellBreakdown: TradeCostBreakdown;
 } {
-  const buy = calculateBuyFriction(entryRawPrice, shares, config);
-  const sell = calculateSellFriction(exitRawPrice, shares, config);
+  const buy = calculateBuyFriction(entryRawPrice, initialShares, config);
+
+  // 結算出場時之股數 (例如 1 拆 2 股票分割)
+  const finalShares = Math.floor(initialShares * corporateAdjustment.sharesMultiplier);
+  const accumulatedCashDividendNtd = Math.round(
+    initialShares * corporateAdjustment.accumulatedCashDividendPerShare
+  );
+
+  const sell = calculateSellFriction(exitRawPrice, finalShares, config);
 
   const grossInvested = buy.rawAmount;
-  const grossProceeds = sell.rawAmount;
+  const grossProceeds = sell.rawAmount + accumulatedCashDividendNtd;
   const grossPnLNtd = grossProceeds - grossInvested;
   const grossReturnPct = grossInvested > 0 ? (grossPnLNtd / grossInvested) * 100 : 0;
 
   const netInvested = buy.totalCost;
-  const netProceeds = sell.totalCost;
+  const netProceeds = sell.totalCost + accumulatedCashDividendNtd;
   const netPnLNtd = netProceeds - netInvested;
   const netReturnPct = netInvested > 0 ? (netPnLNtd / netInvested) * 100 : 0;
 
@@ -119,6 +132,8 @@ export function computeTradePnL(
     netReturnPct: Number(netReturnPct.toFixed(2)),
     grossPnLNtd: Math.round(grossPnLNtd),
     netPnLNtd: Math.round(netPnLNtd),
+    finalShares,
+    accumulatedCashDividendNtd,
     entryCommissionNtd: buy.commission,
     exitCommissionNtd: sell.commission,
     exitTaxNtd: sell.tax,

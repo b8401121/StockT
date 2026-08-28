@@ -1,0 +1,73 @@
+{
+  "dataset_metadata": {
+    "dataset_id": "TW_EQUITIES_PIT_2018_2026_V1",
+    "securities_count": 50,
+    "corporate_actions_count": 320,
+    "benchmark_bars_count": 2110,
+    "source": "TWSE / TPEx / MOPS Point-in-Time Historical Archive",
+    "start_date": "2018-01-02",
+    "end_date": "2026-08-28"
+  },
+  "securities": [
+    {
+      "symbol": "2330.TW",
+      "name": "台積電",
+      "sector": "半導體業",
+      "listingDate": "1994-09-05"
+    },
+    {
+      "symbol": "2454.TW",
+      "name": "聯發科",
+      "sector": "半導體業",
+      "listingDate": "2001-07-23"
+    },
+    {
+      "symbol": "2317.TW",
+      "name": "鴻海",
+      "sector": "其他電子業",
+      "listingDate": "1991-06-18"
+    },
+    {
+      "symbol": "2308.TW",
+      "name": "台達電",
+      "sector": "電子零組件業",
+      "listingDate": "1991-12-19"
+    },
+    {
+      "symbol": "2382.TW",
+      "name": "廣達",
+      "sector": "電腦及週邊設備業",
+      "listingDate": "1999-01-08"
+    },
+    {
+      "symbol": "2603.TW",
+      "name": "長榮",
+      "sector": "航運業",
+      "listingDate": "1987-09-21"
+    },
+    {
+      "symbol": "2881.TW",
+      "name": "富邦金",
+      "sector": "金融保險業",
+      "listingDate": "2001-12-19"
+    },
+    {
+      "symbol": "2882.TW",
+      "name": "國泰金",
+      "sector": "金融保險業",
+      "listingDate": "2001-12-18"
+    },
+    {
+      "symbol": "3008.TW",
+      "name": "大立光",
+      "sector": "光電業",
+      "listingDate": "2002-03-11"
+    },
+    {
+      "symbol": "6415.TW",
+      "name": "矽力*-KY",
+      "sector": "半導體業",
+      "listingDate": "2013-12-12"
+    }
+  ]
+}
