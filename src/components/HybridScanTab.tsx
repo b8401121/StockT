@@ -144,9 +144,13 @@ export const HybridScanTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({
           // 3. 雙維度融合評分 (基本面權重 60% + 技術面權重 40%)
           const hybridScore = Number((fs.score * 0.6 + techScore * 0.4).toFixed(1));
 
-          // 嚴格優選品質：基本面評級良好 (fs.score >= 3)、ROE >= 5%、無重大虧損且綜合分數達標
-          const roeVal = info.roe ?? 0.08;
-          if (fs.score >= 3 && roeVal >= 0.05 && hybridScore >= 1.5) {
+          // 嚴格菁英優選標準：
+          // 1. 基本面評級：必須達到 A 優質以上 (fs.score >= 7)，徹底排除 C 普通與平庸股
+          // 2. 獲利體質：ROE 必須 >= 10.0% (優秀獲利能力)
+          // 3. 技術趨勢：排除空頭破線股 (techScore >= 0.0，必須為中性整理、偏多起漲或多方優勢)
+          // 4. 綜合推薦指數：hybridScore 必須 >= 4.5 (四星 ★★★★☆ 以上高分菁英標的)
+          const roeVal = info.roe ?? 0.12;
+          if (fs.score >= 7 && roeVal >= 0.10 && techScore >= 0.0 && hybridScore >= 4.5) {
             scanResults.push({
               symbol: info.symbol,
               name,
@@ -168,7 +172,7 @@ export const HybridScanTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({
     }
 
     setProgress(100);
-    setProgressMsg(`掃描完成！共挑選出 ${scanResults.length} 檔高分優質標的`);
+    setProgressMsg(`掃描完成！共挑選出 ${scanResults.length} 檔高分雙強菁英標的`);
     setScanning(false);
   };
 
