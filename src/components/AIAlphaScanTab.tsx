@@ -13,13 +13,6 @@ interface RankedAlphaStock extends AIAlphaResult {
   info: StockInfoFull;
 }
 
-import { getCachedStocks, subscribeStocks, StockEntry } from "../utils/stocks";
-
-let STOCK_DB: StockEntry[] = getCachedStocks();
-subscribeStocks((stocks) => {
-  STOCK_DB = stocks;
-});
-
 const MARKETS = [
   { label: "全部上市+上櫃", value: "ALL" },
   { label: "全部上市股 (.TW)", value: "TW" },
@@ -48,14 +41,16 @@ function isCommonStockOrValidEtf(symbol: string, market: string): boolean {
   return /^\d{4}$/.test(code);
 }
 
-function getSymbolsByMarket(market: string): string[] {
-  if (!STOCK_DB.length) return ["2330.TW", "0050.TW", "2317.TW", "2412.TW", "2308.TW"];
-  return STOCK_DB.filter((s) => {
-    if (!isCommonStockOrValidEtf(s.symbol, market)) return false;
-    const code = s.symbol.split(".")[0];
+function filterSymbolsByMarket(allKeys: string[], fundamentalsMap: Record<string, any>, market: string): string[] {
+  return allKeys.filter((k) => {
+    const p = fundamentalsMap[k] || {};
+    const sym = p.symbol || `${k}.TW`;
+    if (!isCommonStockOrValidEtf(sym, market)) return false;
+    const code = k.replace(/\D/g, "");
+    if (!code || code.length > 5) return false;
     if (market === "ALL") return true;
-    if (market === "TW") return s.symbol.endsWith(".TW");
-    if (market === "TWO") return s.symbol.endsWith(".TWO");
+    if (market === "TW") return sym.endsWith(".TW");
+    if (market === "TWO") return sym.endsWith(".TWO");
     if (market === "00") return code.startsWith("00");
     const n = parseInt(code, 10);
     if (isNaN(n)) return false;
@@ -69,7 +64,7 @@ function getSymbolsByMarket(market: string): string[] {
     if (market === "6A") return n >= 6000 && n < 7000;
     if (market === "8A") return n >= 8000;
     return false;
-  }).map((s) => s.symbol);
+  });
 }
 
 const STRATEGIES = [
@@ -102,12 +97,12 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
     setResults([]);
 
     try {
-      const targetSymbols = getSymbolsByMarket(market);
-
       const mopsModule = await import("../utils/twse_mops_fundamentals.json");
       const fundamentalsMap: Record<string, any> = (mopsModule as any).default || mopsModule;
+      const allKeys = Object.keys(fundamentalsMap);
+      const targetKeys = filterSymbolsByMarket(allKeys, fundamentalsMap, market);
 
-      const total = targetSymbols.length;
+      const total = targetKeys.length;
       setProgressMsg(`正在調用硬體加速單元推論 ${total} 檔標的之 17 維神經網路...`);
 
       const selectedStrat = STRATEGIES.find(s => s.id === strategy) || STRATEGIES[0];
@@ -115,16 +110,16 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
 
       for (let i = 0; i < total; i++) {
         if (cancelRef.current) break;
-        const symbol = targetSymbols[i];
-        const clean = symbol.split(".")[0];
-        const p = fundamentalsMap[clean] || fundamentalsMap[symbol] || {};
+        const key = targetKeys[i];
+        const p = fundamentalsMap[key] || {};
+        const symbol = p.symbol || `${key}.TW`;
 
         const curP = p.close_price || p.current_price || p.c || 0;
         const prevP = p.previous_close || (p.close_price && p.change != null ? p.close_price - p.change : curP);
 
         const info: StockInfoFull = {
           symbol,
-          name: p.name || p.n || symbol,
+          name: p.name || p.n || key,
           current_price: curP,
           previous_close: prevP,
           pe: p.pe,
