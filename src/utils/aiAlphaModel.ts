@@ -44,6 +44,10 @@ export const CANONICAL_FACTOR_DEFINITIONS = [
   { name: "Dividend Yield", category: "Valuation", weight: 0.05 },
 ];
 
+export const CANONICAL_WEIGHT_MAP: Record<string, number> = Object.fromEntries(
+  CANONICAL_FACTOR_DEFINITIONS.map(f => [f.name, f.weight])
+);
+
 /** 舊版相容性介面 */
 export type AIFactorItem = {
   id: number;
@@ -230,7 +234,7 @@ export function evaluateAIAlpha(
   const factors: FactorResult[] = [];
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // 1. OHLCV 價量動能因子 (8 項)
+  // 1. OHLCV 價量動能因子 (8 項，權重總和 0.54)
   // ═══════════════════════════════════════════════════════════════════════════
   let closes = ohlcv?.close || [];
   let volumes = ohlcv?.volume || [];
@@ -262,7 +266,7 @@ export function evaluateAIAlpha(
       value: m20,
       valueDisplay: `${m20 >= 0 ? "+" : ""}${m20.toFixed(1)}%`,
       score,
-      weight: 0.12,
+      weight: CANONICAL_WEIGHT_MAP["momentum20"],
       available: true,
       source: "Yahoo Finance (K線)",
       asOf: latestKDate,
@@ -277,7 +281,7 @@ export function evaluateAIAlpha(
       value: null,
       valueDisplay: "N/A",
       score: 0,
-      weight: 0.12,
+      weight: CANONICAL_WEIGHT_MAP["momentum20"],
       available: false,
       status: "missing",
       explanation: "缺少20日歷史K線數據",
@@ -300,7 +304,7 @@ export function evaluateAIAlpha(
       value: m60,
       valueDisplay: `${m60 >= 0 ? "+" : ""}${m60.toFixed(1)}%`,
       score,
-      weight: 0.10,
+      weight: CANONICAL_WEIGHT_MAP["momentum60"],
       available: true,
       source: "Yahoo Finance (K線)",
       asOf: latestKDate,
@@ -315,7 +319,7 @@ export function evaluateAIAlpha(
       value: null,
       valueDisplay: "N/A",
       score: 0,
-      weight: 0.10,
+      weight: CANONICAL_WEIGHT_MAP["momentum60"],
       available: false,
       status: "missing",
       explanation: "缺少60日歷史K線數據",
@@ -338,7 +342,7 @@ export function evaluateAIAlpha(
       value: m120,
       valueDisplay: `${m120 >= 0 ? "+" : ""}${m120.toFixed(1)}%`,
       score,
-      weight: 0.08,
+      weight: CANONICAL_WEIGHT_MAP["momentum120"],
       available: true,
       source: "Yahoo Finance (K線)",
       asOf: latestKDate,
@@ -353,7 +357,7 @@ export function evaluateAIAlpha(
       value: null,
       valueDisplay: "N/A",
       score: 0,
-      weight: 0.08,
+      weight: CANONICAL_WEIGHT_MAP["momentum120"],
       available: false,
       status: "missing",
       explanation: "缺少120日歷史K線數據",
@@ -372,7 +376,7 @@ export function evaluateAIAlpha(
       value: bias20,
       valueDisplay: `${bias20 >= 0 ? "+" : ""}${bias20.toFixed(1)}% (MA20: ${ma20.toFixed(1)})`,
       score,
-      weight: 0.09,
+      weight: CANONICAL_WEIGHT_MAP["MA20"],
       available: true,
       source: "Yahoo Finance (K線)",
       asOf: latestKDate,
@@ -387,7 +391,7 @@ export function evaluateAIAlpha(
       value: null,
       valueDisplay: "N/A",
       score: 0,
-      weight: 0.09,
+      weight: CANONICAL_WEIGHT_MAP["MA20"],
       available: false,
       status: "missing",
       explanation: "缺少20日均線數據",
@@ -406,7 +410,7 @@ export function evaluateAIAlpha(
       value: bias60,
       valueDisplay: `${bias60 >= 0 ? "+" : ""}${bias60.toFixed(1)}% (MA60: ${ma60.toFixed(1)})`,
       score,
-      weight: 0.08,
+      weight: CANONICAL_WEIGHT_MAP["MA60"],
       available: true,
       source: "Yahoo Finance (K線)",
       asOf: latestKDate,
@@ -421,7 +425,7 @@ export function evaluateAIAlpha(
       value: null,
       valueDisplay: "N/A",
       score: 0,
-      weight: 0.08,
+      weight: CANONICAL_WEIGHT_MAP["MA60"],
       available: false,
       status: "missing",
       explanation: "缺少60日季線數據",
@@ -440,7 +444,7 @@ export function evaluateAIAlpha(
       value: bias120,
       valueDisplay: `${bias120 >= 0 ? "+" : ""}${bias120.toFixed(1)}%`,
       score,
-      weight: 0.07,
+      weight: CANONICAL_WEIGHT_MAP["MA120"],
       available: true,
       source: "Yahoo Finance (K線)",
       asOf: latestKDate,
@@ -455,7 +459,7 @@ export function evaluateAIAlpha(
       value: null,
       valueDisplay: "N/A",
       score: 0,
-      weight: 0.07,
+      weight: CANONICAL_WEIGHT_MAP["MA120"],
       available: false,
       status: "missing",
       explanation: "缺少120日均線數據",
@@ -474,7 +478,7 @@ export function evaluateAIAlpha(
       value: bias240,
       valueDisplay: `${bias240 >= 0 ? "+" : ""}${bias240.toFixed(1)}% (年線: ${ma240.toFixed(1)})`,
       score,
-      weight: 0.09,
+      weight: CANONICAL_WEIGHT_MAP["MA240"],
       available: true,
       source: "Yahoo Finance (K線)",
       asOf: latestKDate,
@@ -489,14 +493,14 @@ export function evaluateAIAlpha(
       value: null,
       valueDisplay: "N/A",
       score: 0,
-      weight: 0.09,
+      weight: CANONICAL_WEIGHT_MAP["MA240"],
       available: false,
       status: "missing",
       explanation: "缺少240日年線數據",
     });
   }
 
-  // 1.8 volumeRatio (成交量比: 5日均量 / 20日均量)
+  // 1.8 VolumeSurge (成交量比: 5日均量 / 20日均量)
   let vRatio: number | null = null;
   const vol5 = calcSMA(volumes, 5);
   const vol20 = calcSMA(volumes, 20);
@@ -504,13 +508,13 @@ export function evaluateAIAlpha(
     vRatio = vol5 / vol20;
     const score = vRatio >= 1.3 ? 2.2 : vRatio >= 1.0 ? 1.0 : vRatio >= 0.7 ? -0.2 : -1.5;
     factors.push({
-      name: "volumeRatio",
-      label: "量能活躍度 (5日/20日均量比)",
+      name: "VolumeSurge",
+      label: "5日均量比 (Volume Surge)",
       category: "OHLCV",
       value: vRatio,
       valueDisplay: `${vRatio.toFixed(2)}x`,
       score,
-      weight: 0.08,
+      weight: CANONICAL_WEIGHT_MAP["VolumeSurge"],
       available: true,
       source: "Yahoo Finance (K線)",
       asOf: latestKDate,
@@ -519,13 +523,13 @@ export function evaluateAIAlpha(
     });
   } else {
     factors.push({
-      name: "volumeRatio",
-      label: "量能活躍度 (5日/20日均量比)",
+      name: "VolumeSurge",
+      label: "5日均量比 (Volume Surge)",
       category: "OHLCV",
       value: null,
       valueDisplay: "N/A",
       score: 0,
-      weight: 0.08,
+      weight: CANONICAL_WEIGHT_MAP["VolumeSurge"],
       available: false,
       status: "missing",
       explanation: "缺少成交量歷史數據",
@@ -533,7 +537,7 @@ export function evaluateAIAlpha(
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // 2. Fundamental 財務基本面因子 (7 項)
+  // 2. Fundamental 獲利與財務因子 (4 項，權重總和 0.29)
   // ═══════════════════════════════════════════════════════════════════════════
 
   // 2.1 ROE
@@ -548,7 +552,7 @@ export function evaluateAIAlpha(
       value: roeVal,
       valueDisplay: `${roePct.toFixed(1)}%`,
       score,
-      weight: 0.15,
+      weight: CANONICAL_WEIGHT_MAP["ROE"],
       available: true,
       source: metricSource(info.roe),
       asOf: formatAsOf(info.roe, "最新季報"),
@@ -563,7 +567,7 @@ export function evaluateAIAlpha(
       value: null,
       valueDisplay: "N/A",
       score: 0,
-      weight: 0.15,
+      weight: CANONICAL_WEIGHT_MAP["ROE"],
       available: false,
       source: metricSource(info.roe),
       status: "missing",
@@ -571,19 +575,89 @@ export function evaluateAIAlpha(
     });
   }
 
-  // 2.2 Revenue Growth (營收成長率)
+  // 2.2 GrossMargins (營業毛利率)
+  const grossM = metricVal(info.gross_margins);
+  if (grossM !== null) {
+    const gmPct = grossM * 100;
+    const score = gmPct >= 40 ? 2.5 : gmPct >= 20 ? 1.5 : gmPct >= 10 ? 0.3 : -1.5;
+    factors.push({
+      name: "GrossMargins",
+      label: "營業毛利率",
+      category: "Fundamental",
+      value: grossM,
+      valueDisplay: `${gmPct.toFixed(1)}%`,
+      score,
+      weight: CANONICAL_WEIGHT_MAP["GrossMargins"],
+      available: true,
+      source: metricSource(info.gross_margins),
+      asOf: formatAsOf(info.gross_margins, "最新季報"),
+      status: gmPct >= 25 ? "positive" : gmPct < 10 ? "negative" : "neutral",
+      explanation: gmPct >= 30 ? "具備高定價權與護城河" : "毛利率維持正常水準",
+    });
+  } else {
+    factors.push({
+      name: "GrossMargins",
+      label: "營業毛利率",
+      category: "Fundamental",
+      value: null,
+      valueDisplay: "N/A",
+      score: 0,
+      weight: CANONICAL_WEIGHT_MAP["GrossMargins"],
+      available: false,
+      source: metricSource(info.gross_margins),
+      status: "missing",
+      explanation: "未揭露毛利率數據",
+    });
+  }
+
+  // 2.3 OperatingMargins (營業利益率)
+  const operM = metricVal(info.operating_margins);
+  if (operM !== null) {
+    const opPct = operM * 100;
+    const score = opPct >= 20 ? 2.5 : opPct >= 10 ? 1.5 : opPct >= 0 ? 0.2 : -2.0;
+    factors.push({
+      name: "OperatingMargins",
+      label: "營業利益率",
+      category: "Fundamental",
+      value: operM,
+      valueDisplay: `${opPct.toFixed(1)}%`,
+      score,
+      weight: CANONICAL_WEIGHT_MAP["OperatingMargins"],
+      available: true,
+      source: metricSource(info.operating_margins),
+      asOf: formatAsOf(info.operating_margins, "最新季報"),
+      status: opPct >= 10 ? "positive" : opPct < 0 ? "negative" : "neutral",
+      explanation: opPct >= 15 ? "本業獲利能力強勁" : opPct >= 0 ? "本業穩定獲利" : "本業虧損",
+    });
+  } else {
+    factors.push({
+      name: "OperatingMargins",
+      label: "營業利益率",
+      category: "Fundamental",
+      value: null,
+      valueDisplay: "N/A",
+      score: 0,
+      weight: CANONICAL_WEIGHT_MAP["OperatingMargins"],
+      available: false,
+      source: metricSource(info.operating_margins),
+      status: "missing",
+      explanation: "未揭露營業利益率數據",
+    });
+  }
+
+  // 2.4 RevenueGrowthYoY (營收年增率)
   const revGrowth = metricVal(info.revenue_growth);
   if (revGrowth !== null) {
     const revPct = revGrowth * 100;
     const score = revPct >= 25 ? 2.8 : revPct >= 10 ? 1.8 : revPct >= 0 ? 0.5 : revPct >= -10 ? -1.0 : -2.5;
     factors.push({
-      name: "Revenue Growth",
+      name: "RevenueGrowthYoY",
       label: "營收年成長率 (YoY)",
       category: "Fundamental",
       value: revGrowth,
       valueDisplay: `${revPct >= 0 ? "+" : ""}${revPct.toFixed(1)}%`,
       score,
-      weight: 0.12,
+      weight: CANONICAL_WEIGHT_MAP["RevenueGrowthYoY"],
       available: true,
       source: metricSource(info.revenue_growth),
       asOf: formatAsOf(info.revenue_growth, "最新營收"),
@@ -592,13 +666,13 @@ export function evaluateAIAlpha(
     });
   } else {
     factors.push({
-      name: "Revenue Growth",
+      name: "RevenueGrowthYoY",
       label: "營收年成長率 (YoY)",
       category: "Fundamental",
       value: null,
       valueDisplay: "N/A",
       score: 0,
-      weight: 0.12,
+      weight: CANONICAL_WEIGHT_MAP["RevenueGrowthYoY"],
       available: false,
       source: metricSource(info.revenue_growth),
       status: "missing",
@@ -606,90 +680,22 @@ export function evaluateAIAlpha(
     });
   }
 
-  // 2.3 Earnings Growth (獲利/EPS成長率)
-  const earnGrowth = metricVal(info.earnings_growth);
-  if (earnGrowth !== null) {
-    const earnPct = earnGrowth * 100;
-    const score = earnPct >= 30 ? 2.8 : earnPct >= 15 ? 1.8 : earnPct >= 0 ? 0.5 : -2.0;
-    factors.push({
-      name: "Earnings Growth",
-      label: "淨利/EPS成長率 (YoY)",
-      category: "Fundamental",
-      value: earnGrowth,
-      valueDisplay: `${earnPct >= 0 ? "+" : ""}${earnPct.toFixed(1)}%`,
-      score,
-      weight: 0.12,
-      available: true,
-      source: metricSource(info.earnings_growth),
-      asOf: formatAsOf(info.earnings_growth, "最新季報"),
-      status: earnPct >= 15 ? "positive" : earnPct < 0 ? "negative" : "neutral",
-      explanation: earnPct >= 15 ? "本業獲利大幅成長" : earnPct >= 0 ? "獲利維持增長" : "獲利同比衰退",
-    });
-  } else {
-    factors.push({
-      name: "Earnings Growth",
-      label: "淨利/EPS成長率 (YoY)",
-      category: "Fundamental",
-      value: null,
-      valueDisplay: "N/A",
-      score: 0,
-      weight: 0.12,
-      available: false,
-      source: metricSource(info.earnings_growth),
-      status: "missing",
-      explanation: "未揭露最新獲利成長率",
-    });
-  }
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 3. Safety 財務健全度因子 (3 項，權重總和 0.13)
+  // ═══════════════════════════════════════════════════════════════════════════
 
-  // 2.4 Margin (毛利率與營業利益率)
-  const grossM = metricVal(info.gross_margins);
-  const operM = metricVal(info.operating_margins);
-  if (grossM !== null) {
-    const gmPct = grossM * 100;
-    const opPct = operM !== null ? operM * 100 : null;
-    const score = gmPct >= 40 ? 2.5 : gmPct >= 20 ? 1.5 : gmPct >= 10 ? 0.3 : -1.5;
-    factors.push({
-      name: "Margin",
-      label: "毛利率 / 營業利益率",
-      category: "Fundamental",
-      value: grossM,
-      valueDisplay: `毛利 ${gmPct.toFixed(1)}%${opPct !== null ? ` | 營益 ${opPct.toFixed(1)}%` : ""}`,
-      score,
-      weight: 0.10,
-      available: true,
-      source: metricSource(info.gross_margins ?? info.operating_margins),
-      asOf: formatAsOf(info.gross_margins ?? info.operating_margins, "最新季報"),
-      status: gmPct >= 25 ? "positive" : gmPct < 10 ? "negative" : "neutral",
-      explanation: gmPct >= 30 ? "具備高定價權與護城河" : "利潤率一般",
-    });
-  } else {
-    factors.push({
-      name: "Margin",
-      label: "毛利率 / 營業利益率",
-      category: "Fundamental",
-      value: null,
-      valueDisplay: "N/A",
-      score: 0,
-      weight: 0.10,
-      available: false,
-      source: metricSource(info.gross_margins ?? info.operating_margins),
-      status: "missing",
-      explanation: "未揭露毛利率數據",
-    });
-  }
-
-  // 2.5 Debt (負債比率 / 財務槓桿)
+  // 3.1 DebtToEquity (負債淨值比)
   const debtVal = metricVal(info.debt_to_equity);
   if (debtVal !== null) {
     const dScore = debtVal <= 50 ? 2.2 : debtVal <= 100 ? 1.0 : debtVal <= 200 ? -0.5 : -2.5;
     factors.push({
-      name: "Debt",
+      name: "DebtToEquity",
       label: "負債淨值比 (Debt to Equity)",
       category: "Safety",
       value: debtVal,
       valueDisplay: `${debtVal.toFixed(1)}%`,
       score: dScore,
-      weight: 0.08,
+      weight: CANONICAL_WEIGHT_MAP["DebtToEquity"],
       available: true,
       source: metricSource(info.debt_to_equity),
       asOf: formatAsOf(info.debt_to_equity, "最新季報"),
@@ -698,13 +704,13 @@ export function evaluateAIAlpha(
     });
   } else {
     factors.push({
-      name: "Debt",
+      name: "DebtToEquity",
       label: "負債淨值比 (Debt to Equity)",
       category: "Safety",
       value: null,
       valueDisplay: "N/A",
       score: 0,
-      weight: 0.08,
+      weight: CANONICAL_WEIGHT_MAP["DebtToEquity"],
       available: false,
       source: metricSource(info.debt_to_equity),
       status: "missing",
@@ -712,7 +718,42 @@ export function evaluateAIAlpha(
     });
   }
 
-  // 2.6 FCF (自由現金流)
+  // 3.2 CurrentRatio (流動比率)
+  const currRatio = metricVal(info.current_ratio);
+  if (currRatio !== null) {
+    const crPct = currRatio > 10 ? currRatio : currRatio * 100;
+    const score = crPct >= 200 ? 2.2 : crPct >= 130 ? 1.2 : crPct >= 100 ? 0.2 : -2.0;
+    factors.push({
+      name: "CurrentRatio",
+      label: "流動比率 (Current Ratio)",
+      category: "Safety",
+      value: currRatio,
+      valueDisplay: `${crPct.toFixed(1)}%`,
+      score,
+      weight: CANONICAL_WEIGHT_MAP["CurrentRatio"],
+      available: true,
+      source: metricSource(info.current_ratio),
+      asOf: formatAsOf(info.current_ratio, "最新季報"),
+      status: crPct >= 150 ? "positive" : crPct < 100 ? "negative" : "neutral",
+      explanation: crPct >= 180 ? "短期償債能力充沛無虞" : crPct >= 100 ? "流動資金中性" : "短期流動性偏緊",
+    });
+  } else {
+    factors.push({
+      name: "CurrentRatio",
+      label: "流動比率 (Current Ratio)",
+      category: "Safety",
+      value: null,
+      valueDisplay: "N/A",
+      score: 0,
+      weight: CANONICAL_WEIGHT_MAP["CurrentRatio"],
+      available: false,
+      source: metricSource(info.current_ratio),
+      status: "missing",
+      explanation: "未揭露流動比率數據",
+    });
+  }
+
+  // 3.3 FCF (自由現金流)
   const fcfVal = metricVal(info.free_cashflow);
   if (fcfVal !== null) {
     const fcfBillions = fcfVal / 1e8;
@@ -724,7 +765,7 @@ export function evaluateAIAlpha(
       value: fcfVal,
       valueDisplay: `${fcfBillions.toFixed(1)} 億元`,
       score,
-      weight: 0.08,
+      weight: CANONICAL_WEIGHT_MAP["FCF"],
       available: true,
       source: metricSource(info.free_cashflow),
       asOf: formatAsOf(info.free_cashflow, "最新季報"),
@@ -739,7 +780,7 @@ export function evaluateAIAlpha(
       value: null,
       valueDisplay: "N/A",
       score: 0,
-      weight: 0.08,
+      weight: CANONICAL_WEIGHT_MAP["FCF"],
       available: false,
       source: metricSource(info.free_cashflow),
       status: "missing",
@@ -747,8 +788,9 @@ export function evaluateAIAlpha(
     });
   }
 
-  // 2.7 官方估值性價比 (PE / PB / 殖利率)
-  // Prefer TWSE/TPEx official data over Yahoo Finance
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 4. Valuation 估值與殖利率因子 (3 項，權重總和 0.14)
+  // ═══════════════════════════════════════════════════════════════════════════
   const peMet = info.tw_pe ?? info.pe;
   const pbMet = info.tw_pb ?? info.pb;
   const dyMet = info.tw_yield ?? info.dividend_yield;
@@ -756,6 +798,7 @@ export function evaluateAIAlpha(
   const pbVal = metricVal(pbMet);
   const dyVal = metricVal(dyMet);
 
+  // 4.1 PE (本益比)
   if (peVal !== null) {
     const score = peVal <= 12 && peVal > 0 ? 2.5 : peVal <= 18 && peVal > 0 ? 1.5 : peVal <= 25 ? 0.2 : peVal > 40 ? -2.0 : -1.0;
     factors.push({
@@ -765,7 +808,7 @@ export function evaluateAIAlpha(
       value: peVal,
       valueDisplay: `${peVal.toFixed(1)} 倍`,
       score,
-      weight: 0.08,
+      weight: CANONICAL_WEIGHT_MAP["PE"],
       available: true,
       source: metricSource(peMet),
       asOf: formatAsOf(peMet, "今日收盤"),
@@ -780,7 +823,7 @@ export function evaluateAIAlpha(
       value: null,
       valueDisplay: "N/A",
       score: 0,
-      weight: 0.08,
+      weight: CANONICAL_WEIGHT_MAP["PE"],
       available: false,
       source: metricSource(peMet),
       status: "missing",
@@ -788,6 +831,7 @@ export function evaluateAIAlpha(
     });
   }
 
+  // 4.2 PB (股價淨值比)
   if (pbVal !== null) {
     const score = pbVal <= 1.2 && pbVal > 0 ? 2.2 : pbVal <= 2.0 && pbVal > 0 ? 1.2 : pbVal <= 3.5 ? 0.0 : -1.8;
     factors.push({
@@ -797,7 +841,7 @@ export function evaluateAIAlpha(
       value: pbVal,
       valueDisplay: `${pbVal.toFixed(2)} 倍`,
       score,
-      weight: 0.06,
+      weight: CANONICAL_WEIGHT_MAP["PB"],
       available: true,
       source: metricSource(pbMet),
       asOf: formatAsOf(pbMet, "今日收盤"),
@@ -812,7 +856,7 @@ export function evaluateAIAlpha(
       value: null,
       valueDisplay: "N/A",
       score: 0,
-      weight: 0.06,
+      weight: CANONICAL_WEIGHT_MAP["PB"],
       available: false,
       source: metricSource(pbMet),
       status: "missing",
@@ -820,6 +864,7 @@ export function evaluateAIAlpha(
     });
   }
 
+  // 4.3 Dividend Yield (現金殖利率)
   if (dyVal !== null) {
     const dyPct = dyVal * 100;
     const score = dyPct >= 6 ? 2.5 : dyPct >= 4 ? 1.5 : dyPct >= 2 ? 0.5 : 0;
@@ -830,7 +875,7 @@ export function evaluateAIAlpha(
       value: dyVal,
       valueDisplay: `${dyPct.toFixed(1)}%`,
       score,
-      weight: 0.06,
+      weight: CANONICAL_WEIGHT_MAP["Dividend Yield"],
       available: true,
       source: metricSource(dyMet),
       asOf: formatAsOf(dyMet, "最新公告"),
@@ -845,7 +890,7 @@ export function evaluateAIAlpha(
       value: null,
       valueDisplay: "N/A",
       score: 0,
-      weight: 0.06,
+      weight: CANONICAL_WEIGHT_MAP["Dividend Yield"],
       available: false,
       source: metricSource(dyMet),
       status: "missing",
@@ -926,7 +971,6 @@ export function evaluateAIAlpha(
   // 4. ML Track (決策樹集成 & 特徵交互推論 - 嚴格 Null-Safe，無人工合成 Fallback)
   // ──────────────────────────────────────────────────────────────────────────
   const currP = curP || 100;
-  const currRatio = metricVal(info.current_ratio);
 
   const mlResult = evaluateMLModel({
     momentum20: m20 !== null ? m20 / 100 : null,
