@@ -159,6 +159,7 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
   // 基本面 Modal
   const [showFundModal, setShowFundModal] = useState(false);
   const [showAIModal, setShowAIModal] = useState(false);
+  const [showFsModal, setShowFsModal] = useState(false);
   const [aiModalFilter, setAiModalFilter] = useState<"ALL" | "OHLCV" | "Fundamental" | "Valuation" | "Safety">("ALL");
   const [fundData, setFundData] = useState<any>(null);
   const [fundLoading, setFundLoading] = useState(false);
@@ -563,26 +564,28 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                 );
               })()}
 
-              {/* 基本面評分卡 */}
+              {/* 基本面評分卡 (點擊彈出全景明細) */}
               {fs && (
-                <div className="score-card" style={{ background: fsGrade.bg, borderColor: fsGrade.border, marginBottom: "12px" }}>
-                  <div className="score-header">
-                    <div className="score-grade" style={{ color: fsGrade.color }}>📊 基本面：{fsGrade.label} <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.6)", fontWeight: 400 }}>(2026 Q2 累計)</span></div>
-                    <div className="score-num" style={{ color: "var(--text-secondary)" }}>
+                <div
+                  className="score-card"
+                  onClick={() => setShowFsModal(true)}
+                  style={{
+                    background: fsGrade.bg,
+                    borderColor: fsGrade.border,
+                    marginBottom: "12px",
+                    cursor: "pointer",
+                    transition: "transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease",
+                  }}
+                  title="點擊展開基本面完整評分與各項指標明細"
+                >
+                  <div className="score-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div className="score-grade" style={{ color: fsGrade.color, fontWeight: 700 }}>
+                      📊 基本面：{fsGrade.label} <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.6)", fontWeight: 400 }}>(2026 Q2 累計)</span>
+                    </div>
+                    <div className="score-num" style={{ color: "var(--text-secondary)", fontSize: "0.85rem" }}>
                       評分 <b style={{ color: fsGrade.color }}>{fsScore > 0 ? "+" : ""}{fsScore}</b>
                       &nbsp;｜ ✅{fs.passed.length} ❌{fs.failed.length} ⬜{fs.na.length}
                     </div>
-                  </div>
-                  <div className="score-tags" style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "8px" }}>
-                    {fs.passed.map(([l, d]) => (
-                      <span className="score-tag" key={l} style={{ color: "#ffffff", background: "#16a34a", borderColor: "#4ade80", cursor: "pointer", fontWeight: 700, fontSize: "0.82rem", padding: "4px 10px", borderRadius: "6px", boxShadow: "0 2px 6px rgba(22,163,74,0.4)" }} title={d} onClick={() => showMetricExplanation(l)}>✓ {l}</span>
-                    ))}
-                    {fs.failed.map(([l, d]) => (
-                      <span className="score-tag" key={l} style={{ color: "#ffffff", background: "#dc2626", borderColor: "#f87171", cursor: "pointer", fontWeight: 700, fontSize: "0.82rem", padding: "4px 10px", borderRadius: "6px", boxShadow: "0 2px 6px rgba(220,38,38,0.4)" }} title={d} onClick={() => showMetricExplanation(l)}>✗ {l}</span>
-                    ))}
-                    {fs.na.map((l) => (
-                      <span className="score-tag" key={l} style={{ color: "#ffffff", background: "#475569", borderColor: "#94a3b8", cursor: "pointer", fontWeight: 700, fontSize: "0.82rem", padding: "4px 10px", borderRadius: "6px" }} onClick={() => showMetricExplanation(l)}>- {l}</span>
-                    ))}
                   </div>
                 </div>
               )}
@@ -1459,6 +1462,149 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
           </div>
         );
       })()}
+
+      {/* 📊 基本面完整評分與指標診斷清單 Modal */}
+      {showFsModal && fs && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+          background: "rgba(3, 7, 18, 0.85)", backdropFilter: "blur(12px)",
+          zIndex: 25000, display: "flex", justifyContent: "center", alignItems: "center",
+          padding: "20px"
+        }} onClick={() => setShowFsModal(false)}>
+          <div style={{
+            background: "linear-gradient(145deg, #111827, #0f172a)",
+            borderRadius: "16px", width: "760px", maxWidth: "98vw", maxHeight: "90vh",
+            padding: "24px", border: `1px solid ${fsGrade.border}`,
+            boxShadow: "0 25px 60px rgba(0, 0, 0, 0.8)",
+            display: "flex", flexDirection: "column", gap: "16px", overflow: "hidden"
+          }} onClick={e => e.stopPropagation()}>
+            
+            {/* Header */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: "12px" }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 800, color: fsGrade.color }}>
+                  📊 基本面評分全景診斷
+                </h3>
+                <div style={{ fontSize: "0.85rem", color: "#94a3b8", marginTop: "3px" }}>
+                  標的：<b style={{ color: "#ffffff" }}>{info?.name || info?.symbol} ({info?.symbol})</b> ｜ 評級：<b style={{ color: fsGrade.color }}>{fsGrade.label}</b> ｜ 總分：<b style={{ color: fsGrade.color }}>{fsScore > 0 ? "+" : ""}{fsScore}</b>
+                </div>
+              </div>
+              <button className="btn btn-outline btn-sm" onClick={() => setShowFsModal(false)} style={{ borderRadius: "50%", width: "32px", height: "32px", padding: 0, fontSize: "1rem" }}>✕</button>
+            </div>
+
+            {/* Content List */}
+            <div style={{ overflowY: "auto", display: "flex", flexDirection: "column", gap: "14px", paddingRight: "4px" }}>
+              
+              {/* Summary Badges */}
+              <div style={{ display: "flex", gap: "16px", background: "rgba(0,0,0,0.3)", padding: "12px 16px", borderRadius: "10px" }}>
+                <div>
+                  <span style={{ fontSize: "0.76rem", color: "#94a3b8" }}>良好達標指標</span>
+                  <div style={{ fontSize: "1.3rem", fontWeight: 800, color: "#4ade80" }}>✅ {fs.passed.length} 項</div>
+                </div>
+                <div style={{ borderLeft: "1px solid rgba(255,255,255,0.1)", paddingLeft: "16px" }}>
+                  <span style={{ fontSize: "0.76rem", color: "#94a3b8" }}>待改善/未達標指標</span>
+                  <div style={{ fontSize: "1.3rem", fontWeight: 800, color: "#f87171" }}>❌ {fs.failed.length} 項</div>
+                </div>
+                <div style={{ borderLeft: "1px solid rgba(255,255,255,0.1)", paddingLeft: "16px" }}>
+                  <span style={{ fontSize: "0.76rem", color: "#94a3b8" }}>無資料/不適用</span>
+                  <div style={{ fontSize: "1.3rem", fontWeight: 800, color: "#94a3b8" }}>⬜ {fs.na.length} 項</div>
+                </div>
+              </div>
+
+              {/* Passed Metrics */}
+              {fs.passed.length > 0 && (
+                <div>
+                  <div style={{ fontWeight: 700, color: "#4ade80", fontSize: "0.88rem", marginBottom: "8px" }}>
+                    ✅ 良好達標項目 ({fs.passed.length} 項)：
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "8px" }}>
+                    {fs.passed.map(([l, d]) => (
+                      <div
+                        key={l}
+                        onClick={() => showMetricExplanation(l)}
+                        style={{
+                          background: "rgba(34, 197, 94, 0.1)", border: "1px solid rgba(34, 197, 94, 0.3)",
+                          borderRadius: "8px", padding: "8px 12px", cursor: "pointer",
+                          transition: "all 0.15s ease"
+                        }}
+                      >
+                        <div style={{ fontWeight: 700, color: "#86efac", fontSize: "0.85rem", display: "flex", justifyContent: "space-between" }}>
+                          <span>✓ {l}</span>
+                          <span style={{ fontSize: "0.70rem", color: "#4ade80" }}>點擊看說明 💡</span>
+                        </div>
+                        <div style={{ fontSize: "0.75rem", color: "#cbd5e1", marginTop: "2px" }}>{d}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Failed Metrics */}
+              {fs.failed.length > 0 && (
+                <div>
+                  <div style={{ fontWeight: 700, color: "#f87171", fontSize: "0.88rem", marginBottom: "8px" }}>
+                    ❌ 待改善/未達標項目 ({fs.failed.length} 項)：
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "8px" }}>
+                    {fs.failed.map(([l, d]) => (
+                      <div
+                        key={l}
+                        onClick={() => showMetricExplanation(l)}
+                        style={{
+                          background: "rgba(239, 68, 68, 0.1)", border: "1px solid rgba(239, 68, 68, 0.3)",
+                          borderRadius: "8px", padding: "8px 12px", cursor: "pointer",
+                          transition: "all 0.15s ease"
+                        }}
+                      >
+                        <div style={{ fontWeight: 700, color: "#fca5a5", fontSize: "0.85rem", display: "flex", justifyContent: "space-between" }}>
+                          <span>✗ {l}</span>
+                          <span style={{ fontSize: "0.70rem", color: "#f87171" }}>點擊看說明 💡</span>
+                        </div>
+                        <div style={{ fontSize: "0.75rem", color: "#cbd5e1", marginTop: "2px" }}>{d}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* NA Metrics */}
+              {fs.na.length > 0 && (
+                <div>
+                  <div style={{ fontWeight: 700, color: "#94a3b8", fontSize: "0.88rem", marginBottom: "8px" }}>
+                    ⬜ 無資料/不適用項目 ({fs.na.length} 項)：
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                    {fs.na.map((l) => (
+                      <span
+                        key={l}
+                        onClick={() => showMetricExplanation(l)}
+                        style={{
+                          background: "rgba(148, 163, 184, 0.1)", border: "1px solid rgba(148, 163, 184, 0.25)",
+                          color: "#cbd5e1", borderRadius: "6px", padding: "4px 10px", fontSize: "0.78rem", cursor: "pointer"
+                        }}
+                      >
+                        - {l}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+            </div>
+
+            {/* Footer */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: "12px" }}>
+              <span style={{ fontSize: "0.75rem", color: "#64748b" }}>
+                點擊個別項目可查看財務指標詳細定義與健康門檻
+              </span>
+              <button className="btn btn-primary btn-sm" onClick={() => setShowFsModal(false)}>
+                確定關閉
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
 
       {/* 指標診斷與解說 Modal */}
       {selectedMetric && (
