@@ -1517,24 +1517,34 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                   <div style={{ fontWeight: 700, color: "#4ade80", fontSize: "0.88rem", marginBottom: "8px" }}>
                     ✅ 良好達標項目 ({fs.passed.length} 項)：
                   </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "8px" }}>
-                    {fs.passed.map(([l, d]) => (
-                      <div
-                        key={l}
-                        onClick={() => showMetricExplanation(l)}
-                        style={{
-                          background: "rgba(34, 197, 94, 0.1)", border: "1px solid rgba(34, 197, 94, 0.3)",
-                          borderRadius: "8px", padding: "8px 12px", cursor: "pointer",
-                          transition: "all 0.15s ease"
-                        }}
-                      >
-                        <div style={{ fontWeight: 700, color: "#86efac", fontSize: "0.85rem", display: "flex", justifyContent: "space-between" }}>
-                          <span>✓ {l}</span>
-                          <span style={{ fontSize: "0.70rem", color: "#4ade80" }}>點擊看說明 💡</span>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: "10px" }}>
+                    {fs.passed.map(([l, d]) => {
+                      const exp = METRIC_EXPLANATIONS[l] || { label: l, explanation: "衡量公司基本面健康指標。" };
+                      return (
+                        <div
+                          key={l}
+                          onClick={() => showMetricExplanation(l)}
+                          style={{
+                            background: "rgba(34, 197, 94, 0.08)", border: "1px solid rgba(34, 197, 94, 0.3)",
+                            borderRadius: "10px", padding: "10px 14px", cursor: "pointer",
+                            display: "flex", flexDirection: "column", gap: "4px",
+                            transition: "all 0.15s ease"
+                          }}
+                        >
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <div style={{ fontWeight: 700, color: "#86efac", fontSize: "0.88rem" }}>
+                              ✓ {exp.label || l}
+                            </div>
+                            <div style={{ fontWeight: 800, color: "#4ade80", fontSize: "0.88rem" }}>
+                              {d}
+                            </div>
+                          </div>
+                          <div style={{ fontSize: "0.76rem", color: "#cbd5e1", lineHeight: 1.45, marginTop: "2px" }}>
+                            {exp.explanation}
+                          </div>
                         </div>
-                        <div style={{ fontSize: "0.75rem", color: "#cbd5e1", marginTop: "2px" }}>{d}</div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -1545,24 +1555,34 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                   <div style={{ fontWeight: 700, color: "#f87171", fontSize: "0.88rem", marginBottom: "8px" }}>
                     ❌ 待改善/未達標項目 ({fs.failed.length} 項)：
                   </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "8px" }}>
-                    {fs.failed.map(([l, d]) => (
-                      <div
-                        key={l}
-                        onClick={() => showMetricExplanation(l)}
-                        style={{
-                          background: "rgba(239, 68, 68, 0.1)", border: "1px solid rgba(239, 68, 68, 0.3)",
-                          borderRadius: "8px", padding: "8px 12px", cursor: "pointer",
-                          transition: "all 0.15s ease"
-                        }}
-                      >
-                        <div style={{ fontWeight: 700, color: "#fca5a5", fontSize: "0.85rem", display: "flex", justifyContent: "space-between" }}>
-                          <span>✗ {l}</span>
-                          <span style={{ fontSize: "0.70rem", color: "#f87171" }}>點擊看說明 💡</span>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: "10px" }}>
+                    {fs.failed.map(([l, d]) => {
+                      const exp = METRIC_EXPLANATIONS[l] || { label: l, explanation: "衡量公司基本面健康指標。" };
+                      return (
+                        <div
+                          key={l}
+                          onClick={() => showMetricExplanation(l)}
+                          style={{
+                            background: "rgba(239, 68, 68, 0.08)", border: "1px solid rgba(239, 68, 68, 0.3)",
+                            borderRadius: "10px", padding: "10px 14px", cursor: "pointer",
+                            display: "flex", flexDirection: "column", gap: "4px",
+                            transition: "all 0.15s ease"
+                          }}
+                        >
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <div style={{ fontWeight: 700, color: "#fca5a5", fontSize: "0.88rem" }}>
+                              ✗ {exp.label || l}
+                            </div>
+                            <div style={{ fontWeight: 800, color: "#f87171", fontSize: "0.88rem" }}>
+                              {d}
+                            </div>
+                          </div>
+                          <div style={{ fontSize: "0.76rem", color: "#cbd5e1", lineHeight: 1.45, marginTop: "2px" }}>
+                            {exp.explanation}
+                          </div>
                         </div>
-                        <div style={{ fontSize: "0.75rem", color: "#cbd5e1", marginTop: "2px" }}>{d}</div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -1573,19 +1593,33 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                   <div style={{ fontWeight: 700, color: "#94a3b8", fontSize: "0.88rem", marginBottom: "8px" }}>
                     ⬜ 無資料/不適用項目 ({fs.na.length} 項)：
                   </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                    {fs.na.map((l) => (
-                      <span
-                        key={l}
-                        onClick={() => showMetricExplanation(l)}
-                        style={{
-                          background: "rgba(148, 163, 184, 0.1)", border: "1px solid rgba(148, 163, 184, 0.25)",
-                          color: "#cbd5e1", borderRadius: "6px", padding: "4px 10px", fontSize: "0.78rem", cursor: "pointer"
-                        }}
-                      >
-                        - {l}
-                      </span>
-                    ))}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: "10px" }}>
+                    {fs.na.map((l) => {
+                      const exp = METRIC_EXPLANATIONS[l] || { label: l, explanation: "目前尚無此指標之歷史公告資料。" };
+                      return (
+                        <div
+                          key={l}
+                          onClick={() => showMetricExplanation(l)}
+                          style={{
+                            background: "rgba(148, 163, 184, 0.06)", border: "1px solid rgba(148, 163, 184, 0.2)",
+                            borderRadius: "10px", padding: "10px 14px", cursor: "pointer",
+                            display: "flex", flexDirection: "column", gap: "4px"
+                          }}
+                        >
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <div style={{ fontWeight: 700, color: "#cbd5e1", fontSize: "0.85rem" }}>
+                              - {exp.label || l}
+                            </div>
+                            <div style={{ fontWeight: 700, color: "#94a3b8", fontSize: "0.82rem" }}>
+                              資料暫缺 / 不適用
+                            </div>
+                          </div>
+                          <div style={{ fontSize: "0.76rem", color: "#94a3b8", lineHeight: 1.4, marginTop: "2px" }}>
+                            {exp.explanation}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
