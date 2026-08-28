@@ -798,47 +798,74 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
       </div>
 
       {/* ─── 右側圖表區 ─────────────────────────────────────────────── */}
-      <div className="analysis-chart-area" style={{ position: "relative" }}>
-        {sidebarCollapsed && (
-          <button
-            onClick={toggleSidebar}
-            style={{
-              position: "absolute",
-              top: "10px",
-              left: "12px",
-              zIndex: 100,
-              background: "rgba(15, 23, 42, 0.92)",
-              border: "1px solid rgba(56, 189, 248, 0.45)",
-              color: "#38bdf8",
-              borderRadius: "6px",
-              padding: "5px 12px",
-              fontSize: "0.82rem",
-              fontWeight: 700,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              boxShadow: "0 4px 14px rgba(0,0,0,0.6)",
-              backdropFilter: "blur(8px)",
-              transition: "all 0.15s ease"
-            }}
-            title="點擊展開左側資訊面板"
-          >
-            ▶ 展開側欄
-          </button>
-        )}
+      <div className="analysis-chart-area">
         {loading ? (
-          <div className="empty-state" style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "16px" }}>
-            <div style={{ fontSize: "3.5rem" }}>⏳</div>
-            <div style={{ fontSize: "1.2rem", color: "#38bdf8", fontWeight: 700 }}>正在載入真實交易 K 線與技術指標...</div>
-            <div style={{ fontSize: "0.85rem", color: "#94a3b8" }}>正在安全連線官方行情資料集，絕不捏造虛假數據</div>
+          <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+            {sidebarCollapsed && (
+              <div style={{ padding: "8px 14px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                <button
+                  onClick={toggleSidebar}
+                  style={{
+                    background: "rgba(56, 189, 248, 0.15)",
+                    border: "1px solid rgba(56, 189, 248, 0.4)",
+                    color: "#38bdf8",
+                    borderRadius: "6px",
+                    padding: "3px 9px",
+                    fontSize: "0.75rem",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px"
+                  }}
+                >
+                  ▶ 展開側欄
+                </button>
+              </div>
+            )}
+            <div className="empty-state" style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "16px" }}>
+              <div style={{ fontSize: "3.5rem" }}>⏳</div>
+              <div style={{ fontSize: "1.2rem", color: "#38bdf8", fontWeight: 700 }}>正在載入真實交易 K 線與技術指標...</div>
+              <div style={{ fontSize: "0.85rem", color: "#94a3b8" }}>正在安全連線官方行情資料集，絕不捏造虛假數據</div>
+            </div>
           </div>
         ) : ohlcv && ind ? (
-          <ChartPanel ohlcv={ohlcv} ind={ind} symbol={info?.symbol ?? ""} name={info?.name ?? ""} />
+          <ChartPanel
+            ohlcv={ohlcv}
+            ind={ind}
+            symbol={info?.symbol ?? ""}
+            name={info?.name ?? ""}
+            sidebarCollapsed={sidebarCollapsed}
+            onToggleSidebar={toggleSidebar}
+          />
         ) : (
-          <div className="empty-state" style={{ height: "100%" }}>
-            <div className="empty-icon">📈</div>
-            <div className="empty-text">{error ? error : "輸入股票代碼並點擊「分析」以載入即時行情"}</div>
+          <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+            {sidebarCollapsed && (
+              <div style={{ padding: "8px 14px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                <button
+                  onClick={toggleSidebar}
+                  style={{
+                    background: "rgba(56, 189, 248, 0.15)",
+                    border: "1px solid rgba(56, 189, 248, 0.4)",
+                    color: "#38bdf8",
+                    borderRadius: "6px",
+                    padding: "3px 9px",
+                    fontSize: "0.75rem",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px"
+                  }}
+                >
+                  ▶ 展開側欄
+                </button>
+              </div>
+            )}
+            <div className="empty-state" style={{ flex: 1 }}>
+              <div className="empty-icon">📈</div>
+              <div className="empty-text">{error ? error : "輸入股票代碼並點擊「分析」以載入即時行情"}</div>
+            </div>
           </div>
         )}
       </div>

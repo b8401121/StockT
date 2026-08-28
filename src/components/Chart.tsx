@@ -7,6 +7,8 @@ interface ChartPanelProps {
   ind: Indicators;
   symbol: string;
   name: string;
+  sidebarCollapsed?: boolean;
+  onToggleSidebar?: () => void;
 }
 
 export type SubChartType = "kd" | "macd" | "rsi" | "obv" | "wr" | "atr";
@@ -461,7 +463,7 @@ export const ZoomChartModal: React.FC<ZoomModalProps> = ({ type, ohlcv, ind, sym
 };
 
 // ─── 主元件 ───────────────────────────────────────────────────────────────────
-export const ChartPanel: React.FC<ChartPanelProps> = ({ ohlcv, ind, symbol, name }) => {
+export const ChartPanel: React.FC<ChartPanelProps> = ({ ohlcv, ind, symbol, name, sidebarCollapsed, onToggleSidebar }) => {
   const mainRef = useRef<HTMLDivElement>(null);
   const chartsRef = useRef<IChartApi[]>([]);
   const [zoomChart, setZoomChart] = useState<"main" | SubChartType | null>(null);
@@ -669,6 +671,28 @@ export const ChartPanel: React.FC<ChartPanelProps> = ({ ohlcv, ind, symbol, name
     <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden", background: "#0a0a12", position: "relative" }}>
       <div style={{ padding: "8px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(255,255,255,0.02)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+          {onToggleSidebar && (
+            <button
+              onClick={onToggleSidebar}
+              style={{
+                background: sidebarCollapsed ? "rgba(56, 189, 248, 0.15)" : "rgba(255, 255, 255, 0.06)",
+                border: `1px solid ${sidebarCollapsed ? "rgba(56, 189, 248, 0.4)" : "rgba(255, 255, 255, 0.15)"}`,
+                color: sidebarCollapsed ? "#38bdf8" : "rgba(255, 255, 255, 0.8)",
+                borderRadius: "6px",
+                padding: "3px 9px",
+                fontSize: "0.75rem",
+                fontWeight: 700,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+                transition: "all 0.2s ease",
+              }}
+              title={sidebarCollapsed ? "展開左側資訊欄" : "收合左側資訊欄"}
+            >
+              {sidebarCollapsed ? "▶ 展開側欄" : "◀ 側欄"}
+            </button>
+          )}
           <span style={{ fontSize: "0.95rem", fontWeight: 700, color: "var(--accent-blue)" }}>
             {name} ({symbol}) — K線主圖
           </span>
