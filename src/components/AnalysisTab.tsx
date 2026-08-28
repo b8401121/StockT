@@ -532,27 +532,60 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                     </div>
 
                     {/* 勝率光條 */}
-                    <div style={{ height: "6px", width: "100%", background: "rgba(255,255,255,0.1)", borderRadius: "3px", overflow: "hidden", marginBottom: "10px" }}>
+                    <div style={{ height: "6px", width: "100%", background: "rgba(255,255,255,0.1)", borderRadius: "3px", overflow: "hidden", marginBottom: "12px" }}>
                       <div style={{ height: "100%", width: `${winRate}%`, background: winRate >= 70 ? "linear-gradient(90deg, #f59e0b, #ef4444)" : "linear-gradient(90deg, #3b82f6, #10b981)", transition: "width 0.6s ease" }} />
                     </div>
 
-                    {/* AI 歸因重點 */}
-                    {aiResult.positiveDrivers.length > 0 && (
-                      <div style={{ fontSize: "0.78rem", color: "#cbd5e1", lineHeight: "1.45", display: "flex", flexDirection: "column", gap: "3px" }}>
-                        <div style={{ color: "#c084fc", fontWeight: 600 }}>💡 AI 核心加分因子：</div>
-                        {aiResult.positiveDrivers.map((d, i) => (
-                          <div key={i} style={{ color: "#f1f5f9" }}>• {d}</div>
-                        ))}
+                    {/* 17 維因子完整全景明細清單 */}
+                    <div style={{ marginTop: "10px", borderTop: "1px solid rgba(168, 85, 247, 0.3)", paddingTop: "10px" }}>
+                      <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "#f3e8ff", marginBottom: "8px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <span>📋 17 維神經網路多因子全景評估：</span>
+                        <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.6)" }}>
+                          ✅{aiResult.allFactors.filter(f => f.status === "positive").length} ❌{aiResult.allFactors.filter(f => f.status === "negative").length} ⚪{aiResult.allFactors.filter(f => f.status === "neutral").length}
+                        </span>
                       </div>
-                    )}
-                    {aiResult.riskDrivers.length > 0 && (
-                      <div style={{ fontSize: "0.78rem", color: "#cbd5e1", marginTop: "6px", display: "flex", flexDirection: "column", gap: "3px" }}>
-                        <div style={{ color: "#f87171", fontWeight: 600 }}>⚠️ AI 警示扣分因子：</div>
-                        {aiResult.riskDrivers.map((d, i) => (
-                          <div key={i} style={{ color: "#fca5a5" }}>• {d}</div>
-                        ))}
+
+                      <div style={{ display: "flex", flexDirection: "column", gap: "6px", maxHeight: "320px", overflowY: "auto", paddingRight: "4px" }}>
+                        {aiResult.allFactors.map((f) => {
+                          const isPos = f.status === "positive";
+                          const isNeg = f.status === "negative";
+                          const statusBg = isPos ? "rgba(34, 197, 94, 0.15)" : isNeg ? "rgba(239, 68, 68, 0.18)" : "rgba(148, 163, 184, 0.1)";
+                          const statusBorder = isPos ? "rgba(34, 197, 94, 0.4)" : isNeg ? "rgba(239, 68, 68, 0.4)" : "rgba(148, 163, 184, 0.25)";
+                          const statusColor = isPos ? "#4ade80" : isNeg ? "#f87171" : "#94a3b8";
+                          const icon = isPos ? "✅" : isNeg ? "❌" : "⚪";
+
+                          return (
+                            <div
+                              key={f.id}
+                              title={`${f.name} (${f.category})\n數值: ${f.valueDisplay}\nAI 影響權重: ${f.impact}\n說明: ${f.explanation}`}
+                              style={{
+                                background: statusBg,
+                                border: `1px solid ${statusBorder}`,
+                                borderRadius: "6px",
+                                padding: "6px 8px",
+                                fontSize: "0.78rem",
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: "2px",
+                              }}
+                            >
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                                <span style={{ fontWeight: 600, color: "#f1f5f9" }}>
+                                  {icon} {f.name}
+                                </span>
+                                <span style={{ fontWeight: 700, color: statusColor, fontSize: "0.82rem" }}>
+                                  {f.valueDisplay}
+                                </span>
+                              </div>
+                              <div style={{ fontSize: "0.72rem", color: "#cbd5e1", display: "flex", justifyContent: "space-between", marginTop: "1px" }}>
+                                <span>{f.explanation}</span>
+                                <span style={{ color: statusColor, fontWeight: 600, marginLeft: "6px", whiteSpace: "nowrap" }}>{f.impact}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
-                    )}
+                    </div>
                   </div>
                 );
               })()}
