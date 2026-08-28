@@ -131,9 +131,8 @@ fn make_client() -> Client {
     Client::builder()
         .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
         .timeout(std::time::Duration::from_secs(15))
-        .danger_accept_invalid_certs(true)
         .build()
-        .unwrap_or_default()
+        .expect("建立 HTTPS 客戶端失敗")
 }
 
 fn extract_f64(v: &serde_json::Value) -> Vec<f64> {
@@ -264,7 +263,7 @@ async fn get_yahoo_session() -> Result<(String, String), String> {
     }
     
     if cookie_value.is_empty() {
-        cookie_value = "A3=d=AQABBAFUPWoCEOzxW0rkxkm20ymfS-zaQGYFEgEBAQGlPmpHar2oQDIB_eMDAA&S=AQAAAjYl-lBnKgb8l0k6wmrNZN0".to_string();
+        return Err("Yahoo Finance 未回傳有效 Session Cookie，請檢查網路連線或稍後重試".to_string());
     }
 
     let crumb_url = "https://query2.finance.yahoo.com/v1/test/getcrumb";

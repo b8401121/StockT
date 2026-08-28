@@ -17,6 +17,7 @@ type TabId = "analysis" | "scanner" | "fundamental" | "hybrid" | "ai_alpha" | "w
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabId>("analysis");
+  const [visitedTabs, setVisitedTabs] = useState<Set<TabId>>(() => new Set(["analysis"]));
   const [analyzeTarget, setAnalyzeTarget] = useState<string>("");
   const [stockStatus, setStockStatus] = useState<string>("載入中...");
   const [isUpdating, setIsUpdating] = useState<boolean>(false);
@@ -25,6 +26,16 @@ export default function App() {
   const [authUser, setAuthUser] = useState<User | null | undefined>(undefined); // undefined = 初始化中
   const [username, setUsername] = useState<string>("");
   const [isGuest, setIsGuest] = useState<boolean>(false);
+
+  const handleTabChange = (tab: TabId) => {
+    setActiveTab(tab);
+    setVisitedTabs((prev) => {
+      if (prev.has(tab)) return prev;
+      const next = new Set(prev);
+      next.add(tab);
+      return next;
+    });
+  };
 
   // 監聽 Firebase 登入狀態
   useEffect(() => {
@@ -58,13 +69,13 @@ export default function App() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  const handleAnalyze = (sym: string) => {
-    setAnalyzeTarget(sym);
-    setActiveTab("analysis");
+  const handleAnalyze = (symbol: string) => {
+    setAnalyzeTarget(symbol);
+    handleTabChange("analysis");
   };
 
-  const handleLoginSuccess = (u: string) => {
-    setUsername(u);
+  const handleLoginSuccess = (uname: string) => {
+    setUsername(uname);
     setIsGuest(false);
   };
 
@@ -74,8 +85,9 @@ export default function App() {
 
   const handleLogout = async () => {
     await logoutUser();
-    setIsGuest(false);
+    setAuthUser(null);
     setUsername("");
+    setIsGuest(false);
   };
 
   // 初始化中（等待 Firebase 回應）
@@ -113,7 +125,7 @@ export default function App() {
               <button
                 key={t.id}
                 className={`tab-btn ${activeTab === t.id ? "active" : ""}`}
-                onClick={() => setActiveTab(t.id)}
+                onClick={() => handleTabChange(t.id)}
               >
                 {t.label}
               </button>
@@ -166,22 +178,32 @@ export default function App() {
       </header>
 
       <main className="app-main" style={{ position: "relative", height: "100%", width: "100%" }}>
-        <div style={{ display: activeTab === "analysis" ? "block" : "none", height: "100%", width: "100%" }}>
-          <AnalysisTab initialSymbol={analyzeTarget} />
-        </div>
-        <div style={{ display: activeTab === "ai_alpha" ? "block" : "none", height: "100%", width: "100%" }}>
-          <AIAlphaScanTab onAnalyze={handleAnalyze} />
-        </div>
-        <div style={{ display: activeTab === "hybrid" ? "block" : "none", height: "100%", width: "100%" }}>
-          <HybridScanTab onAnalyze={handleAnalyze} />
-        </div>
-        <div style={{ display: activeTab === "scanner" ? "block" : "none", height: "100%", width: "100%" }}>
-          <ScannerTab onAnalyze={handleAnalyze} />
-        </div>
-        <div style={{ display: activeTab === "fundamental" ? "block" : "none", height: "100%", width: "100%" }}>
-          <FundamentalScanTab onAnalyze={handleAnalyze} />
-        </div>
-        {isLoggedIn && (
+        {visitedTabs.has("analysis") && (
+          <div style={{ display: activeTab === "analysis" ? "block" : "none", height: "100%", width: "100%" }}>
+            <AnalysisTab initialSymbol={analyzeTarget} />
+          </div>
+        )}
+        {visitedTabs.has("ai_alpha") && (
+          <div style={{ display: activeTab === "ai_alpha" ? "block" : "none", height: "100%", width: "100%" }}>
+            <AIAlphaScanTab onAnalyze={handleAnalyze} />
+          </div>
+        )}
+        {visitedTabs.has("hybrid") && (
+          <div style={{ display: activeTab === "hybrid" ? "block" : "none", height: "100%", width: "100%" }}>
+            <HybridScanTab onAnalyze={handleAnalyze} />
+          </div>
+        )}
+        {visitedTabs.has("scanner") && (
+          <div style={{ display: activeTab === "scanner" ? "block" : "none", height: "100%", width: "100%" }}>
+            <ScannerTab onAnalyze={handleAnalyze} />
+          </div>
+        )}
+        {visitedTabs.has("fundamental") && (
+          <div style={{ display: activeTab === "fundamental" ? "block" : "none", height: "100%", width: "100%" }}>
+            <FundamentalScanTab onAnalyze={handleAnalyze} />
+          </div>
+        )}
+        {isLoggedIn && visitedTabs.has("watchlist") && (
           <div style={{ display: activeTab === "watchlist" ? "flex" : "none", height: "100%", width: "100%" }}>
             <WatchlistTab user={authUser} username={username} onAnalyze={handleAnalyze} isActive={activeTab === "watchlist"} />
           </div>

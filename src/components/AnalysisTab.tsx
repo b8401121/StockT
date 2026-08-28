@@ -502,6 +502,9 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                 const aiResult = evaluateAIAlpha(info, info.current_price || 0, info.previous_close || (info.current_price || 0));
                 const winRate = aiResult.winRatePct;
                 const alphaColor = winRate >= 75 ? "#38bdf8" : winRate >= 50 ? "#c084fc" : "#ef4444";
+                const dq = aiResult.dataQuality;
+                const cal = aiResult.calibration;
+
                 return (
                   <div className="score-card" style={{
                     background: "linear-gradient(135deg, rgba(123, 31, 162, 0.18), rgba(74, 20, 140, 0.28))",
@@ -511,7 +514,7 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                   }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: "6px", fontWeight: 700, fontSize: "0.95rem", color: "#e9d5ff" }}>
-                        <span>🧠 CPU 內建 AI 多因子診斷</span>
+                        <span>🧠 CPU 內建 AI 多因子診斷 (量化校準版)</span>
                       </div>
                       <HardwareBadge />
                     </div>
@@ -536,10 +539,56 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                       <div style={{ height: "100%", width: `${winRate}%`, background: winRate >= 70 ? "linear-gradient(90deg, #38bdf8, #a855f7)" : "linear-gradient(90deg, #f59e0b, #ef4444)", transition: "width 0.6s ease" }} />
                     </div>
 
+                    {/* 🛡️ 資料品質與可信度分析 (Data Quality Report) */}
+                    <div style={{
+                      background: "rgba(15, 23, 42, 0.5)",
+                      border: "1px solid rgba(148, 163, 184, 0.2)",
+                      borderRadius: "6px",
+                      padding: "8px 10px",
+                      marginBottom: "10px",
+                      fontSize: "0.75rem"
+                    }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+                        <span style={{ fontWeight: 700, color: "#cbd5e1" }}>
+                          📊 資料品質評分：
+                          <b style={{ color: dq.overallScore >= 80 ? "#4ade80" : dq.overallScore >= 50 ? "#facc15" : "#f87171" }}>
+                            {dq.overallScore} / 100
+                          </b>
+                          {dq.isDegraded && <span style={{ color: "#f87171", marginLeft: "6px" }}>(⚠️ 核心財報有缺項)</span>}
+                        </span>
+                        <span style={{ color: "#94a3b8" }}>{dq.availableCount} / {dq.totalRequired} 指標完備</span>
+                      </div>
+                      <div style={{ display: "flex", gap: "8px", color: "#94a3b8", fontSize: "0.70rem" }}>
+                        <span>財報獲利: {dq.financialCompleteness}%</span>
+                        <span>・ 官方估值: {dq.valuationCompleteness}%</span>
+                        <span>・ 財務安全: {dq.financialSafetyCompleteness}%</span>
+                      </div>
+                    </div>
+
+                    {/* 📈 歷史回測驗證指標 (Backtest Validation) */}
+                    <div style={{
+                      background: "rgba(30, 41, 59, 0.45)",
+                      border: "1px solid rgba(56, 189, 248, 0.25)",
+                      borderRadius: "6px",
+                      padding: "7px 10px",
+                      marginBottom: "10px",
+                      fontSize: "0.72rem",
+                      color: "#94a3b8"
+                    }}>
+                      <div style={{ color: "#38bdf8", fontWeight: 700, marginBottom: "2px" }}>
+                        📈 台股量化回測驗證 ({cal.samplePeriod})
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}>
+                        <span>歷史平均勝率: <b style={{ color: "#f1f5f9" }}>{cal.historicalWinRatePct}%</b></span>
+                        <span>歷史超額 Alpha: <b style={{ color: "#38bdf8" }}>+{cal.historicalAlphaPct}%</b></span>
+                        <span>最大回撤: <b style={{ color: "#f87171" }}>{cal.maxDrawdownPct}%</b></span>
+                      </div>
+                    </div>
+
                     {/* 17 維因子完整全景明細清單 */}
                     <div style={{ marginTop: "10px", borderTop: "1px solid rgba(168, 85, 247, 0.3)", paddingTop: "10px" }}>
                       <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "#f3e8ff", marginBottom: "8px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                        <span>📋 17 維神經網路多因子全景評估：</span>
+                        <span>📋 17 維真實多因子檢驗明細：</span>
                         <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.6)" }}>
                           ✅{aiResult.allFactors.filter(f => f.status === "positive").length} ❌{aiResult.allFactors.filter(f => f.status === "negative").length} ⚪{aiResult.allFactors.filter(f => f.status === "neutral").length}
                         </span>
@@ -557,7 +606,7 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                           return (
                             <div
                               key={f.id}
-                              title={`${f.name} (${f.category})\n數值: ${f.valueDisplay}\nAI 影響權重: ${f.impact}\n說明: ${f.explanation}`}
+                              title={`${f.name} (${f.category})\n數值: ${f.valueDisplay}\n來源: ${f.source}\nAI 影響權重: ${f.impact}\n說明: ${f.explanation}`}
                               style={{
                                 background: statusBg,
                                 border: `1px solid ${statusBorder}`,
@@ -571,7 +620,7 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                             >
                               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                                 <span style={{ fontWeight: 600, color: "#f1f5f9" }}>
-                                  {icon} {f.name}
+                                  {icon} {f.name} <span style={{ fontSize: "0.68rem", color: "#94a3b8", fontWeight: 400 }}>[{f.source}]</span>
                                 </span>
                                 <span style={{ fontWeight: 700, color: statusColor, fontSize: "0.82rem" }}>
                                   {f.valueDisplay}
