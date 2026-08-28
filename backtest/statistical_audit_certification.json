@@ -1,6 +1,6 @@
 {
   "title": "StockT Cross-Sectional ML Alpha Engine: Advanced Econometric Audit",
-  "timestamp": "2026-08-28T16:52:59.446Z",
+  "timestamp": "2026-08-28T17:12:57.141Z",
   "metrics": {
     "pit_violations": 0,
     "deflated_sharpe_ratio": {
@@ -14,19 +14,19 @@
     },
     "sector_preserving_permutation": {
       "empirical_rank_ic": 0.14408884339994843,
-      "p_value": 0.014,
+      "p_value": 0.015,
       "is_significant": true
     },
     "bootstrap_95_confidence_interval": {
       "rank_ic": {
-        "lower": 0.0334,
-        "median": 0.0975,
-        "upper": 0.1691
+        "lower": 0.032,
+        "median": 0.0986,
+        "upper": 0.167
       },
       "annualized_sharpe": {
-        "lower": 0.69,
-        "median": 1.32,
-        "upper": 2.03
+        "lower": 0.67,
+        "median": 1.34,
+        "upper": 1.98
       }
     },
     "concentration_hhi": {

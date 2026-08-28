@@ -159,7 +159,7 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
   // 基本面 Modal
   const [showFundModal, setShowFundModal] = useState(false);
   const [showAIModal, setShowAIModal] = useState(false);
-  const [aiModalFilter, setAiModalFilter] = useState<"ALL" | "OHLCV" | "Quality" | "Growth" | "Safety" | "Valuation">("ALL");
+  const [aiModalFilter, setAiModalFilter] = useState<"ALL" | "OHLCV" | "Fundamental" | "Valuation" | "Safety">("ALL");
   const [fundData, setFundData] = useState<any>(null);
   const [fundLoading, setFundLoading] = useState(false);
   const [fundTab, setFundTab] = useState<"income" | "balance" | "cashflow">("income");
@@ -493,7 +493,6 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                 const winRate = aiResult.winRatePct;
                 const alphaColor = winRate >= 75 ? "#38bdf8" : winRate >= 50 ? "#c084fc" : "#ef4444";
                 const dq = aiResult.dataQuality;
-                const cal = aiResult.calibration;
 
                 return (
                   <div
@@ -1342,18 +1341,18 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                         <span>⚡ 機器學習 Track：8-Tree GBDT + Ridge 特徵交互推論</span>
                       </div>
                       <span style={{ fontSize: "0.75rem", color: "#94a3b8" }}>
-                        ML 預估勝率：<b style={{ color: "#38bdf8" }}>{ml.mlWinProbabilityPct.toFixed(1)}%</b> ｜ 預估 Alpha：<b style={{ color: ml.expectedAlphaPct >= 0 ? "#4ade80" : "#f87171" }}>{ml.expectedAlphaPct >= 0 ? "+" : ""}{ml.expectedAlphaPct.toFixed(1)}%</b>
+                        ML 預估勝率：<b style={{ color: "#38bdf8" }}>{ml.mlWinProbabilityPct.toFixed(1)}%</b> ｜ 預估超額：<b style={{ color: ml.predictedExcessReturnPct >= 0 ? "#4ade80" : "#f87171" }}>{ml.predictedExcessReturnPct >= 0 ? "+" : ""}{ml.predictedExcessReturnPct.toFixed(1)}%</b>
                       </span>
                     </div>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-                      {ml.featureContributions?.slice(0, 6).map((fc, i) => (
+                      {ml.topFeatureContributions?.slice(0, 6).map((fc: { feature: string; impact: number }, i: number) => (
                         <span key={i} style={{
-                          background: fc.importance >= 0 ? "rgba(34, 197, 94, 0.12)" : "rgba(239, 68, 68, 0.12)",
-                          border: `1px solid ${fc.importance >= 0 ? "rgba(34, 197, 94, 0.3)" : "rgba(239, 68, 68, 0.3)"}`,
-                          color: fc.importance >= 0 ? "#86efac" : "#fca5a5",
+                          background: fc.impact >= 0 ? "rgba(34, 197, 94, 0.12)" : "rgba(239, 68, 68, 0.12)",
+                          border: `1px solid ${fc.impact >= 0 ? "rgba(34, 197, 94, 0.3)" : "rgba(239, 68, 68, 0.3)"}`,
+                          color: fc.impact >= 0 ? "#86efac" : "#fca5a5",
                           padding: "3px 8px", borderRadius: "6px", fontSize: "0.72rem"
                         }}>
-                          {fc.feature}: {fc.importance >= 0 ? "+" : ""}{fc.importance.toFixed(3)}
+                          {fc.feature}: {fc.impact >= 0 ? "+" : ""}{fc.impact.toFixed(3)}
                         </span>
                       ))}
                     </div>
@@ -1365,10 +1364,9 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                   {[
                     { id: "ALL", label: `全部 17 維因子 (${aiResult.factors.length})` },
                     { id: "OHLCV", label: `🚀 價量動能 (${aiResult.factors.filter(f => f.category === "OHLCV").length})` },
-                    { id: "Quality", label: `💎 獲利品質 (${aiResult.factors.filter(f => f.category === "Quality").length})` },
-                    { id: "Growth", label: `📈 營運成長 (${aiResult.factors.filter(f => f.category === "Growth").length})` },
-                    { id: "Safety", label: `🛡️ 財務安全 (${aiResult.factors.filter(f => f.category === "Safety").length})` },
+                    { id: "Fundamental", label: `💎 基本獲利 (${aiResult.factors.filter(f => f.category === "Fundamental").length})` },
                     { id: "Valuation", label: `🏷️ 市場估值 (${aiResult.factors.filter(f => f.category === "Valuation").length})` },
+                    { id: "Safety", label: `🛡️ 財務安全 (${aiResult.factors.filter(f => f.category === "Safety").length})` },
                   ].map(tab => (
                     <button
                       key={tab.id}
@@ -1397,7 +1395,7 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                     const icon = isPos ? "✅" : isNeg ? "❌" : "⚪";
 
                     return (
-                      <div key={f.key} style={{
+                      <div key={f.name} style={{
                         background: bg, border: `1px solid ${border}`, borderRadius: "8px", padding: "10px 12px",
                         display: "flex", flexDirection: "column", gap: "4px"
                       }}>
