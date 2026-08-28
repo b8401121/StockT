@@ -553,7 +553,7 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                       </div>
                     </div>
 
-                    {/* 📈 歷史回測驗證指標 (Backtest Validation) */}
+                    {/* 🎯 啟發式多因子勝率校準估算 (Heuristic-calibrated Estimate) */}
                     <div style={{
                       background: "rgba(30, 41, 59, 0.45)",
                       border: "1px solid rgba(56, 189, 248, 0.25)",
@@ -564,12 +564,10 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                       color: "#94a3b8"
                     }}>
                       <div style={{ color: "#38bdf8", fontWeight: 700, marginBottom: "2px" }}>
-                        📈 台股量化回測驗證 ({cal.samplePeriod})
+                        🎯 校準模型：Heuristic-calibrated Estimate (啟發式分位估算)
                       </div>
-                      <div style={{ display: "flex", justifyContent: "space-between" }}>
-                        <span>歷史平均勝率: <b style={{ color: "#f1f5f9" }}>{cal.historicalWinRatePct}%</b></span>
-                        <span>歷史超額 Alpha: <b style={{ color: "#38bdf8" }}>+{cal.historicalAlphaPct}%</b></span>
-                        <span>最大回撤: <b style={{ color: "#f87171" }}>{cal.maxDrawdownPct}%</b></span>
+                      <div style={{ lineHeight: "1.4", color: "#cbd5e1" }}>
+                        {cal.methodologyNote}
                       </div>
                     </div>
 

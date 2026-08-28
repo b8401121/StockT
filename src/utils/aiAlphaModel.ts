@@ -54,17 +54,19 @@ export interface DataQualityReport {
 }
 
 /**
- * 台股量化回測校準曲線
+ * 啟發式機率估算與分位校準 (Heuristic-calibrated Estimate)
  */
-export interface BacktestCalibration {
-  historicalWinRatePct: number; // 68.4%
-  historicalAlphaPct: number;   // +4.7%
+export interface HeuristicCalibration {
+  calibrationType: "Heuristic-calibrated estimate";
   calibratedWinRatePct: number;
-  maxDrawdownPct: number;       // -12.3%
-  informationRatio: number;     // 1.42
-  samplePeriod: string;
-  calibrationCurve: { predicted: number; actual: number }[];
+  methodologyNote: string;
+  historicalWinRatePct?: number;
+  historicalAlphaPct?: number;
+  maxDrawdownPct?: number;
+  samplePeriod?: string;
 }
+
+export type BacktestCalibration = HeuristicCalibration;
 
 /**
  * Honest Multi-Factor Engine v1 評估輸出
@@ -826,20 +828,10 @@ export function evaluateAIAlpha(
     available: f.available,
   }));
 
-  const calibration: BacktestCalibration = {
-    historicalWinRatePct: 68.4,
-    historicalAlphaPct: 4.7,
+  const calibration: HeuristicCalibration = {
+    calibrationType: "Heuristic-calibrated estimate",
     calibratedWinRatePct: calibratedWinRate,
-    maxDrawdownPct: -12.3,
-    informationRatio: 1.42,
-    samplePeriod: "2018-2024 歷史回測驗證 / 2025-2026 樣本外統計",
-    calibrationCurve: [
-      { predicted: 50, actual: 51.2 },
-      { predicted: 60, actual: 61.8 },
-      { predicted: 70, actual: 69.4 },
-      { predicted: 80, actual: 77.2 },
-      { predicted: 90, actual: 82.5 },
-    ],
+    methodologyNote: "基於 15 大真實多因子 Sigmoid 正規化分位估計 (Heuristic Estimate)；全自動 Point-in-Time 歷史回測引擎規劃於 v2 版本上線。",
   };
 
   return {
