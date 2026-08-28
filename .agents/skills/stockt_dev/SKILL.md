@@ -81,11 +81,23 @@ UI (AnalysisTab / Scanners) -> Transparently displays real data provenance & PIT
   "signal_time": "market_close",
   "execution_time": "next_market_open",
   "holding_period": 20,
+  "holding_period_unit": "trading_days",
+  "entry_timing": "T+1_open",
+  "exit_timing": "T+20_close",
   "benchmark": "TAIEX",
   "timezone": "Asia/Taipei",
   "availability_rule": "feature.availableAt <= signalTimestamp"
 }
 ```
+
+#### 7 Core Point-in-Time (PIT) Invariant Tests (`pitInvariants.test.ts`):
+1. **TEST 1 (Exclusion)**: `feature.availableAt > signalTimestamp` $\implies$ Feature **must be excluded** (look-ahead bias prevented).
+2. **TEST 2 (Inclusion)**: `feature.availableAt <= signalTimestamp` $\implies$ Feature **is included**.
+3. **TEST 3 (Causality)**: `publishedAt > availableAt` $\implies$ **Invariant violation** (rejected as invalid).
+4. **TEST 4 (Calendar Roll)**: `next_market_open` on Friday evening 16:30 $\implies$ Correctly rolls to **Monday 09:00:00** (or next trading day).
+5. **TEST 5 (Trading Days)**: `holding_period: 20 trading_days` $\implies$ Traverses **20 trading days** skipping weekends and market holidays.
+6. **TEST 6 (Signal Strictness)**: `T close signal` (13:30) $\implies$ Strictly **cannot consume** any `T+1` data.
+7. **TEST 7 (Execution Timing)**: `T close signal` $\implies$ Order execution timing is $\ge \text{T+1 09:00:00}$.
 
 #### Helper Functions:
 - `metricVal(m)`: Null-safe extraction of `m?.value ?? null`.
