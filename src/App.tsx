@@ -9,6 +9,7 @@ import { ScannerTab } from "./components/ScannerTab";
 import { FundamentalScanTab } from "./components/FundamentalScanTab";
 import { HybridScanTab } from "./components/HybridScanTab";
 import { WatchlistTab } from "./components/WatchlistTab";
+import { HardwareBadge } from "./components/HardwareBadge";
 import { loadStocks, updateStocks } from "./utils/stocks";
 
 type TabId = "analysis" | "scanner" | "fundamental" | "hybrid" | "watchlist";
@@ -140,6 +141,9 @@ export default function App() {
               👀 訪客模式
             </span>
           )}
+          {/* 硬體 AI 加速狀態徽章 */}
+          <HardwareBadge showDetail={true} />
+
           {/* 全螢幕按鈕 */}
           <button
             onClick={async () => await toggleFullscreen()}

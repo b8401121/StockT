@@ -4,6 +4,8 @@ import { invoke } from "../utils/platform";
 import { calculateAllIndicators, OhlcvData } from "../utils/indicators";
 import { calcTechScanScore, computeFundamentalScore, getFsGrade } from "../utils/analysis";
 import { exportToHtmlFile } from "../utils/exportHtml";
+import { evaluateAIAlpha } from "../utils/aiAlphaModel";
+import { HardwareBadge } from "./HardwareBadge";
 
 interface ScanResult {
   symbol: string;
@@ -12,6 +14,8 @@ interface ScanResult {
   numericScore: number;
   compositeScore?: number;
   desc: string;
+  aiWinRate?: number;
+  aiConviction?: string;
   techRisks?: string[];
   fundRisks?: string[];
   fundScore?: number;
@@ -120,6 +124,8 @@ export const ScannerTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ on
           const prevP = data.info.previous_close || curP;
           const changePct = prevP > 0 ? ((curP - prevP) / prevP) * 100 : 0;
 
+          const aiAlpha = evaluateAIAlpha(data.info, curP, prevP);
+
           if (mode === "buy") {
             let score = 0;
             const reasons: string[] = [];
@@ -138,7 +144,16 @@ export const ScannerTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ on
             }
 
             if (score >= 1.5 && reasons.length >= 1) {
-              scanResults.push({ symbol: data.info.symbol, name, score: `+${score.toFixed(1)}分`, numericScore: score, desc: reasons.join("、"), mode });
+              scanResults.push({
+                symbol: data.info.symbol,
+                name,
+                score: `+${score.toFixed(1)}分`,
+                numericScore: score,
+                aiWinRate: aiAlpha.winRatePct,
+                aiConviction: aiAlpha.convictionTier,
+                desc: reasons.join("、"),
+                mode
+              });
             }
           } else if (mode === "value") {
             const fsResult = computeFundamentalScore(data.info);
@@ -163,6 +178,8 @@ export const ScannerTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ on
                 score: `基本: ${fsScore} | 技術: ${techScore.toFixed(1)}`,
                 numericScore: techScore,
                 compositeScore: composite,
+                aiWinRate: aiAlpha.winRatePct,
+                aiConviction: aiAlpha.convictionTier,
                 desc,
                 fundScore: fsScore,
                 mode
@@ -187,6 +204,8 @@ export const ScannerTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ on
                 score: `地雷風險: ${lmFundRisks.length}項`,
                 numericScore: -lmFundRisks.length,
                 compositeScore: -lmFundRisks.length,
+                aiWinRate: aiAlpha.winRatePct,
+                aiConviction: aiAlpha.convictionTier,
                 desc: lmFundRisks.join("、"),
                 techRisks: [],
                 fundRisks: lmFundRisks,
@@ -207,6 +226,8 @@ export const ScannerTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ on
                 score: `技術: +1.0 | 基本: ${fsScore}`,
                 numericScore: 1.0,
                 compositeScore: composite,
+                aiWinRate: aiAlpha.winRatePct,
+                aiConviction: aiAlpha.convictionTier,
                 desc: fsDesc,
                 fundScore: fsScore,
                 mode
@@ -262,11 +283,14 @@ export const ScannerTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ on
   return (
     <div className="scan-layout">
       <div className="scan-controls">
-        <div className="scan-controls-row">
-          <span className="scan-label">掃描範圍：</span>
-          <select className="select-field" value={market} onChange={(e) => setMarket(e.target.value)} style={{ flex: 1 }}>
-            {MARKETS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
-          </select>
+        <div className="scan-controls-row" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", flex: 1, marginRight: "12px" }}>
+            <span className="scan-label">掃描範圍：</span>
+            <select className="select-field" value={market} onChange={(e) => setMarket(e.target.value)} style={{ flex: 1 }}>
+              {MARKETS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+            </select>
+          </div>
+          <HardwareBadge showDetail={true} />
         </div>
         <div className="scan-controls-row">
           <button className="btn btn-success" onClick={() => startScan("buy")} disabled={scanning}>📈 多頭掃描</button>
@@ -297,6 +321,7 @@ export const ScannerTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ on
                 <th>模式</th>
                 <th>代碼</th>
                 <th>名稱</th>
+                <th>🧠 AI 勝率</th>
                 <th>評分</th>
                 <th>訊號摘要</th>
                 <th>操作</th>
@@ -322,6 +347,18 @@ export const ScannerTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({ on
                     <td>{badgeMode(r)}</td>
                     <td style={{ color: "var(--accent-blue)", fontWeight: 600 }}>{r.symbol.split(".")[0]}</td>
                     <td>{r.name}</td>
+                    <td>
+                      {r.aiWinRate !== undefined ? (
+                        <div>
+                          <span style={{ fontWeight: 700, color: r.aiWinRate >= 75 ? "#ff5252" : r.aiWinRate >= 50 ? "#ffd740" : "#4caf50" }}>
+                            {r.aiWinRate.toFixed(1)}%
+                          </span>
+                          <div style={{ fontSize: "0.70rem", color: "var(--text-muted)" }}>{r.aiConviction}</div>
+                        </div>
+                      ) : (
+                        <span style={{ color: "var(--text-muted)" }}>-</span>
+                      )}
+                    </td>
                     <td>
                       {r.mode === "landmine" && r.compositeScore !== undefined ? (
                         <>

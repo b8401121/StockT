@@ -10,6 +10,8 @@ import {
   computeFundamentalScore,
   StockInfoFull,
 } from "../utils/analysis";
+import { evaluateAIAlpha } from "../utils/aiAlphaModel";
+import { HardwareBadge } from "./HardwareBadge";
 
 import { getCachedStocks, subscribeStocks, StockEntry } from "../utils/stocks";
 import { getCompanyBusinessSummary } from "../utils/companyProfiles";
@@ -494,6 +496,66 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                   綜合評分：<b style={{ color: advice.color }}>{(finalScore ?? 0) > 0 ? "+" : ""}{finalScore != null && !isNaN(finalScore) ? finalScore.toFixed(1) : "0.0"}</b> 分
                 </div>
               </div>
+
+              {/* 🧠 CPU 內建 AI 深度多因子診斷卡片 */}
+              {(() => {
+                const aiResult = evaluateAIAlpha(info, info.current_price || 0, info.previous_close || (info.current_price || 0));
+                const winRate = aiResult.winRatePct;
+                const alphaColor = winRate >= 75 ? "#ff5252" : winRate >= 50 ? "#ffd740" : "#4caf50";
+                return (
+                  <div className="score-card" style={{
+                    background: "linear-gradient(135deg, rgba(123, 31, 162, 0.18), rgba(74, 20, 140, 0.28))",
+                    borderColor: "rgba(168, 85, 247, 0.5)",
+                    marginBottom: "12px",
+                    boxShadow: "0 4px 14px rgba(123, 31, 162, 0.15)"
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px", fontWeight: 700, fontSize: "0.95rem", color: "#e9d5ff" }}>
+                        <span>🧠 CPU 內建 AI 多因子診斷</span>
+                      </div>
+                      <HardwareBadge />
+                    </div>
+
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(0,0,0,0.28)", padding: "10px 12px", borderRadius: "8px", marginBottom: "10px" }}>
+                      <div>
+                        <div style={{ fontSize: "0.76rem", color: "#cbd5e1", marginBottom: "2px" }}>預估 20 日超額勝率</div>
+                        <div style={{ fontSize: "1.45rem", fontWeight: 800, color: alphaColor }}>
+                          {winRate.toFixed(1)}%
+                        </div>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <div style={{ fontSize: "0.76rem", color: "#cbd5e1", marginBottom: "2px" }}>AI 置信評級</div>
+                        <div style={{ fontSize: "0.92rem", fontWeight: 700, color: alphaColor }}>
+                          {aiResult.convictionTier}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 勝率光條 */}
+                    <div style={{ height: "6px", width: "100%", background: "rgba(255,255,255,0.1)", borderRadius: "3px", overflow: "hidden", marginBottom: "10px" }}>
+                      <div style={{ height: "100%", width: `${winRate}%`, background: winRate >= 70 ? "linear-gradient(90deg, #f59e0b, #ef4444)" : "linear-gradient(90deg, #3b82f6, #10b981)", transition: "width 0.6s ease" }} />
+                    </div>
+
+                    {/* AI 歸因重點 */}
+                    {aiResult.positiveDrivers.length > 0 && (
+                      <div style={{ fontSize: "0.78rem", color: "#cbd5e1", lineHeight: "1.45", display: "flex", flexDirection: "column", gap: "3px" }}>
+                        <div style={{ color: "#c084fc", fontWeight: 600 }}>💡 AI 核心加分因子：</div>
+                        {aiResult.positiveDrivers.map((d, i) => (
+                          <div key={i} style={{ color: "#f1f5f9" }}>• {d}</div>
+                        ))}
+                      </div>
+                    )}
+                    {aiResult.riskDrivers.length > 0 && (
+                      <div style={{ fontSize: "0.78rem", color: "#cbd5e1", marginTop: "6px", display: "flex", flexDirection: "column", gap: "3px" }}>
+                        <div style={{ color: "#f87171", fontWeight: 600 }}>⚠️ AI 警示扣分因子：</div>
+                        {aiResult.riskDrivers.map((d, i) => (
+                          <div key={i} style={{ color: "#fca5a5" }}>• {d}</div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* 基本面評分卡 */}
               {fs && (

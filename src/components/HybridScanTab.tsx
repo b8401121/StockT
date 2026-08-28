@@ -4,6 +4,8 @@ import { invoke } from "../utils/platform";
 import { calculateAllIndicators, OhlcvData } from "../utils/indicators";
 import { computeFundamentalScore, getFsGrade, getTechRating, calcTechScanScore, StockInfoFull } from "../utils/analysis";
 import { exportToHtmlFile } from "../utils/exportHtml";
+import { evaluateAIAlpha } from "../utils/aiAlphaModel";
+import { HardwareBadge } from "./HardwareBadge";
 
 interface HybridResult {
   symbol: string;
@@ -13,6 +15,9 @@ interface HybridResult {
   techScore: number;
   techRating: string;
   hybridScore: number;
+  aiWinRate: number;
+  aiConviction: string;
+  aiDrivers: string[];
   pe: string;
   roe: string;
 }
@@ -123,6 +128,8 @@ export const HybridScanTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({
           const fsGrade = getFsGrade(fs.score);
 
           // 2. 技術面動能評分
+          const curP = info.current_price || 0;
+          const prevP = info.previous_close || curP;
           let techScore = 0;
           if (ohlcv && ohlcv.close.length >= 20) {
             const ind = calculateAllIndicators(ohlcv);
@@ -130,8 +137,6 @@ export const HybridScanTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({
             const { score } = calcTechScanScore(ind, n);
             techScore = score;
           } else {
-            const curP = info.current_price || 0;
-            const prevP = info.previous_close || curP;
             const changePct = prevP > 0 ? ((curP - prevP) / prevP) * 100 : 0;
             if (changePct >= 3.0) techScore += 2.0;
             else if (changePct >= 1.0) techScore += 1.0;
@@ -143,6 +148,9 @@ export const HybridScanTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({
 
           // 3. 雙維度融合評分 (基本面權重 60% + 技術面權重 40%)
           const hybridScore = Number((fs.score * 0.6 + techScore * 0.4).toFixed(1));
+
+          // 4. 🧠 CPU 內建多因子神經網路 AI 勝率推論
+          const aiAlpha = evaluateAIAlpha(info, curP, prevP);
 
           // 嚴格菁英優選標準：
           // 1. 基本面評級：必須達到 A 優質以上 (fs.score >= 7)，徹底排除 C 普通與平庸股
@@ -159,6 +167,9 @@ export const HybridScanTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({
               techScore,
               techRating,
               hybridScore,
+              aiWinRate: aiAlpha.winRatePct,
+              aiConviction: aiAlpha.convictionTier,
+              aiDrivers: aiAlpha.positiveDrivers,
               pe: info.tw_pe ?? info.pe ? (info.tw_pe ?? info.pe)!.toFixed(1) : "N/A",
               roe: info.roe ? `${(info.roe * 100).toFixed(1)}%` : "N/A",
             });
@@ -191,8 +202,9 @@ export const HybridScanTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({
   return (
     <div className="scan-layout">
       <div className="scan-controls">
-        <div style={{ marginBottom: "6px", color: "var(--text-muted)", fontSize: "0.82rem" }}>
-          🎯 融合智慧選股 — 基本面佔 60%、技術面佔 40%，取兩者精華進行綜合排名
+        <div style={{ marginBottom: "6px", color: "var(--text-muted)", fontSize: "0.82rem", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span>🎯 融合智慧選股 — 基本面佔 60%、技術面佔 40%，取兩者精華進行綜合排名</span>
+          <HardwareBadge showDetail={true} />
         </div>
         <div className="scan-controls-row">
           <span className="scan-label">掃描範圍：</span>
@@ -223,6 +235,7 @@ export const HybridScanTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({
               <tr>
                 <th>代碼</th><th>名稱</th>
                 <th>綜合推薦指數</th>
+                <th>🧠 AI 勝率預測</th>
                 <th>基本面評等</th><th>基本分</th>
                 <th>技術面建議</th>
                 <th>PE / ROE</th><th>操作</th>
@@ -241,6 +254,16 @@ export const HybridScanTab: React.FC<{ onAnalyze?: (sym: string) => void }> = ({
                         {'★'.repeat(stars)}{'☆'.repeat(5 - stars)} ({score > 0 ? '+' : ''}{r.hybridScore != null && !isNaN(r.hybridScore) ? r.hybridScore.toFixed(1) : "-"})
                       </span>;
                     })()}
+                  </td>
+                  <td>
+                    <div title={`AI 驅動因素:\n${r.aiDrivers.map(d => `• ${d}`).join("\n")}`} style={{ cursor: "help" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <span style={{ fontWeight: 700, color: r.aiWinRate >= 75 ? "#ff5252" : r.aiWinRate >= 55 ? "#ffd740" : "#4caf50" }}>
+                          {r.aiWinRate.toFixed(1)}%
+                        </span>
+                      </div>
+                      <div style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>{r.aiConviction}</div>
+                    </div>
                   </td>
                   <td>
                     <span className={`badge ${r.fsScore >= 7 ? "badge-red" : r.fsScore >= 4 ? "badge-amber" : r.fsScore >= 1 ? "badge-blue" : "badge-green"}`}>
