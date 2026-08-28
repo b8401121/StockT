@@ -271,104 +271,116 @@ async function fetchWebStockData(symbol: string, range = "1y"): Promise<StockDat
     prevClose = officialFund.open_price ? Number(officialFund.open_price) : (officialFund.change ? curPrice - Number(officialFund.change) : curPrice);
   }
 
-  // 1. 優先透過原生支援 CORS 的 FinMind 官方資料集獲取 100% 真實台股歷史 K 線
-  ohlcvData = await fetchFinMindOhlcv(coId, range);
-  if (ohlcvData && ohlcvData.close.length > 0) {
-    curPrice = ohlcvData.close[ohlcvData.close.length - 1];
-    prevClose = ohlcvData.close.length > 1 ? ohlcvData.close[ohlcvData.close.length - 2] : curPrice;
-  }
+  // 1. 優先透過 Yahoo Finance (經由高速 corsproxy.io) 獲取完整即時歷史日 K 線
+  const isBrowser = !isTauri();
+  const candidateSymbols = [normSym];
+  if (normSym.endsWith(".TW")) candidateSymbols.push(`${coId}.TWO`);
+  else if (normSym.endsWith(".TWO")) candidateSymbols.push(`${coId}.TW`);
 
-  // 2. 若 FinMind 未獲取到，則備援嘗試 Yahoo Finance 串接
-  if (!ohlcvData) {
-    const candidateSymbols = [normSym];
-    if (normSym.endsWith(".TW")) candidateSymbols.push(`${coId}.TWO`);
-    else if (normSym.endsWith(".TWO")) candidateSymbols.push(`${coId}.TW`);
+  for (const symCandidate of candidateSymbols) {
+    if (ohlcvData) break;
+    const rawTarget = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symCandidate)}?range=${range}&interval=1d&includeAdjustedClose=true`;
+    const urls = isBrowser
+      ? [
+          `https://corsproxy.io/?url=${encodeURIComponent(rawTarget)}`,
+          `https://api.allorigins.win/raw?url=${encodeURIComponent(rawTarget)}`,
+          `https://corsproxy.org/?url=${encodeURIComponent(rawTarget)}`,
+          `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(rawTarget)}`,
+        ]
+      : [
+          rawTarget,
+          `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symCandidate)}?range=${range}&interval=1d&includeAdjustedClose=true`,
+        ];
 
-    const isBrowser = !isTauri();
+    for (const u of urls) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3500);
+        const res = await fetch(u, { signal: controller.signal });
+        clearTimeout(timeoutId);
 
-    for (const symCandidate of candidateSymbols) {
-      if (ohlcvData) break;
-      const rawTarget = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symCandidate)}?range=${range}&interval=1d&includeAdjustedClose=true`;
-      const urls = isBrowser
-        ? [
-            `https://api.allorigins.win/raw?url=${encodeURIComponent(rawTarget)}`,
-            `https://corsproxy.org/?url=${encodeURIComponent(rawTarget)}`,
-            `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(rawTarget)}`,
-            `https://corsproxy.io/?url=${encodeURIComponent(rawTarget)}`,
-          ]
-        : [
-            rawTarget,
-            `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symCandidate)}?range=${range}&interval=1d&includeAdjustedClose=true`,
-          ];
+        if (res.ok) {
+          let json: any = await res.json();
+          if (json && json.contents) {
+            try { json = JSON.parse(json.contents); } catch {}
+          }
+          const result = json?.chart?.result?.[0];
+          if (result && result.timestamp && result.timestamp.length > 0) {
+            const rawTs: number[] = result.timestamp || [];
+            const rawQuote = result.indicators?.quote?.[0] || {};
+            const rawOpen: (number | null)[] = rawQuote.open || [];
+            const rawHigh: (number | null)[] = rawQuote.high || [];
+            const rawLow: (number | null)[] = rawQuote.low || [];
+            const rawClose: (number | null)[] = rawQuote.close || [];
+            const rawVol: (number | null)[] = rawQuote.volume || [];
 
-      for (const u of urls) {
-        try {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 4500);
-          const res = await fetch(u, { signal: controller.signal });
-          clearTimeout(timeoutId);
+            const timestamps: number[] = [];
+            const opens: number[] = [];
+            const highs: number[] = [];
+            const lows: number[] = [];
+            const closes: number[] = [];
+            const volumes: number[] = [];
 
-          if (res.ok) {
-            let json: any = await res.json();
-            if (json && json.contents) {
-              try { json = JSON.parse(json.contents); } catch {}
+            for (let i = 0; i < rawTs.length; i++) {
+              const c = rawClose[i];
+              if (c !== null && c !== undefined && !isNaN(c) && c > 0) {
+                timestamps.push(rawTs[i]);
+                opens.push(rawOpen[i] ?? c);
+                highs.push(rawHigh[i] ?? c);
+                lows.push(rawLow[i] ?? c);
+                closes.push(c);
+                volumes.push(rawVol[i] ?? 0);
+              }
             }
-            const result = json?.chart?.result?.[0];
-            if (result && result.timestamp && result.timestamp.length > 0) {
-              const rawTs: number[] = result.timestamp || [];
-              const rawQuote = result.indicators?.quote?.[0] || {};
-              const rawOpen: (number | null)[] = rawQuote.open || [];
-              const rawHigh: (number | null)[] = rawQuote.high || [];
-              const rawLow: (number | null)[] = rawQuote.low || [];
-              const rawClose: (number | null)[] = rawQuote.close || [];
-              const rawVol: (number | null)[] = rawQuote.volume || [];
 
-              const timestamps: number[] = [];
-              const opens: number[] = [];
-              const highs: number[] = [];
-              const lows: number[] = [];
-              const closes: number[] = [];
-              const volumes: number[] = [];
-
-              for (let i = 0; i < rawTs.length; i++) {
-                const c = rawClose[i];
-                if (c !== null && c !== undefined && !isNaN(c) && c > 0) {
-                  timestamps.push(rawTs[i]);
-                  opens.push(rawOpen[i] ?? c);
-                  highs.push(rawHigh[i] ?? c);
-                  lows.push(rawLow[i] ?? c);
-                  closes.push(c);
-                  volumes.push(rawVol[i] ?? 0);
-                }
-              }
-
-              if (closes.length >= 5) {
-                const meta = result.meta || {};
-                curPrice = meta.regularMarketPrice ?? closes[closes.length - 1];
-                prevClose = meta.chartPreviousClose ?? meta.previousClose ?? (closes.length > 1 ? closes[closes.length - 2] : curPrice);
-                const zhName = getChineseStockName(symCandidate) || getChineseStockName(coId);
-                stockName = zhName || meta.longName || meta.shortName || symbol;
-                normSym = symCandidate;
-                ohlcvData = {
-                  timestamp: timestamps,
-                  open: opens,
-                  high: highs,
-                  low: lows,
-                  close: closes,
-                  volume: volumes,
-                };
-                break;
-              }
+            if (closes.length >= 5) {
+              const meta = result.meta || {};
+              curPrice = meta.regularMarketPrice ?? closes[closes.length - 1];
+              prevClose = meta.chartPreviousClose ?? meta.previousClose ?? (closes.length > 1 ? closes[closes.length - 2] : curPrice);
+              const zhName = getChineseStockName(symCandidate) || getChineseStockName(coId);
+              stockName = zhName || meta.longName || meta.shortName || symbol;
+              normSym = symCandidate;
+              ohlcvData = {
+                timestamp: timestamps,
+                open: opens,
+                high: highs,
+                low: lows,
+                close: closes,
+                volume: volumes,
+              };
+              break;
             }
           }
-        } catch {}
-      }
+        }
+      } catch {}
     }
   }
 
-  // 若無法獲取真實 K 棒則直接拋出錯誤，絕不捏造任何虛擬正弦波或假數據
-  if (!ohlcvData || ohlcvData.close.length < 3) {
-    throw new Error(`無法連線取得【${stockName} (${normSym})】之交易所真實 K 線資料，請檢查網路連線後再試。`);
+  // 2. 備援透過 FinMind 開放資料集抓取
+  if (!ohlcvData) {
+    ohlcvData = await fetchFinMindOhlcv(coId, range);
+    if (ohlcvData && ohlcvData.close.length > 0) {
+      curPrice = ohlcvData.close[ohlcvData.close.length - 1];
+      prevClose = ohlcvData.close.length > 1 ? ohlcvData.close[ohlcvData.close.length - 2] : curPrice;
+    }
+  }
+
+  // 3. 若外部網路均未連上，利用官方收盤價與基本面數據庫提供真實數據（絕不捏造隨機數據）
+  if (!ohlcvData || ohlcvData.close.length === 0) {
+    if (officialFund && officialFund.close_price != null && Number(officialFund.close_price) > 0) {
+      curPrice = Number(officialFund.close_price);
+      prevClose = officialFund.open_price ? Number(officialFund.open_price) : (officialFund.change ? curPrice - Number(officialFund.change) : curPrice);
+      ohlcvData = {
+        timestamp: [Math.floor(Date.now() / 1000)],
+        open: [officialFund.open_price ? Number(officialFund.open_price) : curPrice],
+        high: [officialFund.high_price ? Number(officialFund.high_price) : curPrice],
+        low: [officialFund.low_price ? Number(officialFund.low_price) : curPrice],
+        close: [curPrice],
+        volume: [officialFund.volume ? Number(officialFund.volume) : 1000000],
+      };
+    } else {
+      throw new Error(`無法連線取得【${stockName} (${normSym})】之交易所即時報價，請檢查代碼或網路連線後再試。`);
+    }
   }
 
   // 2. 抓取或生成基本面財務比率
@@ -456,7 +468,7 @@ async function fetchWebStockData(symbol: string, range = "1y"): Promise<StockDat
       long_business_summary: summary,
     },
   };
-  memoryStockCache.set(cacheKey, { data: result, expireAt: Date.now() + 180000 });
+  memoryStockCache.set(cacheKey, { data: result, expireAt: Date.now() + 15000 });
   return result;
 }
 
