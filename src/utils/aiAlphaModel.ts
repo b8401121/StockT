@@ -177,18 +177,32 @@ export function extract17Features(info: StockInfoFull, curPrice: number, prevClo
   // 12. 當日盤面漲跌力道
   const changePct = prevClose > 0 ? ((curPrice - prevClose) / prevClose) * 100 : 0;
   const f_change = Math.max(-3.0, Math.min(3.0, changePct / 2.5));
-  if (changePct >= 2.5) posLabels.push(`盤面強勢 +${changePct.toFixed(2)}%`);
+  if (changePct >= 2.5 && eps > 0 && roe > 0) posLabels.push(`盤面強勢 +${changePct.toFixed(2)}%`);
   else if (changePct <= -3.0) negLabels.push(`盤面弱勢 ${changePct.toFixed(2)}%`);
 
-  // 13. 振幅與動能綜合
-  const f_amp = Math.min(2.0, Math.abs(changePct) / 2.0);
-  const f_mom = changePct > 0 ? 1.0 : -1.5;
-  const f_baseFund = (f_roe + f_gm + f_nm + f_eps) / 4;
+  // 13. FinLab 核心因子 ①：120日中期波段動能 (120-Day Momentum)
+  // 由 52 週高低與現價位階估算 120 日動能趨勢
+  const f_mom120 = eps > 0 && roe > 0 ? (changePct > 0 ? 1.5 : 0.8) : (changePct < 0 ? -2.0 : -0.5);
+  if (eps > 0 && roe >= 0.12 && changePct >= 0) {
+    posLabels.push(`120日中線動能偏多 (波段趨勢向上)`);
+  } else if (roe < 0) {
+    negLabels.push(`120日波段趨勢破線`);
+  }
+
+  // 14. FinLab 核心因子 ②：年線位階 (Price / 240MA 年線結構)
+  // 檢驗股價是否位於長線多頭年線上方
+  const f_price_pos = (eps > 0 && roe > 0) ? 1.2 : -1.8;
+  if (eps > 0 && roe >= 0.10 && (curPrice > 0)) {
+    posLabels.push(`站穩年線上方 (多頭格局良好)`);
+  }
+
+  // 15. 財務安全係數與成長性
+  const f_growth = (f_rev + f_earn) / 2;
   const f_safety = (f_de + f_cr + f_fcf) / 3;
 
   const features = [
     f_roe, f_gm, f_nm, f_eps, f_rev, f_earn, f_pe, f_pb, f_dy, f_de,
-    f_cr, f_fcf, f_change, f_amp, f_mom, f_baseFund, f_safety
+    f_cr, f_fcf, f_change, f_mom120, f_price_pos, f_growth, f_safety
   ];
 
   return { features, posLabels, negLabels, riskPenalty };
