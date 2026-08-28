@@ -22,6 +22,86 @@ const CHART_OPTS = {
   handleScale: { axisPressedMouseMove: true, mouseWheel: true },
 };
 
+interface TooltipData {
+  date: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  change: number;
+  changePct: number;
+  volume: number;
+  sma5?: number;
+  sma10?: number;
+  sma20?: number;
+}
+
+const ChartTooltipView: React.FC<{ data: TooltipData; pos: { x: number; y: number } }> = ({ data, pos }) => {
+  const isUp = data.change > 0;
+  const isDown = data.change < 0;
+  const changeColor = isUp ? "#ff5252" : isDown ? "#4caf50" : "#94a3b8";
+  const changeSign = isUp ? "▲ +" : isDown ? "▼ " : "━ ";
+
+  const volDisplay = data.volume >= 1000
+    ? `${(data.volume / 1000).toLocaleString(undefined, { maximumFractionDigits: 0 })} 張 (${data.volume.toLocaleString()} 股)`
+    : `${data.volume.toLocaleString()} 股`;
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: pos.x,
+        top: pos.y,
+        pointerEvents: "none",
+        zIndex: 100,
+        backgroundColor: "rgba(15, 23, 42, 0.95)",
+        border: "1px solid rgba(139, 92, 246, 0.5)",
+        borderRadius: "8px",
+        padding: "10px 14px",
+        boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.7), 0 0 15px rgba(124, 58, 237, 0.2)",
+        fontSize: "0.8rem",
+        color: "#f8fafc",
+        backdropFilter: "blur(12px)",
+        minWidth: "220px",
+        lineHeight: "1.4",
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid rgba(255, 255, 255, 0.1)", paddingBottom: "5px", marginBottom: "7px" }}>
+        <span style={{ fontWeight: 700, color: "#cbd5e1" }}>📅 {data.date}</span>
+        <span style={{ fontWeight: 800, color: changeColor, fontSize: "0.82rem" }}>
+          {changeSign}{Math.abs(data.change).toFixed(2)} ({data.changePct >= 0 ? "+" : ""}{data.changePct.toFixed(2)}%)
+        </span>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3px 12px", marginBottom: "7px" }}>
+        <div>開盤: <b style={{ color: "#f8fafc" }}>{data.open.toFixed(2)}</b></div>
+        <div>最高: <b style={{ color: "#ff5252" }}>{data.high.toFixed(2)}</b></div>
+        <div>最低: <b style={{ color: "#4caf50" }}>{data.low.toFixed(2)}</b></div>
+        <div>收盤: <b style={{ color: changeColor, fontSize: "0.88rem" }}>{data.close.toFixed(2)}</b></div>
+      </div>
+
+      <div style={{ borderTop: "1px dashed rgba(255, 255, 255, 0.1)", paddingTop: "5px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span style={{ color: "#94a3b8" }}>📊 成交量:</span>
+        <span style={{ fontWeight: 700, color: "#38bdf8" }}>{volDisplay}</span>
+      </div>
+
+      {(data.sma5 != null || data.sma10 != null || data.sma20 != null) && (
+        <div style={{ marginTop: "5px", paddingTop: "5px", borderTop: "1px dashed rgba(255, 255, 255, 0.1)", fontSize: "0.72rem", display: "flex", justifyContent: "space-between" }}>
+          {data.sma5 != null && !isNaN(data.sma5) && (
+            <span><span style={{ color: "#ff9800" }}>MA5:</span> {data.sma5.toFixed(2)}</span>
+          )}
+          {data.sma10 != null && !isNaN(data.sma10) && (
+            <span><span style={{ color: "#03a9f4" }}>MA10:</span> {data.sma10.toFixed(2)}</span>
+          )}
+          {data.sma20 != null && !isNaN(data.sma20) && (
+            <span><span style={{ color: "#ffea00" }}>MA20:</span> {data.sma20.toFixed(2)}</span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── 放大檢視互動式 Modal ───────────────────────────────────────────────────────
 interface ZoomModalProps {
   type: "main" | SubChartType;
@@ -35,6 +115,8 @@ interface ZoomModalProps {
 const ZoomChartModal: React.FC<ZoomModalProps> = ({ type, ohlcv, ind, symbol, name, onClose }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
+  const [hoverInfo, setHoverInfo] = useState<TooltipData | null>(null);
+  const [hoverPos, setHoverPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
   const resetZoom = () => {
     if (chartRef.current) {
@@ -115,6 +197,69 @@ const ZoomChartModal: React.FC<ZoomModalProps> = ({ type, ohlcv, ind, symbol, na
       sma20s.setData(toLineData(ind.sma20));
       bbUpS.setData(toLineData(ind.bbUpper));
       bbLoS.setData(toLineData(ind.bbLower));
+
+      // 4. 懸停十字線 Tooltip 互動事件
+      chart.subscribeCrosshairMove((param) => {
+        if (
+          !param.point ||
+          !param.time ||
+          param.point.x < 0 ||
+          param.point.x > (containerRef.current?.clientWidth ?? 0) ||
+          param.point.y < 0 ||
+          param.point.y > (containerRef.current?.clientHeight ?? 0)
+        ) {
+          setHoverInfo(null);
+          return;
+        }
+
+        const tNum = typeof param.time === "number" ? param.time : (param.time as any);
+        const idx = times.findIndex((t) => t === tNum);
+        if (idx === -1) {
+          setHoverInfo(null);
+          return;
+        }
+
+        const o = ohlcv.open[idx] ?? 0;
+        const h = ohlcv.high[idx] ?? 0;
+        const l = ohlcv.low[idx] ?? 0;
+        const c = ohlcv.close[idx] ?? 0;
+        const prevC = idx > 0 ? (ohlcv.close[idx - 1] ?? o) : o;
+        const change = c - prevC;
+        const changePct = prevC > 0 ? (change / prevC) * 100 : 0;
+        const vol = ohlcv.volume[idx] ?? 0;
+
+        const rawDate = ohlcv.timestamp[idx];
+        const dateObj = new Date(rawDate < 1e12 ? rawDate * 1000 : rawDate);
+        const dateStr = `${dateObj.getFullYear()}/${String(dateObj.getMonth() + 1).padStart(2, "0")}/${String(dateObj.getDate()).padStart(2, "0")}`;
+
+        const containerW = containerRef.current?.clientWidth ?? 600;
+        const containerH = containerRef.current?.clientHeight ?? 400;
+
+        let posX = param.point.x + 18;
+        if (posX + 240 > containerW) {
+          posX = param.point.x - 248;
+        }
+        if (posX < 8) posX = 8;
+
+        let posY = param.point.y - 50;
+        if (posY < 10) posY = 10;
+        if (posY + 170 > containerH) posY = Math.max(10, containerH - 180);
+
+        setHoverPos({ x: posX, y: posY });
+        setHoverInfo({
+          date: dateStr,
+          open: o,
+          high: h,
+          low: l,
+          close: c,
+          change,
+          changePct,
+          volume: vol,
+          sma5: ind.sma5[idx],
+          sma10: ind.sma10[idx],
+          sma20: ind.sma20[idx],
+        });
+      });
     } else if (type === "kd") {
       const kS = chart.addLineSeries({ color: "#00bcd4", lineWidth: 1, title: "K" });
       const dS = chart.addLineSeries({ color: "#ffc107", lineWidth: 1, title: "D" });
@@ -247,7 +392,12 @@ const ZoomChartModal: React.FC<ZoomModalProps> = ({ type, ohlcv, ind, symbol, na
           </button>
         </div>
       </div>
-      <div ref={containerRef} style={{ flex: 1, width: "100%", height: "100%" }} />
+      <div style={{ position: "relative", flex: 1, width: "100%", height: "100%" }}>
+        <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
+        {type === "main" && hoverInfo && (
+          <ChartTooltipView data={hoverInfo} pos={hoverPos} />
+        )}
+      </div>
     </div>
   );
 };
@@ -260,6 +410,8 @@ export const ChartPanel: React.FC<ChartPanelProps> = ({ ohlcv, ind, symbol, name
   });
   const chartsRef = useRef<IChartApi[]>([]);
   const [zoomChart, setZoomChart] = useState<"main" | SubChartType | null>(null);
+  const [hoverInfo, setHoverInfo] = useState<TooltipData | null>(null);
+  const [hoverPos, setHoverPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
   const resetZoom = () => {
     chartsRef.current.forEach((chart) => {
@@ -354,6 +506,68 @@ export const ChartPanel: React.FC<ChartPanelProps> = ({ ohlcv, ind, symbol, name
     sma20s.setData(toLineData(ind.sma20));
     bbUpS.setData(toLineData(ind.bbUpper));
     bbLoS.setData(toLineData(ind.bbLower));
+
+    // 懸停十字線 Tooltip 互動事件
+    mainChart.subscribeCrosshairMove((param) => {
+      if (
+        !param.point ||
+        !param.time ||
+        param.point.x < 0 ||
+        param.point.x > (mainRef.current?.clientWidth ?? 0) ||
+        param.point.y < 0 ||
+        param.point.y > 310
+      ) {
+        setHoverInfo(null);
+        return;
+      }
+
+      const tNum = typeof param.time === "number" ? param.time : (param.time as any);
+      const idx = times.findIndex((t) => t === tNum);
+      if (idx === -1) {
+        setHoverInfo(null);
+        return;
+      }
+
+      const o = ohlcv.open[idx] ?? 0;
+      const h = ohlcv.high[idx] ?? 0;
+      const l = ohlcv.low[idx] ?? 0;
+      const c = ohlcv.close[idx] ?? 0;
+      const prevC = idx > 0 ? (ohlcv.close[idx - 1] ?? o) : o;
+      const change = c - prevC;
+      const changePct = prevC > 0 ? (change / prevC) * 100 : 0;
+      const vol = ohlcv.volume[idx] ?? 0;
+
+      const rawDate = ohlcv.timestamp[idx];
+      const dateObj = new Date(rawDate < 1e12 ? rawDate * 1000 : rawDate);
+      const dateStr = `${dateObj.getFullYear()}/${String(dateObj.getMonth() + 1).padStart(2, "0")}/${String(dateObj.getDate()).padStart(2, "0")}`;
+
+      const containerW = mainRef.current?.clientWidth ?? 600;
+
+      let posX = param.point.x + 18;
+      if (posX + 240 > containerW) {
+        posX = param.point.x - 248;
+      }
+      if (posX < 8) posX = 8;
+
+      let posY = param.point.y - 50;
+      if (posY < 10) posY = 10;
+      if (posY + 170 > 310) posY = Math.max(10, 310 - 180);
+
+      setHoverPos({ x: posX, y: posY });
+      setHoverInfo({
+        date: dateStr,
+        open: o,
+        high: h,
+        low: l,
+        close: c,
+        change,
+        changePct,
+        volume: vol,
+        sma5: ind.sma5[idx],
+        sma10: ind.sma10[idx],
+        sma20: ind.sma20[idx],
+      });
+    });
 
     // ── 2. KD ──────────────────────────────────────────────────────────────────
     const kdEl = subRefs.current.kd;
@@ -511,12 +725,17 @@ export const ChartPanel: React.FC<ChartPanelProps> = ({ ohlcv, ind, symbol, name
       </div>
       
       {/* 主 K 線圖 (包含內建成交量柱狀圖) */}
-      <div 
-        ref={mainRef} 
-        style={{ width: "100%", cursor: "zoom-in" }} 
-        onClick={() => setZoomChart("main")}
-        title="點擊放大主圖 (含成交量)"
-      />
+      <div style={{ position: "relative", width: "100%" }}>
+        <div 
+          ref={mainRef} 
+          style={{ width: "100%", cursor: "zoom-in" }} 
+          onClick={() => setZoomChart("main")}
+          title="點擊放大主圖 (含成交量)"
+        />
+        {hoverInfo && (
+          <ChartTooltipView data={hoverInfo} pos={hoverPos} />
+        )}
+      </div>
       
       {/* 各副圖 */}
       {subCharts.map(({ key, label }) => (
