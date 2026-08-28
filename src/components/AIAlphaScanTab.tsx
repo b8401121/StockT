@@ -5,6 +5,7 @@ import { evaluateAIAlpha, AIAlphaResult, fmtFixed, metricVal } from "../utils/ai
 import { HardwareBadge } from "./HardwareBadge";
 import { AddToWatchlistBtn } from "./AddToWatchlistBtn";
 import { stockService } from "../services/stockService";
+import { exportToHtmlFile } from "../utils/exportHtml";
 import twseFundamentals from "../utils/twse_mops_fundamentals.json";
 import { useAppTheme } from "../utils/theme";
 
@@ -17,6 +18,15 @@ interface AIAlphaScanTabProps {
 interface RankedAlphaStock extends AIAlphaResult {
   rank: number;
   info: StockInfoFull;
+}
+
+export interface ScanAuditMetrics {
+  universe: number;
+  evaluated: number;
+  ohlcvFailed: number;
+  qualityRejected: number;
+  strategyRejected: number;
+  selected: number;
 }
 
 const MARKETS = [
@@ -123,6 +133,7 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
   const [progressMsg, setProgressMsg] = useState("");
   const [results, setResults] = useState<RankedAlphaStock[]>([]);
   const [selectedStockForDetail, setSelectedStockForDetail] = useState<RankedAlphaStock | null>(null);
+  const [auditMetrics, setAuditMetrics] = useState<ScanAuditMetrics | null>(null);
   const cancelRef = useRef(false);
 
   useEffect(() => {
@@ -145,15 +156,22 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
       const selectedStrat = STRATEGIES.find(s => s.id === strategy) || STRATEGIES[0];
       const matchedStocks: RankedAlphaStock[] = [];
 
+      let runningAudit: ScanAuditMetrics = {
+        universe: total,
+        evaluated: 0,
+        ohlcvFailed: 0,
+        qualityRejected: 0,
+        strategyRejected: 0,
+        selected: 0,
+      };
+      setAuditMetrics({ ...runningAudit });
+
       const safeNum = (v: any) => {
         if (v == null || v === "Infinity" || v === "-Infinity" || v === "NaN" || v === "") return undefined;
         const n = Number(v);
         return isNaN(n) ? undefined : n;
       };
 
-      // ──────────────────────────────────────────────────────────────────────────
-      // 🚀 方案 B：全市場直接 17 維真實多因子評估 (無 Candidate-Gating 偏誤)
-      // ──────────────────────────────────────────────────────────────────────────
       const BATCH_SIZE = 16;
       for (let i = 0; i < total; i += BATCH_SIZE) {
         if (cancelRef.current) break;
@@ -164,7 +182,6 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
         setProgress(currentProgress);
         setProgressMsg(`正在進行 17 維多因子推論 ${i + 1}~${Math.min(i + BATCH_SIZE, total)} / ${total} 檔... (已精選 ${matchedStocks.length} 檔)`);
 
-        // 並行批次評估當前 Chunk 的所有個股
         const chunkResults = await Promise.allSettled(
           chunkKeys.map(async (key) => {
             const p = fundamentalsMap[key] || {};
@@ -197,43 +214,57 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
               market_cap: (safeNum(p.market_cap)) != null ? mkMops((safeNum(p.market_cap))!) : undefined,
             };
 
-            // 取得即時 K 線 (若有快取則秒讀)
             let liveOhlcv: OhlcvData | null = null;
+            let ohlcvMissing = false;
             try {
               const liveData = await stockService.getStockData(symbol, "1y");
               if (liveData?.ohlcv && liveData.ohlcv.close.length >= 20) {
                 liveOhlcv = liveData.ohlcv;
+              } else {
+                ohlcvMissing = true;
               }
-            } catch {}
+            } catch {
+              ohlcvMissing = true;
+            }
 
             const aiResult = evaluateAIAlpha(info, curP, prevP, liveOhlcv);
-            return { aiResult, info };
+            return { aiResult, info, ohlcvMissing };
           })
         );
 
         for (const res of chunkResults) {
           if (res.status === "fulfilled") {
-            const { aiResult, info } = res.value;
+            const { aiResult, info, ohlcvMissing } = res.value;
+            runningAudit.evaluated++;
 
-            // 基本資料保護 Gate
-            if (aiResult.dataQuality.availableCount >= 5) {
-              if (selectedStrat.filterFn(aiResult, info)) {
-                matchedStocks.push({
-                  ...aiResult,
-                  rank: 0,
-                  info,
-                });
-              }
+            if (ohlcvMissing) {
+              runningAudit.ohlcvFailed++;
+            }
+
+            if (aiResult.dataQuality.availableCount < 5) {
+              runningAudit.qualityRejected++;
+              continue;
+            }
+
+            if (selectedStrat.filterFn(aiResult, info)) {
+              runningAudit.selected++;
+              matchedStocks.push({
+                ...aiResult,
+                rank: 0,
+                info,
+              });
+            } else {
+              runningAudit.strategyRejected++;
             }
           }
         }
 
-        // 漸進式即時截面排序展示
         const currentRanked = [...matchedStocks].sort((a, b) => 
           strategy === "landmine_risk" ? a.winRatePct - b.winRatePct : b.winRatePct - a.winRatePct
         );
         currentRanked.forEach((item, idx) => { item.rank = idx + 1; });
         setResults(currentRanked);
+        setAuditMetrics({ ...runningAudit });
 
         await new Promise((r) => setTimeout(r, 0));
       }
@@ -251,6 +282,7 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
       setResults(matchedStocks);
       setProgress(100);
       setProgressMsg(`🎉 評估完成！共精選出 ${matchedStocks.length} 檔 17 維多因子即時標的`);
+      setAuditMetrics({ ...runningAudit });
     } catch (e: any) {
       setProgressMsg(`評估錯誤: ${e.message}`);
     } finally {
@@ -258,72 +290,23 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
     }
   };
 
-  const stopScan = () => {
-    cancelRef.current = true;
-    setScanning(false);
-    setProgressMsg("已停止推論");
-  };
+  const stopScan = () => { cancelRef.current = true; };
 
-  const exportHtml = () => {
-    if (results.length === 0) return;
-    const stratObj = STRATEGIES.find(s => s.id === strategy);
-    const htmlContent = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>StockT CPU 內建 AI 多因子選股名單 (${stratObj?.label})</title>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 24px; background: #0f172a; color: #f8fafc; }
-    h1 { color: #c084fc; border-bottom: 2px solid #8b5cf6; padding-bottom: 8px; font-size: 1.5rem; }
-    .meta { color: #94a3b8; font-size: 0.85rem; margin-bottom: 16px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 0.88rem; }
-    th { background: #1e293b; color: #e2e8f0; padding: 10px; text-align: left; border: 1px solid #334155; }
-    td { padding: 10px; border: 1px solid #334155; }
-    tr:nth-child(even) { background: rgba(30, 41, 59, 0.5); }
-    .badge-win { background: #dc2626; color: white; padding: 3px 8px; border-radius: 4px; font-weight: bold; }
-    .badge-tier { background: #8b5cf6; color: white; padding: 3px 8px; border-radius: 4px; }
-  </style>
-</head>
-<body>
-  <h1>🧠 StockT 17-Factor Data-backed AI Alpha Model</h1>
-  <div class="meta">策略：${stratObj?.label} ｜ 產生時間：${new Date().toLocaleString()} ｜ 精選數量：${results.length} 檔</div>
-  <table>
-    <thead>
-      <tr>
-        <th>排名</th><th>代碼</th><th>名稱</th><th>資料完整度</th><th>20日超額勝率</th><th>預估超額 Alpha</th><th>AI 置信評級</th><th>PE / ROE</th><th>核心加分因子</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${results.map(r => `
-        <tr>
-          <td><b>#${r.rank}</b></td>
-          <td><b>${r.symbol.split(".")[0]}</b></td>
-          <td>${r.name}</td>
-          <td><b>${r.dataCompletenessDisplay || `${r.dataQuality.availableCount}/17`}</b></td>
-          <td><span class="badge-win">${fmtFixed(r.winRatePct, 1)}%</span></td>
-          <td style="color:#38bdf8; font-weight:bold;">${r.expectedAlphaPct >= 0 ? '+' : ''}${fmtFixed(r.expectedAlphaPct, 1)}%</td>
-          <td><span class="badge-tier">${r.convictionTier}</span></td>
-          <td>PE: ${fmtFixed(metricVal(r.info.tw_pe ?? r.info.pe), 1, "-")} | ROE: ${metricVal(r.info.roe) != null ? fmtFixed(metricVal(r.info.roe)! * 100, 1) + "%" : "-"}</td>
-          <td>${r.positiveDrivers.join("、") || r.riskDrivers.join("、")}</td>
-        </tr>
-      `).join("")}
-    </tbody>
-  </table>
-</body>
-</html>`;
-
-    const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `StockT_AI多因子選股_${strategy}_${new Date().toISOString().slice(0, 10)}.html`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const exportHtml = async () => {
+    try {
+      const stratName = STRATEGIES.find((s) => s.id === strategy)?.label || strategy;
+      const title = `StockT AI 17維多因子選股報告 - ${stratName}`;
+      const filename = `ai_alpha_scan_${strategy}_${new Date().toISOString().slice(0, 10)}.html`;
+      const htmlContent = await exportToHtmlFile(title, results, "aiAlpha");
+      const savedPath = await stockService.exportTxtFile(filename, htmlContent);
+      alert(`選股名單匯出成功！已產生精美網頁報告！\n已儲存至您的【下載】資料夾：\n${savedPath}`);
+    } catch (err) {
+      alert(`匯出失敗: ${err}`);
+    }
   };
 
   return (
     <div className="scan-layout">
-      {/* 控制列 */}
       <div className="scan-controls">
         <div className="scan-controls-row" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "6px", flex: 1 }}>
@@ -366,9 +349,41 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
           </div>
           <span className="progress-label" style={{ fontSize: "0.78rem", minWidth: "160px" }}>{progressMsg}</span>
         </div>
+
+        {auditMetrics && (
+          <div style={{
+            marginTop: "10px",
+            background: isWarm ? "rgba(140, 110, 80, 0.08)" : "rgba(15, 23, 42, 0.6)",
+            border: isWarm ? "1px solid rgba(140, 110, 80, 0.22)" : "1px solid rgba(124, 58, 237, 0.25)",
+            borderRadius: "8px",
+            padding: "8px 12px",
+            fontSize: "0.76rem",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: "8px"
+          }}>
+            <div style={{ fontWeight: 700, color: isWarm ? "#9a3412" : "#c084fc", display: "flex", alignItems: "center", gap: "4px" }}>
+              <span>🔍 量化審計漏斗 (Scan Audit)：</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+              <span>母體 (Universe)：<b>{auditMetrics.universe}</b></span>
+              <span style={{ color: "var(--text-muted)" }}>➔</span>
+              <span>推論 (Evaluated)：<b>{auditMetrics.evaluated}</b></span>
+              <span style={{ color: "var(--text-muted)" }}>➔</span>
+              <span style={{ color: isWarm ? "#b45309" : "#fbbf24" }}>K線缺失 (OHLCV Missing)：<b>{auditMetrics.ohlcvFailed}</b></span>
+              <span style={{ color: "var(--text-muted)" }}>➔</span>
+              <span style={{ color: "#f87171" }}>品質淘汰 (Quality Rejected)：<b>{auditMetrics.qualityRejected}</b></span>
+              <span style={{ color: "var(--text-muted)" }}>➔</span>
+              <span style={{ color: isWarm ? "#57534e" : "#94a3b8" }}>策略淘汰 (Strategy Rejected)：<b>{auditMetrics.strategyRejected}</b></span>
+              <span style={{ color: "var(--text-muted)" }}>➔</span>
+              <span style={{ color: isWarm ? "#15803d" : "#4ade80", fontWeight: 800 }}>最終入選 (Selected)：{auditMetrics.selected} 檔</span>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* 結果清單 */}
       <div className="scan-table-wrap">
         {results.length === 0 && !scanning ? (
           <div className="empty-state" style={{ height: "100%" }}>
@@ -486,7 +501,6 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
         )}
       </div>
 
-      {/* 17 維多因子明細彈出視窗 (Modal) */}
       {selectedStockForDetail && (
         <div
           style={{
@@ -535,7 +549,6 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
               </button>
             </div>
 
-            {/* 資料可信度與回測摘要 */}
             {selectedStockForDetail.dataQuality && (
               <div style={{
                 background: isWarm ? "#faf7f2" : "rgba(15, 23, 42, 0.6)",
@@ -557,7 +570,7 @@ export const AIAlphaScanTab: React.FC<AIAlphaScanTabProps> = ({ onAnalyze }) => 
                   <span style={{ color: isWarm ? "#57534e" : "#94a3b8", marginLeft: "6px" }}>({selectedStockForDetail.dataQuality.availableCount}/{selectedStockForDetail.dataQuality.totalRequired} 指標完備)</span>
                 </div>
                 <div style={{ color: isWarm ? "#0284c7" : "#38bdf8" }}>
-                  📈 台股回測驗證：歷史勝率 <b>68.4%</b> ｜ 歷史 Alpha <b>+4.7%</b> ｜ 最大回撤 <b>-12.3%</b>
+                  🧠 17 維多因子 Ensemble ｜ 引擎：<b>CPU/GPU 加速</b> ｜ 即時運算：<b>零人工假設</b>
                 </div>
               </div>
             )}

@@ -745,6 +745,20 @@ export function evaluateAIAlpha(
       status: peVal <= 16 ? "positive" : peVal > 30 ? "negative" : "neutral",
       explanation: peVal <= 15 ? "本益比位階具安全邊際" : peVal > 30 ? "估值偏高需高成長支撐" : "估值合理",
     });
+  } else {
+    factors.push({
+      name: "PE",
+      label: "本益比 (P/E)",
+      category: "Valuation",
+      value: null,
+      valueDisplay: "N/A",
+      score: 0,
+      weight: 0.08,
+      available: false,
+      source: metricSource(peMet),
+      status: "missing",
+      explanation: "未揭露或無有效本益比數據",
+    });
   }
 
   if (pbVal !== null) {
@@ -762,6 +776,20 @@ export function evaluateAIAlpha(
       asOf: formatAsOf(pbMet, "今日收盤"),
       status: pbVal <= 1.5 ? "positive" : pbVal > 3.5 ? "negative" : "neutral",
       explanation: pbVal <= 1.5 ? "股價淨值比處於低檔價值區" : pbVal > 3.5 ? "淨值比偏高需高 ROE 支撐" : "淨值比合理",
+    });
+  } else {
+    factors.push({
+      name: "PB",
+      label: "股價淨值比 (P/B)",
+      category: "Valuation",
+      value: null,
+      valueDisplay: "N/A",
+      score: 0,
+      weight: 0.06,
+      available: false,
+      source: metricSource(pbMet),
+      status: "missing",
+      explanation: "未揭露或無有效股價淨值比數據",
     });
   }
 
@@ -781,6 +809,20 @@ export function evaluateAIAlpha(
       asOf: formatAsOf(dyMet, "最新公告"),
       status: dyPct >= 4 ? "positive" : "neutral",
       explanation: dyPct >= 5 ? "高殖利率具下檔防禦優勢" : "殖利率一般",
+    });
+  } else {
+    factors.push({
+      name: "Dividend Yield",
+      label: "現金殖利率",
+      category: "Valuation",
+      value: null,
+      valueDisplay: "N/A",
+      score: 0,
+      weight: 0.06,
+      available: false,
+      source: metricSource(dyMet),
+      status: "missing",
+      explanation: "未揭露或無有效殖利率數據",
     });
   }
 
@@ -848,26 +890,26 @@ export function evaluateAIAlpha(
   const heuristicRawProb = sigmoid(normalizedScore * 0.85) * 100;
 
   // ──────────────────────────────────────────────────────────────────────────
-  // 4. ML Track (決策樹集成 & 特徵交互推論)
+  // 4. ML Track (決策樹集成 & 特徵交互推論 - 嚴格 Null-Safe，無人工合成 Fallback)
   // ──────────────────────────────────────────────────────────────────────────
   const currP = curP || 100;
 
   const mlResult = evaluateMLModel({
-    momentum20: (m20 ?? 0) / 100,
-    momentum60: (m60 ?? 0) / 100,
-    momentum120: (m120 ?? 0) / 100,
-    ma20Bias: (currP && ma20) ? (currP - ma20) / ma20 : 0,
-    ma60Bias: (currP && ma60) ? (currP - ma60) / ma60 : 0,
-    ma120Bias: (currP && ma120) ? (currP - ma120) / ma120 : 0,
-    ma240Bias: (currP && ma240) ? (currP - ma240) / ma240 : 0,
-    volumeRatio: vRatio ?? 1.0,
-    roe: roeVal ?? 0.15,
-    pe: metricVal(info.tw_pe ?? info.pe) ?? 18.0,
-    pb: metricVal(info.pb) ?? 2.5,
-    dividendYield: metricVal(info.dividend_yield) ?? 0.035,
-    grossMargins: grossM ?? 0.30,
-    profitMargins: operM ?? 0.15,
-    debtToEquity: debtVal ?? 45.0,
+    momentum20: m20 !== null ? m20 / 100 : null,
+    momentum60: m60 !== null ? m60 / 100 : null,
+    momentum120: m120 !== null ? m120 / 100 : null,
+    ma20Bias: (currP && ma20) ? (currP - ma20) / ma20 : null,
+    ma60Bias: (currP && ma60) ? (currP - ma60) / ma60 : null,
+    ma120Bias: (currP && ma120) ? (currP - ma120) / ma120 : null,
+    ma240Bias: (currP && ma240) ? (currP - ma240) / ma240 : null,
+    volumeRatio: vRatio !== null ? vRatio : null,
+    roe: roeVal,
+    pe: peVal,
+    pb: pbVal,
+    dividendYield: dyVal,
+    grossMargins: grossM,
+    profitMargins: operM,
+    debtToEquity: debtVal,
   });
 
   // 雙軌 Ensemble: 60% 規則多因子 + 40% 機器學習決策樹

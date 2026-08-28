@@ -6,21 +6,21 @@
  */
 
 export interface MLFeatures {
-  momentum20: number;
-  momentum60: number;
-  momentum120: number;
-  ma20Bias: number;
-  ma60Bias: number;
-  ma120Bias: number;
-  ma240Bias: number;
-  volumeRatio: number;
-  roe: number;
-  pe: number;
-  pb: number;
-  dividendYield: number;
-  grossMargins: number;
-  profitMargins: number;
-  debtToEquity: number;
+  momentum20?: number | null;
+  momentum60?: number | null;
+  momentum120?: number | null;
+  ma20Bias?: number | null;
+  ma60Bias?: number | null;
+  ma120Bias?: number | null;
+  ma240Bias?: number | null;
+  volumeRatio?: number | null;
+  roe?: number | null;
+  pe?: number | null;
+  pb?: number | null;
+  dividendYield?: number | null;
+  grossMargins?: number | null;
+  profitMargins?: number | null;
+  debtToEquity?: number | null;
 }
 
 export interface MLInferenceResult {
@@ -58,9 +58,10 @@ const TREES: DecisionTree[] = [
 
 /**
  * Execute Pure Client-Side Machine Learning Inference on 17 Point-in-Time Features
+ * Null-safe: missing values receive neutral 0 score without fabricating biased fallbacks
  */
 export function evaluateMLModel(features: MLFeatures): MLInferenceResult {
-  const rawVec = [
+  const rawVec: (number | null | undefined)[] = [
     features.momentum20,
     features.momentum60,
     features.momentum120,
@@ -78,11 +79,16 @@ export function evaluateMLModel(features: MLFeatures): MLInferenceResult {
     features.debtToEquity,
   ];
 
-  // 1. Z-Score Standardization
+  // 1. Z-Score Standardization (Null-safe: Missing values imputed to 0 neutral standardized score)
   const normVec: number[] = new Array(15);
   for (let i = 0; i < 15; i++) {
-    const std = FEATURE_STDS[i] > 0 ? FEATURE_STDS[i] : 1.0;
-    normVec[i] = (rawVec[i] - FEATURE_MEANS[i]) / std;
+    const v = rawVec[i];
+    if (v === null || v === undefined || isNaN(v) || !isFinite(v)) {
+      normVec[i] = 0.0; // Strictly Neutral 0 (No artificial bias fabrication)
+    } else {
+      const std = FEATURE_STDS[i] > 0 ? FEATURE_STDS[i] : 1.0;
+      normVec[i] = (v - FEATURE_MEANS[i]) / std;
+    }
   }
 
   // 2. Ridge Regression Linear Interaction

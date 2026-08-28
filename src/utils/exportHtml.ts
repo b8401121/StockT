@@ -3,7 +3,7 @@ import { getFsGrade } from "./analysis";
 export async function exportToHtmlFile(
   title: string,
   data: any[],
-  type: "portfolio" | "scanner" | "fundamental" | "hybrid"
+  type: "portfolio" | "scanner" | "fundamental" | "hybrid" | "aiAlpha"
 ): Promise<string> {
   let rowsHtml = "";
 
@@ -25,6 +25,25 @@ export async function exportToHtmlFile(
           <td>${curPrice}</td>
           <td><span class="badge ${gradeClass}">${fsGrade} (評分:${fsScore})</span></td>
           <td><span class="badge ${techClass}">${techRating}</span></td>
+        </tr>
+      `;
+    }
+  } else if (type === "aiAlpha") {
+    for (const r of data) {
+      const cleanSym = r.symbol.replace(/\.(TW|TWO)$/, "");
+      const winPct = r.winRatePct !== undefined ? `${r.winRatePct.toFixed(1)}%` : "-";
+      const alphaPct = r.expectedAlphaPct !== undefined ? `${r.expectedAlphaPct >= 0 ? "+" : ""}${r.expectedAlphaPct.toFixed(1)}%` : "-";
+      const drivers = r.positiveDrivers?.slice(0, 2).join("、") || r.riskDrivers?.slice(0, 2).join("、") || "-";
+
+      rowsHtml += `
+        <tr>
+          <td><b>#${r.rank || "-"}</b></td>
+          <td><span style="font-weight: 700; color: #38bdf8;">${cleanSym}</span></td>
+          <td><b>${r.name}</b></td>
+          <td><span class="badge" style="background:#7c3aed;color:#fff;font-weight:bold;">${r.convictionTier}</span></td>
+          <td><span style="color:#38bdf8;font-weight:bold;">${winPct}</span></td>
+          <td><span style="color:#4ade80;font-weight:bold;">${alphaPct}</span></td>
+          <td style="font-size:0.8rem;color:#cbd5e1;">${drivers}</td>
         </tr>
       `;
     }
@@ -90,7 +109,17 @@ export async function exportToHtmlFile(
   }
 
   let thHeaders = "";
-  if (type === "portfolio") {
+  if (type === "aiAlpha") {
+    thHeaders = `
+      <th>排名</th>
+      <th>股票代號</th>
+      <th>名稱</th>
+      <th>AI 評級</th>
+      <th>20日勝率</th>
+      <th>預估 Alpha</th>
+      <th>核心驅動因子</th>
+    `;
+  } else if (type === "portfolio") {
     thHeaders = `
       <th>股票代號</th>
       <th>股名</th>
