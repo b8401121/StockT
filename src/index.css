@@ -113,38 +113,56 @@
   color: #18181b;
 }
 
+[data-theme="warm"] .analysis-sidebar {
+  background: #fbf8f2;
+  border-right: 1px solid rgba(140, 110, 80, 0.18);
+}
+
+[data-theme="warm"] .info-section {
+  background: #ffffff;
+  border: 1px solid rgba(140, 110, 80, 0.18);
+  box-shadow: 0 1px 3px rgba(140, 110, 80, 0.05);
+}
+
 [data-theme="warm"] .info-section-header {
   background: rgba(217, 119, 6, 0.08);
-  color: #b45309;
+  color: #9a3412;
   border-bottom: 1px solid rgba(140, 110, 80, 0.15);
+  font-weight: 700;
 }
 
-[data-theme="warm"] .signal-card {
-  background: rgba(255, 255, 255, 0.9);
-}
-
-[data-theme="warm"] .data-table thead th {
-  background: rgba(217, 119, 6, 0.06);
+[data-theme="warm"] .info-label {
   color: #57534e;
-  border-bottom: 1px solid rgba(140, 110, 80, 0.18);
 }
 
-[data-theme="warm"] .data-table tbody tr {
-  border-bottom: 1px solid rgba(140, 110, 80, 0.08);
+[data-theme="warm"] .info-value {
+  color: #18181b;
 }
 
-[data-theme="warm"] .data-table tbody tr:hover {
-  background: rgba(217, 119, 6, 0.04);
+[data-theme="warm"] .news-item {
+  border-bottom: 1px solid rgba(140, 110, 80, 0.1);
 }
 
-[data-theme="warm"] .btn-outline {
-  border: 1px solid rgba(140, 110, 80, 0.3);
-  color: #44403c;
+[data-theme="warm"] .news-link {
+  color: #0369a1;
 }
 
-[data-theme="warm"] .btn-outline:hover {
-  border-color: #d97706;
-  color: #b45309;
+[data-theme="warm"] .news-link:hover {
+  color: #0284c7;
+  text-decoration: underline;
+}
+
+[data-theme="warm"] .risk-banner {
+  background: rgba(220, 38, 38, 0.08);
+  border: 1px solid rgba(220, 38, 38, 0.25);
+}
+
+[data-theme="warm"] .risk-banner-title {
+  color: #b91c1c;
+}
+
+[data-theme="warm"] .risk-item {
+  color: #991b1b;
 }
 
 [data-theme="warm"] ::-webkit-scrollbar-thumb {

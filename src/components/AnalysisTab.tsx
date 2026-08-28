@@ -482,17 +482,17 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
             {autocomplete.length > 0 && (
               <div style={{
                 position: "absolute", top: "100%", left: 0, right: 0, zIndex: 200,
-                background: "#1a1a2e", border: "1px solid rgba(255,255,255,0.12)",
+                background: isWarm ? "#fffcf5" : "#1a1a2e", border: isWarm ? "1px solid rgba(140, 110, 80, 0.25)" : "1px solid rgba(255,255,255,0.12)",
                 borderRadius: "var(--radius-sm)", maxHeight: "220px", overflowY: "auto",
-                boxShadow: "var(--shadow-card)",
+                boxShadow: isWarm ? "0 10px 25px rgba(90, 60, 30, 0.12)" : "var(--shadow-card)",
               }}>
                 {autocomplete.map((s) => (
                   <div key={s.symbol} onClick={() => { setQuery(s.symbol); doAnalysis(s.symbol); }}
                     style={{ padding: "8px 12px", cursor: "pointer", fontSize: "0.85rem", display: "flex", gap: "8px" }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(77,148,255,0.1)")}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = isWarm ? "rgba(217, 119, 6, 0.08)" : "rgba(77,148,255,0.1)")}
                     onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
-                    <span style={{ color: "var(--accent-blue)" }}>{s.symbol.split(".")[0]}</span>
-                    <span style={{ color: "var(--text-secondary)" }}>{s.name}</span>
+                    <span style={{ color: isWarm ? "#0284c7" : "var(--accent-blue)", fontWeight: 700 }}>{s.symbol.split(".")[0]}</span>
+                    <span style={{ color: isWarm ? "#18181b" : "var(--text-secondary)" }}>{s.name}</span>
                   </div>
                 ))}
               </div>
@@ -513,7 +513,7 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
 
         {/* 錯誤訊息 */}
         {error && (
-          <div style={{ margin: "8px 14px", padding: "8px 12px", background: "rgba(255,82,82,0.1)", border: "1px solid rgba(255,82,82,0.3)", borderRadius: "var(--radius-sm)", fontSize: "0.82rem", color: "#ef9a9a" }}>
+          <div style={{ margin: "8px 14px", padding: "8px 12px", background: isWarm ? "rgba(220, 38, 38, 0.08)" : "rgba(255,82,82,0.1)", border: isWarm ? "1px solid rgba(220, 38, 38, 0.25)" : "1px solid rgba(255,82,82,0.3)", borderRadius: "var(--radius-sm)", fontSize: "0.82rem", color: isWarm ? "#dc2626" : "#ef9a9a" }}>
             {error}
           </div>
         )}
@@ -523,8 +523,8 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
           {loading && (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "60px 20px", gap: "14px" }}>
               <div style={{ fontSize: "2.5rem" }}>⏳</div>
-              <div style={{ color: "#38bdf8", fontWeight: 700, fontSize: "1.05rem" }}>正在連線取得即時行情...</div>
-              <div style={{ color: "#94a3b8", fontSize: "0.82rem", textAlign: "center" }}>正在同步台灣證券交易所與櫃買中心數據，絕不產生虛擬數據</div>
+              <div style={{ color: isWarm ? "#0284c7" : "#38bdf8", fontWeight: 700, fontSize: "1.05rem" }}>正在連線取得即時行情...</div>
+              <div style={{ color: isWarm ? "#57534e" : "#94a3b8", fontSize: "0.82rem", textAlign: "center" }}>正在同步台灣證券交易所與櫃買中心數據，絕不產生虛擬數據</div>
             </div>
           )}
 
@@ -540,16 +540,16 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
               {/* 股票名稱與現價 */}
               <div style={{ marginBottom: "12px" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <div style={{ fontSize: "1.15rem", fontWeight: 700, color: "var(--text-primary)" }}>{info.name}</div>
+                  <div style={{ fontSize: "1.15rem", fontWeight: 700, color: isWarm ? "#18181b" : "var(--text-primary)" }}>{info.name}</div>
                   <AddToWatchlistBtn symbol={info.symbol} text="⭐ 加入收藏" style={{ fontSize: "0.8rem", padding: "4px 10px" }} />
                 </div>
-                <div style={{ fontSize: "0.82rem", color: "#94a3b8", marginBottom: "6px" }}>{info.symbol}</div>
+                <div style={{ fontSize: "0.82rem", color: isWarm ? "#57534e" : "#94a3b8", marginBottom: "6px" }}>{info.symbol}</div>
                 <div style={{ display: "flex", alignItems: "baseline", gap: "10px" }}>
-                  <span style={{ fontSize: "1.6rem", fontWeight: 700, color: changeAmt != null && changeAmt >= 0 ? "var(--accent-red)" : "var(--accent-green)" }}>
+                  <span style={{ fontSize: "1.6rem", fontWeight: 700, color: changeAmt != null && changeAmt >= 0 ? (isWarm ? "#dc2626" : "var(--accent-red)") : (isWarm ? "#15803d" : "var(--accent-green)") }}>
                     {fmtPrice(info.current_price?.value)}
                   </span>
                   {changeAmt != null && changePct != null && !isNaN(changePct) && (
-                    <span style={{ fontSize: "0.95rem", color: changeAmt >= 0 ? "var(--accent-red)" : "var(--accent-green)", fontWeight: 600 }}>
+                    <span style={{ fontSize: "0.95rem", color: changeAmt >= 0 ? (isWarm ? "#dc2626" : "var(--accent-red)") : (isWarm ? "#15803d" : "var(--accent-green)"), fontWeight: 600 }}>
                       {changeAmt >= 0 ? "▲" : "▼"} {Math.abs(changeAmt).toFixed(2)} ({changeAmt >= 0 ? "+" : ""}{changePct.toFixed(2)}%)
                     </span>
                   )}
@@ -577,7 +577,7 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                 title="點擊展開 8 大技術指標智慧診斷全景視窗"
               >
                 <div className="advice-title" style={{ color: advice.color }}>{advice.title}</div>
-                <div className="advice-desc" style={{ color: "var(--text-secondary)" }}>
+                <div className="advice-desc" style={{ color: isWarm ? "#57534e" : "var(--text-secondary)" }}>
                   綜合評分：<b style={{ color: advice.color }}>{(finalScore ?? 0) > 0 ? "+" : ""}{finalScore != null && !isNaN(finalScore) ? finalScore.toFixed(1) : "0.0"}</b> 分
                 </div>
               </div>
@@ -586,7 +586,7 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
               {(() => {
                 const aiResult = evaluateAIAlpha(info, info.current_price?.value || 0, info.previous_close?.value || (info.current_price?.value || 0), ohlcv);
                 const winRate = aiResult.winRatePct;
-                const alphaColor = winRate >= 75 ? "#38bdf8" : winRate >= 50 ? "#c084fc" : "#ef4444";
+                const alphaColor = winRate >= 75 ? (isWarm ? "#0284c7" : "#38bdf8") : winRate >= 50 ? (isWarm ? "#7e22ce" : "#c084fc") : (isWarm ? "#dc2626" : "#ef4444");
                 const dq = aiResult.dataQuality;
 
                 return (
@@ -594,31 +594,31 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                     className="score-card"
                     onClick={() => setShowAIModal(true)}
                     style={{
-                      background: "linear-gradient(135deg, rgba(123, 31, 162, 0.18), rgba(74, 20, 140, 0.28))",
-                      borderColor: "rgba(168, 85, 247, 0.5)",
+                      background: isWarm ? "linear-gradient(135deg, rgba(217, 119, 6, 0.08), rgba(245, 158, 11, 0.12))" : "linear-gradient(135deg, rgba(123, 31, 162, 0.18), rgba(74, 20, 140, 0.28))",
+                      borderColor: isWarm ? "rgba(217, 119, 6, 0.35)" : "rgba(168, 85, 247, 0.5)",
                       marginBottom: "12px",
-                      boxShadow: "0 4px 14px rgba(123, 31, 162, 0.15)",
+                      boxShadow: isWarm ? "0 4px 14px rgba(217, 119, 6, 0.1)" : "0 4px 14px rgba(123, 31, 162, 0.15)",
                       cursor: "pointer",
                       transition: "transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease",
                     }}
                     title="點擊展開 AI 多因子量化全景診斷視窗"
                   >
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "6px", fontWeight: 700, fontSize: "0.95rem", color: "#e9d5ff" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px", fontWeight: 700, fontSize: "0.95rem", color: isWarm ? "#9a3412" : "#e9d5ff" }}>
                         <span>🧠 CPU 內建 AI 多因子診斷 (量化校準版)</span>
                       </div>
                       <HardwareBadge />
                     </div>
 
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(0,0,0,0.28)", padding: "10px 12px", borderRadius: "8px", marginBottom: "10px" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: isWarm ? "rgba(255, 255, 255, 0.95)" : "rgba(0,0,0,0.28)", padding: "10px 12px", borderRadius: "8px", marginBottom: "10px", border: isWarm ? "1px solid rgba(140, 110, 80, 0.15)" : "none" }}>
                       <div>
-                        <div style={{ fontSize: "0.76rem", color: "#cbd5e1", marginBottom: "2px" }}>預估 20 日超額勝率</div>
+                        <div style={{ fontSize: "0.76rem", color: isWarm ? "#57534e" : "#cbd5e1", marginBottom: "2px" }}>預估 20 日超額勝率</div>
                         <div style={{ fontSize: "1.45rem", fontWeight: 800, color: alphaColor }}>
                           {winRate.toFixed(1)}%
                         </div>
                       </div>
                       <div style={{ textAlign: "right" }}>
-                        <div style={{ fontSize: "0.76rem", color: "#cbd5e1", marginBottom: "2px" }}>AI 置信評級</div>
+                        <div style={{ fontSize: "0.76rem", color: isWarm ? "#57534e" : "#cbd5e1", marginBottom: "2px" }}>AI 置信評級</div>
                         <div style={{ fontSize: "0.92rem", fontWeight: 700, color: alphaColor }}>
                           {aiResult.convictionTier}
                         </div>
@@ -626,29 +626,29 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                     </div>
 
                     {/* 勝率光條 */}
-                    <div style={{ height: "6px", width: "100%", background: "rgba(255,255,255,0.1)", borderRadius: "3px", overflow: "hidden", marginBottom: "12px" }}>
-                      <div style={{ height: "100%", width: `${winRate}%`, background: winRate >= 70 ? "linear-gradient(90deg, #38bdf8, #a855f7)" : "linear-gradient(90deg, #f59e0b, #ef4444)", transition: "width 0.6s ease" }} />
+                    <div style={{ height: "6px", width: "100%", background: isWarm ? "rgba(140, 110, 80, 0.15)" : "rgba(255,255,255,0.1)", borderRadius: "3px", overflow: "hidden", marginBottom: "12px" }}>
+                      <div style={{ height: "100%", width: `${winRate}%`, background: winRate >= 70 ? (isWarm ? "linear-gradient(90deg, #0284c7, #7e22ce)" : "linear-gradient(90deg, #38bdf8, #a855f7)") : (isWarm ? "linear-gradient(90deg, #d97706, #dc2626)" : "linear-gradient(90deg, #f59e0b, #ef4444)"), transition: "width 0.6s ease" }} />
                     </div>
 
                     {/* 🛡️ 資料品質與可信度分析 (Data Quality Report) */}
                     <div style={{
-                      background: "rgba(15, 23, 42, 0.5)",
-                      border: "1px solid rgba(148, 163, 184, 0.2)",
+                      background: isWarm ? "rgba(255, 255, 255, 0.95)" : "rgba(15, 23, 42, 0.5)",
+                      border: isWarm ? "1px solid rgba(140, 110, 80, 0.18)" : "1px solid rgba(148, 163, 184, 0.2)",
                       borderRadius: "6px",
                       padding: "8px 10px",
                       fontSize: "0.75rem"
                     }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
-                        <span style={{ fontWeight: 700, color: "#cbd5e1" }}>
+                        <span style={{ fontWeight: 700, color: isWarm ? "#18181b" : "#cbd5e1" }}>
                           📊 資料品質評分：
-                          <b style={{ color: dq.overallScore >= 80 ? "#4ade80" : dq.overallScore >= 50 ? "#facc15" : "#f87171" }}>
+                          <b style={{ color: dq.overallScore >= 80 ? (isWarm ? "#15803d" : "#4ade80") : dq.overallScore >= 50 ? (isWarm ? "#d97706" : "#facc15") : (isWarm ? "#dc2626" : "#f87171") }}>
                             {dq.overallScore} / 100
                           </b>
-                          {dq.isDegraded && <span style={{ color: "#f87171", marginLeft: "6px" }}>(⚠️ 核心財報有缺項)</span>}
+                          {dq.isDegraded && <span style={{ color: isWarm ? "#dc2626" : "#f87171", marginLeft: "6px" }}>(⚠️ 核心財報有缺項)</span>}
                         </span>
-                        <span style={{ color: "#94a3b8" }}>{dq.availableCount} / {dq.totalRequired} 指標完備</span>
+                        <span style={{ color: isWarm ? "#57534e" : "#94a3b8" }}>{dq.availableCount} / {dq.totalRequired} 指標完備</span>
                       </div>
-                      <div style={{ display: "flex", gap: "8px", color: "#94a3b8", fontSize: "0.70rem" }}>
+                      <div style={{ display: "flex", gap: "8px", color: isWarm ? "#57534e" : "#94a3b8", fontSize: "0.70rem" }}>
                         <span>財報獲利: {dq.financialCompleteness}%</span>
                         <span>・ 官方估值: {dq.valuationCompleteness}%</span>
                         <span>・ 財務安全: {dq.financialSafetyCompleteness}%</span>
@@ -674,9 +674,9 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                 >
                   <div className="score-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div className="score-grade" style={{ color: fsGrade.color, fontWeight: 700 }}>
-                      📊 基本面：{fsGrade.label} <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.6)", fontWeight: 400 }}>(2026 Q2 累計)</span>
+                      📊 基本面：{fsGrade.label} <span style={{ fontSize: "0.72rem", color: isWarm ? "#57534e" : "rgba(255,255,255,0.6)", fontWeight: 400 }}>(2026 Q2 累計)</span>
                     </div>
-                    <div className="score-num" style={{ color: "var(--text-secondary)", fontSize: "0.85rem" }}>
+                    <div className="score-num" style={{ color: isWarm ? "#18181b" : "var(--text-secondary)", fontSize: "0.85rem" }}>
                       評分 <b style={{ color: fsGrade.color }}>{fsScore > 0 ? "+" : ""}{fsScore}</b>
                       &nbsp;｜ ✅{fs.passed.length} ❌{fs.failed.length} ⬜{fs.na.length}
                     </div>
@@ -686,28 +686,28 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
 
               {/* 獲利能力 */}
               <div className="info-section">
-                <div className="info-section-header"><span style={{ color: "#ffffff", fontWeight: 700 }}>一、獲利能力</span> <span style={{ fontSize: "0.80rem", color: "#93c5fd", fontWeight: 600 }}>(2026 Q2 財報 / 7月營收)</span></div>
+                <div className="info-section-header"><span style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700 }}>一、獲利能力</span> <span style={{ fontSize: "0.80rem", color: isWarm ? "#0284c7" : "#93c5fd", fontWeight: 600 }}>(2026 Q2 財報 / 7月營收)</span></div>
                 <div className="info-section-body">
-                  <div className="info-row"><span className="info-label clickable-label" style={{ color: "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("EPS")}>EPS <small style={{ color: "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(TTM)</small></span><span className="info-value" style={{ color: (info.eps?.value ?? 0) < 0 ? "#ff5252" : (info.eps?.value ?? 0) >= 6 ? "#4ade80" : "#ffffff", fontWeight: 800, fontSize: "1.02rem" }}>{n2s(info.eps?.value)}</span></div>
-                  <div className="info-row"><span className="info-label clickable-label" style={{ color: "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("ROE")}>ROE <small style={{ color: "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(Q2累計)</small></span><span className="info-value" style={{ color: (info.roe?.value ?? 0) < 0 ? "#ff5252" : (info.roe?.value ?? 0) >= 0.15 ? "#4ade80" : "#ffffff", fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.roe?.value)}</span></div>
-                  <div className="info-row"><span className="info-label clickable-label" style={{ color: "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("毛利率")}>毛利率 <small style={{ color: "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(Q2)</small></span><span className="info-value" style={{ color: (info.gross_margins?.value ?? 0) < 0.10 ? "#ff5252" : (info.gross_margins?.value ?? 0) >= 0.35 ? "#4ade80" : "#ffffff", fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.gross_margins?.value)}</span></div>
-                  <div className="info-row"><span className="info-label clickable-label" style={{ color: "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("營業利益率")}>營業利益率 <small style={{ color: "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(Q2)</small></span><span className="info-value" style={{ color: (info.operating_margins?.value ?? 0) < 0 ? "#ff5252" : (info.operating_margins?.value ?? 0) >= 0.15 ? "#4ade80" : "#ffffff", fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.operating_margins?.value)}</span></div>
-                  <div className="info-row"><span className="info-label clickable-label" style={{ color: "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("淨利率")}>淨利率 <small style={{ color: "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(Q2)</small></span><span className="info-value" style={{ color: (info.profit_margins?.value ?? 0) < 0 ? "#ff5252" : (info.profit_margins?.value ?? 0) >= 0.15 ? "#4ade80" : "#ffffff", fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.profit_margins?.value)}</span></div>
-                  <div className="info-row"><span className="info-label clickable-label" style={{ color: "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("營收YoY")}>營收成長 YoY <small style={{ color: "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(2026/07)</small></span><span className="info-value" style={{ color: (info.revenue_growth?.value ?? 0) < 0 ? "#ff5252" : (info.revenue_growth?.value ?? 0) >= 0.15 ? "#4ade80" : "#ffffff", fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.revenue_growth?.value)}</span></div>
-                  <div className="info-row"><span className="info-label clickable-label" style={{ color: "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("盈餘YoY")}>盈餘成長 YoY <small style={{ color: "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(Q2)</small></span><span className="info-value" style={{ color: (info.earnings_growth?.value ?? 0) < 0 ? "#ff5252" : (info.earnings_growth?.value ?? 0) >= 0.20 ? "#4ade80" : "#ffffff", fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.earnings_growth?.value)}</span></div>
+                  <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("EPS")}>EPS <small style={{ color: isWarm ? "#0284c7" : "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(TTM)</small></span><span className="info-value" style={{ color: (info.eps?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (info.eps?.value ?? 0) >= 6 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{n2s(info.eps?.value)}</span></div>
+                  <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("ROE")}>ROE <small style={{ color: isWarm ? "#0284c7" : "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(Q2累計)</small></span><span className="info-value" style={{ color: (info.roe?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (info.roe?.value ?? 0) >= 0.15 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.roe?.value)}</span></div>
+                  <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("毛利率")}>毛利率 <small style={{ color: isWarm ? "#0284c7" : "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(Q2)</small></span><span className="info-value" style={{ color: (info.gross_margins?.value ?? 0) < 0.10 ? (isWarm ? "#dc2626" : "#ff5252") : (info.gross_margins?.value ?? 0) >= 0.35 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.gross_margins?.value)}</span></div>
+                  <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("營業利益率")}>營業利益率 <small style={{ color: isWarm ? "#0284c7" : "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(Q2)</small></span><span className="info-value" style={{ color: (info.operating_margins?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (info.operating_margins?.value ?? 0) >= 0.15 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.operating_margins?.value)}</span></div>
+                  <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("淨利率")}>淨利率 <small style={{ color: isWarm ? "#0284c7" : "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(Q2)</small></span><span className="info-value" style={{ color: (info.profit_margins?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (info.profit_margins?.value ?? 0) >= 0.15 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.profit_margins?.value)}</span></div>
+                  <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("營收YoY")}>營收成長 YoY <small style={{ color: isWarm ? "#0284c7" : "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(2026/07)</small></span><span className="info-value" style={{ color: (info.revenue_growth?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (info.revenue_growth?.value ?? 0) >= 0.15 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.revenue_growth?.value)}</span></div>
+                  <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("盈餘YoY")}>盈餘成長 YoY <small style={{ color: isWarm ? "#0284c7" : "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(Q2)</small></span><span className="info-value" style={{ color: (info.earnings_growth?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (info.earnings_growth?.value ?? 0) >= 0.20 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.earnings_growth?.value)}</span></div>
                 </div>
               </div>
 
               {/* 財務穩健度 */}
               <div className="info-section">
-                <div className="info-section-header"><span style={{ color: "#ffffff", fontWeight: 700 }}>二、財務穩健度</span> <span style={{ fontSize: "0.80rem", color: "#93c5fd", fontWeight: 600 }}>(2026 Q2 資產負債與現金流)</span></div>
+                <div className="info-section-header"><span style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700 }}>二、財務穩健度</span> <span style={{ fontSize: "0.80rem", color: isWarm ? "#0284c7" : "#93c5fd", fontWeight: 600 }}>(2026 Q2 資產負債與現金流)</span></div>
                 <div className="info-section-body">
-                  <div className="info-row"><span className="info-label clickable-label" style={{ color: "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("自由現金流")}>自由現金流</span><span className="info-value" style={{ color: (info.free_cashflow?.value ?? 0) < 0 ? "#ff5252" : "#4ade80", fontWeight: 800, fontSize: "1.02rem" }}>{fmtNum(info.free_cashflow?.value)}</span></div>
-                  <div className="info-row"><span className="info-label clickable-label" style={{ color: "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("營業現金流")}>營業現金流</span><span className="info-value" style={{ color: (info.operating_cashflow?.value ?? 0) < 0 ? "#ff5252" : "#4ade80", fontWeight: 800, fontSize: "1.02rem" }}>{fmtNum(info.operating_cashflow?.value)}</span></div>
-                  <div className="info-row"><span className="info-label clickable-label" style={{ color: "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("流動比率")}>流動比率</span><span className="info-value" style={{ color: (info.current_ratio?.value ?? 2) < 1.0 ? "#ff5252" : "#ffffff", fontWeight: 800, fontSize: "1.02rem" }}>{n2s(info.current_ratio?.value)}</span></div>
-                  <div className="info-row"><span className="info-label clickable-label" style={{ color: "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("速動比率")}>速動比率</span><span className="info-value" style={{ color: (info.quick_ratio?.value ?? 2) < 1.0 ? "#ff5252" : "#ffffff", fontWeight: 800, fontSize: "1.02rem" }}>{n2s(info.quick_ratio?.value)}</span></div>
-                  <div className="info-row"><span className="info-label clickable-label" style={{ color: "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("負債/權益比")}>負債/權益比</span><span className="info-value" style={{ color: (info.debt_to_equity?.value ?? 0) > 200 ? "#ff5252" : (info.debt_to_equity?.value ?? 100) <= 60 ? "#4ade80" : "#ffffff", fontWeight: 800, fontSize: "1.02rem" }}>{info.debt_to_equity?.value != null && !isNaN(info.debt_to_equity?.value) ? `${info.debt_to_equity?.value.toFixed(1)}%` : "N/A"}</span></div>
-                  <div className="info-row"><span className="info-label clickable-label" style={{ color: "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("自有資本率")}>自有資本率</span><span className="info-value" style={{ color: (calcEquityRatio(info) ?? 100) < 30 ? "#ff5252" : (calcEquityRatio(info) ?? 0) >= 50 ? "#4ade80" : "#ffffff", fontWeight: 800, fontSize: "1.02rem" }}>{fmtEquityRatio(info)}</span></div>
+                  <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("自由現金流")}>自由現金流</span><span className="info-value" style={{ color: (info.free_cashflow?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (isWarm ? "#15803d" : "#4ade80"), fontWeight: 800, fontSize: "1.02rem" }}>{fmtNum(info.free_cashflow?.value)}</span></div>
+                  <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("營業現金流")}>營業現金流</span><span className="info-value" style={{ color: (info.operating_cashflow?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (isWarm ? "#15803d" : "#4ade80"), fontWeight: 800, fontSize: "1.02rem" }}>{fmtNum(info.operating_cashflow?.value)}</span></div>
+                  <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("流動比率")}>流動比率</span><span className="info-value" style={{ color: (info.current_ratio?.value ?? 2) < 1.0 ? (isWarm ? "#dc2626" : "#ff5252") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{n2s(info.current_ratio?.value)}</span></div>
+                  <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("速動比率")}>速動比率</span><span className="info-value" style={{ color: (info.quick_ratio?.value ?? 2) < 1.0 ? (isWarm ? "#dc2626" : "#ff5252") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{n2s(info.quick_ratio?.value)}</span></div>
+                  <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("負債/權益比")}>負債/權益比</span><span className="info-value" style={{ color: (info.debt_to_equity?.value ?? 0) > 200 ? (isWarm ? "#dc2626" : "#ff5252") : (info.debt_to_equity?.value ?? 100) <= 60 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{info.debt_to_equity?.value != null && !isNaN(info.debt_to_equity?.value) ? `${info.debt_to_equity?.value.toFixed(1)}%` : "N/A"}</span></div>
+                  <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("自有資本率")}>自有資本率</span><span className="info-value" style={{ color: (calcEquityRatio(info) ?? 100) < 30 ? (isWarm ? "#dc2626" : "#ff5252") : (calcEquityRatio(info) ?? 0) >= 50 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{fmtEquityRatio(info)}</span></div>
                 </div>
               </div>
 
@@ -721,19 +721,19 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
 
                 return (
                   <div className="info-section">
-                    <div className="info-section-header"><span style={{ color: "#ffffff", fontWeight: 700 }}>三、估值與除權息指標</span> <span style={{ fontSize: "0.80rem", color: "#93c5fd", fontWeight: 600 }}>(最新公佈 / 每日收盤)</span></div>
+                    <div className="info-section-header"><span style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700 }}>三、估值與除權息指標</span> <span style={{ fontSize: "0.80rem", color: isWarm ? "#0284c7" : "#93c5fd", fontWeight: 600 }}>(最新公佈 / 每日收盤)</span></div>
                     <div className="info-section-body">
-                      <div className="info-row"><span className="info-label clickable-label" style={{ color: "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("PE")}>本益比 (PE)</span><span className="info-value" style={{ color: "#60a5fa", fontWeight: 800, fontSize: "1.02rem" }}>{n2s(info.tw_pe?.value ?? info.pe?.value)}</span></div>
-                      <div className="info-row"><span className="info-label clickable-label" style={{ color: "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("PB")}>股價淨值比 (PB)</span><span className="info-value" style={{ color: "#60a5fa", fontWeight: 800, fontSize: "1.02rem" }}>{n2s(info.tw_pb?.value ?? info.pb?.value)}</span></div>
-                      <div className="info-row"><span className="info-label clickable-label" style={{ color: "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("殖利率")}>現金殖利率</span><span className="info-value" style={{ color: "#facc15", fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.tw_yield?.value ?? info.dividend_yield?.value)}</span></div>
-                      <div className="info-row"><span className="info-label" style={{ color: "#ffffff", fontWeight: 700, fontSize: "0.95rem" }}>每股現金股利 (除息)</span><span className="info-value" style={{ color: "#facc15", fontWeight: 800, fontSize: "1.02rem" }}>{cashDiv > 0 ? `${cashDiv.toFixed(2)} 元` : "無配息"}</span></div>
-                      <div className="info-row"><span className="info-label" style={{ color: "#ffffff", fontWeight: 700, fontSize: "0.95rem" }}>每股股票股利 (除權)</span><span className="info-value" style={{ color: stockDiv > 0 ? "#c084fc" : "#94a3b8", fontWeight: 800, fontSize: "1.02rem" }}>{stockDiv > 0 ? `${stockDiv.toFixed(2)} 元` : "0.00 元 (未除權)"}</span></div>
-                      <div className="info-row"><span className="info-label" style={{ color: "#ffffff", fontWeight: 700, fontSize: "0.95rem" }}>除權息性質</span><span className="info-value" style={{ color: "#38bdf8", fontWeight: 800, fontSize: "0.95rem" }}>{exType}</span></div>
-                      <div className="info-row"><span className="info-label" style={{ color: "#ffffff", fontWeight: 700, fontSize: "0.95rem" }}>除息交易日</span><span className="info-value" style={{ color: fund?.ex_dividend_date ? "#facc15" : "#94a3b8", fontWeight: 800, fontSize: "0.95rem" }}>{fund?.ex_dividend_date || "尚待公告"}</span></div>
-                      <div className="info-row"><span className="info-label" style={{ color: "#cbd5e1", fontSize: "0.82rem" }}>二代健保補充保費 (2.11%)</span><span className="info-value" style={{ color: "#cbd5e1", fontSize: "0.82rem" }}>單筆達 2 萬元代扣 2.11%</span></div>
-                      <div className="info-row"><span className="info-label" style={{ color: "#cbd5e1", fontSize: "0.82rem" }}>股利抵減稅額 (8.5%)</span><span className="info-value" style={{ color: "#38bdf8", fontSize: "0.82rem" }}>可抵減稅額 8.5% (上限 8 萬)</span></div>
-                      <div className="info-row"><span className="info-label clickable-label" style={{ color: "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("市值")}>市值</span><span className="info-value" style={{ color: "#ffffff", fontWeight: 800, fontSize: "1.02rem" }}>{fmtNum(info.market_cap?.value)}</span></div>
-                      <div className="info-row"><span className="info-label clickable-label" style={{ color: "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("所屬產業")}>所屬產業</span><span className="info-value" style={{ color: "#67e8f9", fontWeight: 700, fontSize: "0.92rem" }}>{info.sector ?? "N/A"}</span></div>
+                      <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("PE")}>本益比 (PE)</span><span className="info-value" style={{ color: isWarm ? "#0284c7" : "#60a5fa", fontWeight: 800, fontSize: "1.02rem" }}>{n2s(info.tw_pe?.value ?? info.pe?.value)}</span></div>
+                      <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("PB")}>股價淨值比 (PB)</span><span className="info-value" style={{ color: isWarm ? "#0284c7" : "#60a5fa", fontWeight: 800, fontSize: "1.02rem" }}>{n2s(info.tw_pb?.value ?? info.pb?.value)}</span></div>
+                      <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("殖利率")}>現金殖利率</span><span className="info-value" style={{ color: isWarm ? "#b45309" : "#facc15", fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.tw_yield?.value ?? info.dividend_yield?.value)}</span></div>
+                      <div className="info-row"><span className="info-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }}>每股現金股利 (除息)</span><span className="info-value" style={{ color: isWarm ? "#b45309" : "#facc15", fontWeight: 800, fontSize: "1.02rem" }}>{cashDiv > 0 ? `${cashDiv.toFixed(2)} 元` : "無配息"}</span></div>
+                      <div className="info-row"><span className="info-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }}>每股股票股利 (除權)</span><span className="info-value" style={{ color: stockDiv > 0 ? (isWarm ? "#7e22ce" : "#c084fc") : (isWarm ? "#57534e" : "#94a3b8"), fontWeight: 800, fontSize: "1.02rem" }}>{stockDiv > 0 ? `${stockDiv.toFixed(2)} 元` : "0.00 元 (未除權)"}</span></div>
+                      <div className="info-row"><span className="info-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }}>除權息性質</span><span className="info-value" style={{ color: isWarm ? "#0284c7" : "#38bdf8", fontWeight: 800, fontSize: "0.95rem" }}>{exType}</span></div>
+                      <div className="info-row"><span className="info-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }}>除息交易日</span><span className="info-value" style={{ color: fund?.ex_dividend_date ? (isWarm ? "#b45309" : "#facc15") : (isWarm ? "#57534e" : "#94a3b8"), fontWeight: 800, fontSize: "0.95rem" }}>{fund?.ex_dividend_date || "尚待公告"}</span></div>
+                      <div className="info-row"><span className="info-label" style={{ color: isWarm ? "#57534e" : "#cbd5e1", fontSize: "0.82rem" }}>二代健保補充保費 (2.11%)</span><span className="info-value" style={{ color: isWarm ? "#57534e" : "#cbd5e1", fontSize: "0.82rem" }}>單筆達 2 萬元代扣 2.11%</span></div>
+                      <div className="info-row"><span className="info-label" style={{ color: isWarm ? "#57534e" : "#cbd5e1", fontSize: "0.82rem" }}>股利抵減稅額 (8.5%)</span><span className="info-value" style={{ color: isWarm ? "#0284c7" : "#38bdf8", fontSize: "0.82rem" }}>可抵減稅額 8.5% (上限 8 萬)</span></div>
+                      <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("市值")}>市值</span><span className="info-value" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 800, fontSize: "1.02rem" }}>{fmtNum(info.market_cap?.value)}</span></div>
+                      <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("所屬產業")}>所屬產業</span><span className="info-value" style={{ color: isWarm ? "#0284c7" : "#67e8f9", fontWeight: 700, fontSize: "0.92rem" }}>{info.sector ?? "N/A"}</span></div>
                     </div>
                   </div>
                 );
@@ -745,8 +745,8 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                 const summary = getCompanyBusinessSummary(coId, info.symbol, info.name || info.symbol, info.sector || undefined);
                 return (
                   <div className="info-section">
-                    <div className="info-section-header"><span style={{ color: "#ffffff", fontWeight: 700 }}>🏢 四、公司業務與營業項目介紹</span> <span style={{ fontSize: "0.80rem", color: "#93c5fd", fontWeight: 600 }}>(官方公開資訊與產業深度分析)</span></div>
-                    <div className="info-section-body" style={{ fontSize: "0.86rem", color: "#e2e8f0", lineHeight: 1.75, whiteSpace: "pre-line", padding: "10px 14px", background: "rgba(15, 23, 42, 0.4)", borderRadius: "6px" }}>
+                    <div className="info-section-header"><span style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700 }}>🏢 四、公司業務與營業項目介紹</span> <span style={{ fontSize: "0.80rem", color: isWarm ? "#0284c7" : "#93c5fd", fontWeight: 600 }}>(官方公開資訊與產業深度分析)</span></div>
+                    <div className="info-section-body" style={{ fontSize: "0.86rem", color: isWarm ? "#292524" : "#e2e8f0", lineHeight: 1.75, whiteSpace: "pre-line", padding: "10px 14px", background: isWarm ? "rgba(255, 255, 255, 0.95)" : "rgba(15, 23, 42, 0.4)", border: isWarm ? "1px solid rgba(140, 110, 80, 0.15)" : "none", borderRadius: "6px" }}>
                       {summary}
                     </div>
                   </div>
@@ -1351,7 +1351,7 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
         if (!info) return null;
         const aiResult = evaluateAIAlpha(info, info.current_price?.value || 0, info.previous_close?.value || (info.current_price?.value || 0), ohlcv);
         const winRate = aiResult.winRatePct;
-        const alphaColor = winRate >= 75 ? "#38bdf8" : winRate >= 50 ? "#c084fc" : "#ef4444";
+        const alphaColor = winRate >= 75 ? (isWarm ? "#0284c7" : "#38bdf8") : winRate >= 50 ? (isWarm ? "#7e22ce" : "#c084fc") : (isWarm ? "#dc2626" : "#ef4444");
         const dq = aiResult.dataQuality;
         const ml = aiResult.mlInference;
 
@@ -1362,33 +1362,34 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
         return (
           <div style={{
             position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-            background: "rgba(3, 7, 18, 0.85)", backdropFilter: "blur(12px)",
+            background: isWarm ? "rgba(40, 30, 20, 0.45)" : "rgba(3, 7, 18, 0.85)", backdropFilter: "blur(12px)",
             zIndex: 25000, display: "flex", justifyContent: "center", alignItems: "center",
             padding: "20px"
           }} onClick={() => setShowAIModal(false)}>
             <div style={{
-              background: "linear-gradient(145deg, #111827, #0f172a)",
+              background: isWarm ? "rgba(255, 252, 245, 0.98)" : "linear-gradient(145deg, #111827, #0f172a)",
               borderRadius: "16px", width: "960px", maxWidth: "98vw", maxHeight: "90vh",
-              padding: "24px", border: "1px solid rgba(168, 85, 247, 0.4)",
-              boxShadow: "0 25px 60px rgba(0, 0, 0, 0.8), 0 0 35px rgba(168, 85, 247, 0.18)",
+              padding: "24px", border: isWarm ? "1px solid rgba(217, 119, 6, 0.35)" : "1px solid rgba(168, 85, 247, 0.4)",
+              color: isWarm ? "#18181b" : "#ffffff",
+              boxShadow: isWarm ? "0 25px 60px rgba(90, 60, 30, 0.2)" : "0 25px 60px rgba(0, 0, 0, 0.8), 0 0 35px rgba(168, 85, 247, 0.18)",
               display: "flex", flexDirection: "column", gap: "16px", overflow: "hidden"
             }} onClick={e => e.stopPropagation()}>
               
               {/* Modal Header */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: "14px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: isWarm ? "1px solid rgba(140, 110, 80, 0.18)" : "1px solid rgba(255,255,255,0.1)", paddingBottom: "14px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                   <span style={{ fontSize: "1.6rem" }}>🧠</span>
                   <div>
                     <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-                      <h3 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 800, color: "#f3e8ff" }}>
+                      <h3 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 800, color: isWarm ? "#18181b" : "#f3e8ff" }}>
                         AI 多因子量化全景診斷
                       </h3>
-                      <span style={{ background: "rgba(168, 85, 247, 0.25)", color: "#d8b4fe", padding: "2px 8px", borderRadius: "12px", fontSize: "0.75rem", fontWeight: 700, border: "1px solid rgba(168, 85, 247, 0.4)" }}>
+                      <span style={{ background: isWarm ? "rgba(217, 119, 6, 0.15)" : "rgba(168, 85, 247, 0.25)", color: isWarm ? "#b45309" : "#d8b4fe", padding: "2px 8px", borderRadius: "12px", fontSize: "0.75rem", fontWeight: 700, border: isWarm ? "1px solid rgba(217, 119, 6, 0.35)" : "1px solid rgba(168, 85, 247, 0.4)" }}>
                         Cross-Sectional ML Alpha Engine
                       </span>
                     </div>
-                    <div style={{ fontSize: "0.86rem", color: "#94a3b8", marginTop: "3px" }}>
-                      標的：<b style={{ color: "#ffffff" }}>{info.name || info.symbol} ({info.symbol})</b> ｜ 最新價：<b style={{ color: "#38bdf8" }}>{fmtPrice(info.current_price?.value)} 元</b> ｜ 產業：<b style={{ color: "#cbd5e1" }}>{info.sector || "一般產業"}</b>
+                    <div style={{ fontSize: "0.86rem", color: isWarm ? "#57534e" : "#94a3b8", marginTop: "3px" }}>
+                      標的：<b style={{ color: isWarm ? "#18181b" : "#ffffff" }}>{info.name || info.symbol} ({info.symbol})</b> ｜ 最新價：<b style={{ color: isWarm ? "#0284c7" : "#38bdf8" }}>{fmtPrice(info.current_price?.value)} 元</b> ｜ 產業：<b style={{ color: isWarm ? "#57534e" : "#cbd5e1" }}>{info.sector || "一般產業"}</b>
                     </div>
                   </div>
                 </div>
@@ -1404,52 +1405,52 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                 {/* 頂部四大核心計量指標看板 */}
                 <div style={{
                   display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px",
-                  background: "rgba(0,0,0,0.38)", padding: "16px", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.06)"
+                  background: isWarm ? "rgba(245, 238, 225, 0.8)" : "rgba(0,0,0,0.38)", padding: "16px", borderRadius: "12px", border: isWarm ? "1px solid rgba(140, 110, 80, 0.2)" : "1px solid rgba(255,255,255,0.06)"
                 }}>
-                  <div style={{ borderLeft: "3px solid #38bdf8", paddingLeft: "10px" }}>
+                  <div style={{ borderLeft: `3px solid ${isWarm ? "#0284c7" : "#38bdf8"}`, paddingLeft: "10px" }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                      <span style={{ fontSize: "0.78rem", color: "#94a3b8", fontWeight: 600 }}>預估 20 日超額勝率</span>
+                      <span style={{ fontSize: "0.78rem", color: isWarm ? "#57534e" : "#94a3b8", fontWeight: 600 }}>預估 20 日超額勝率</span>
                     </div>
                     <div style={{ fontSize: "1.75rem", fontWeight: 900, color: alphaColor, margin: "2px 0" }}>
                       {winRate.toFixed(1)}%
                     </div>
-                    <div style={{ fontSize: "0.72rem", color: "#94a3b8", lineHeight: 1.3 }}>
+                    <div style={{ fontSize: "0.72rem", color: isWarm ? "#57534e" : "#94a3b8", lineHeight: 1.3 }}>
                       歷史回測校準基準 ｜ 實扣 63.5 bps 摩擦後擊敗大盤機率
                     </div>
                   </div>
                   
-                  <div style={{ borderLeft: "3px solid #a855f7", paddingLeft: "10px" }}>
+                  <div style={{ borderLeft: `3px solid ${isWarm ? "#7e22ce" : "#a855f7"}`, paddingLeft: "10px" }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                      <span style={{ fontSize: "0.78rem", color: "#94a3b8", fontWeight: 600 }}>預估超額 Alpha</span>
+                      <span style={{ fontSize: "0.78rem", color: isWarm ? "#57534e" : "#94a3b8", fontWeight: 600 }}>預估超額 Alpha</span>
                     </div>
-                    <div style={{ fontSize: "1.75rem", fontWeight: 900, color: aiResult.expectedAlphaPct >= 0 ? "#4ade80" : "#f87171", margin: "2px 0" }}>
+                    <div style={{ fontSize: "1.75rem", fontWeight: 900, color: aiResult.expectedAlphaPct >= 0 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#dc2626" : "#f87171"), margin: "2px 0" }}>
                       {aiResult.expectedAlphaPct >= 0 ? "+" : ""}{aiResult.expectedAlphaPct.toFixed(1)}%
                     </div>
-                    <div style={{ fontSize: "0.72rem", color: "#94a3b8", lineHeight: 1.3 }}>
+                    <div style={{ fontSize: "0.72rem", color: isWarm ? "#57534e" : "#94a3b8", lineHeight: 1.3 }}>
                       相對於大盤 T+20 淨超額 ｜ 預期領先加權指數之利潤幅度
                     </div>
                   </div>
 
-                  <div style={{ borderLeft: "3px solid #f59e0b", paddingLeft: "10px" }}>
+                  <div style={{ borderLeft: `3px solid ${isWarm ? "#d97706" : "#f59e0b"}`, paddingLeft: "10px" }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                      <span style={{ fontSize: "0.78rem", color: "#94a3b8", fontWeight: 600 }}>AI 置信評級</span>
+                      <span style={{ fontSize: "0.78rem", color: isWarm ? "#57534e" : "#94a3b8", fontWeight: 600 }}>AI 置信評級</span>
                     </div>
                     <div style={{ fontSize: "1.3rem", fontWeight: 800, color: alphaColor, marginTop: "4px", marginBottom: "2px" }}>
                       {aiResult.convictionTier}
                     </div>
-                    <div style={{ fontSize: "0.72rem", color: "#94a3b8", lineHeight: 1.3 }}>
+                    <div style={{ fontSize: "0.72rem", color: isWarm ? "#57534e" : "#94a3b8", lineHeight: 1.3 }}>
                       雙軌集成 (60% Rule + 40% ML) ｜ 截面分位強度綜合判定
                     </div>
                   </div>
 
-                  <div style={{ borderLeft: "3px solid #10b981", paddingLeft: "10px" }}>
+                  <div style={{ borderLeft: `3px solid ${isWarm ? "#15803d" : "#10b981"}`, paddingLeft: "10px" }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                      <span style={{ fontSize: "0.78rem", color: "#94a3b8", fontWeight: 600 }}>資料品質完備度</span>
+                      <span style={{ fontSize: "0.78rem", color: isWarm ? "#57534e" : "#94a3b8", fontWeight: 600 }}>資料品質完備度</span>
                     </div>
-                    <div style={{ fontSize: "1.45rem", fontWeight: 800, color: dq.overallScore >= 80 ? "#4ade80" : "#facc15", margin: "2px 0" }}>
-                      {dq.overallScore} <span style={{ fontSize: "0.85rem", fontWeight: 500, color: "#94a3b8" }}>/ 100 ({dq.availableCount}/{dq.totalRequired})</span>
+                    <div style={{ fontSize: "1.45rem", fontWeight: 800, color: dq.overallScore >= 80 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#d97706" : "#facc15"), margin: "2px 0" }}>
+                      {dq.overallScore} <span style={{ fontSize: "0.85rem", fontWeight: 500, color: isWarm ? "#57534e" : "#94a3b8" }}>/ 100 ({dq.availableCount}/{dq.totalRequired})</span>
                     </div>
-                    <div style={{ fontSize: "0.72rem", color: "#94a3b8", lineHeight: 1.3 }}>
+                    <div style={{ fontSize: "0.72rem", color: isWarm ? "#57534e" : "#94a3b8", lineHeight: 1.3 }}>
                       零未來函數 (Point-in-Time) ｜ 嚴格鎖定法定財報申報時效
                     </div>
                   </div>
@@ -1457,30 +1458,30 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
 
                 {/* 💡 4 大核心指標深度解讀指南 */}
                 <div style={{
-                  background: "rgba(15, 23, 42, 0.6)",
-                  border: "1px solid rgba(148, 163, 184, 0.18)",
+                  background: isWarm ? "rgba(245, 238, 225, 0.6)" : "rgba(15, 23, 42, 0.6)",
+                  border: isWarm ? "1px solid rgba(140, 110, 80, 0.18)" : "1px solid rgba(148, 163, 184, 0.18)",
                   borderRadius: "10px",
                   padding: "12px 14px",
                   fontSize: "0.76rem"
                 }}>
-                  <div style={{ fontWeight: 700, color: "#cbd5e1", marginBottom: "8px", display: "flex", alignItems: "center", gap: "6px" }}>
+                  <div style={{ fontWeight: 700, color: isWarm ? "#18181b" : "#cbd5e1", marginBottom: "8px", display: "flex", alignItems: "center", gap: "6px" }}>
                     <span>📖 4 大核心計量指標深度解讀指南</span>
                   </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "10px", color: "#94a3b8", lineHeight: 1.45 }}>
-                    <div style={{ background: "rgba(0,0,0,0.2)", padding: "8px", borderRadius: "6px" }}>
-                      <b style={{ color: "#38bdf8" }}>🎯 20日超額勝率：</b><br />
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "10px", color: isWarm ? "#44403c" : "#94a3b8", lineHeight: 1.45 }}>
+                    <div style={{ background: isWarm ? "rgba(255, 255, 255, 0.85)" : "rgba(0,0,0,0.2)", padding: "8px", borderRadius: "6px", border: isWarm ? "1px solid rgba(140, 110, 80, 0.12)" : "none" }}>
+                      <b style={{ color: isWarm ? "#0284c7" : "#38bdf8" }}>🎯 20日超額勝率：</b><br />
                       衡量自 T+1 開盤持有至 T+20 收盤，扣除 63.5 bps 總摩擦後擊敗大盤之實證機率。由 2018–2024 歷史回測分位數單調性校準。
                     </div>
-                    <div style={{ background: "rgba(0,0,0,0.2)", padding: "8px", borderRadius: "6px" }}>
-                      <b style={{ color: "#c084fc" }}>📈 預估超額 Alpha：</b><br />
+                    <div style={{ background: isWarm ? "rgba(255, 255, 255, 0.85)" : "rgba(0,0,0,0.2)", padding: "8px", borderRadius: "6px", border: isWarm ? "1px solid rgba(140, 110, 80, 0.12)" : "none" }}>
+                      <b style={{ color: isWarm ? "#7e22ce" : "#c084fc" }}>📈 預估超額 Alpha：</b><br />
                       預期 20 個交易日相對於加權指數的純 Alpha 淨超額幅度（+1.4% 表示預期領先大盤 1.4 個百分點）。
                     </div>
-                    <div style={{ background: "rgba(0,0,0,0.2)", padding: "8px", borderRadius: "6px" }}>
-                      <b style={{ color: "#fbbf24" }}>🧠 AI 置信評級：</b><br />
+                    <div style={{ background: isWarm ? "rgba(255, 255, 255, 0.85)" : "rgba(0,0,0,0.2)", padding: "8px", borderRadius: "6px", border: isWarm ? "1px solid rgba(140, 110, 80, 0.12)" : "none" }}>
+                      <b style={{ color: isWarm ? "#b45309" : "#fbbf24" }}>🧠 AI 置信評級：</b><br />
                       60% 啟發式 17 維因子 + 40% 8-Tree GBDT 決策樹雙軌集成。勝率 ≥68% 強烈看多、60~68% 穩健多頭、50~60% 中性盤整、&lt;50% 偏空避險。
                     </div>
-                    <div style={{ background: "rgba(0,0,0,0.2)", padding: "8px", borderRadius: "6px" }}>
-                      <b style={{ color: "#34d399" }}>🛡️ 資料品質完備度：</b><br />
+                    <div style={{ background: isWarm ? "rgba(255, 255, 255, 0.85)" : "rgba(0,0,0,0.2)", padding: "8px", borderRadius: "6px", border: isWarm ? "1px solid rgba(140, 110, 80, 0.12)" : "none" }}>
+                      <b style={{ color: isWarm ? "#15803d" : "#34d399" }}>🛡️ 資料品質完備度：</b><br />
                       計算 17 項核心因子中即時有效之比例（17/17=100分）。嚴格依據 MOPS 財報法定申報日鎖定，確認 0 未來函數洩漏。
                     </div>
                   </div>
@@ -1489,24 +1490,24 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                 {/* 機器學習 GBDT & 特徵貢獻度視圖 */}
                 {ml && (
                   <div style={{
-                    background: "linear-gradient(135deg, rgba(30, 41, 59, 0.6), rgba(15, 23, 42, 0.8))",
-                    border: "1px solid rgba(56, 189, 248, 0.3)", borderRadius: "10px", padding: "12px 16px"
+                    background: isWarm ? "rgba(240, 249, 255, 0.85)" : "linear-gradient(135deg, rgba(30, 41, 59, 0.6), rgba(15, 23, 42, 0.8))",
+                    border: isWarm ? "1px solid rgba(2, 132, 199, 0.35)" : "1px solid rgba(56, 189, 248, 0.3)", borderRadius: "10px", padding: "12px 16px"
                   }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px", flexWrap: "wrap", gap: "6px" }}>
-                      <div style={{ fontWeight: 700, fontSize: "0.88rem", color: "#38bdf8", display: "flex", alignItems: "center", gap: "6px" }}>
+                      <div style={{ fontWeight: 700, fontSize: "0.88rem", color: isWarm ? "#0369a1" : "#38bdf8", display: "flex", alignItems: "center", gap: "6px" }}>
                         <span>⚡ 機器學習 Track：8-Tree GBDT + Ridge 特徵交互推論</span>
                       </div>
-                      <span style={{ fontSize: "0.75rem", color: "#94a3b8" }}>
-                        ML 預估勝率：<b style={{ color: "#38bdf8" }}>{ml.mlWinProbabilityPct.toFixed(1)}%</b> ｜ 預估超額：<b style={{ color: ml.predictedExcessReturnPct >= 0 ? "#4ade80" : "#f87171" }}>{ml.predictedExcessReturnPct >= 0 ? "+" : ""}{ml.predictedExcessReturnPct.toFixed(1)}%</b>
+                      <span style={{ fontSize: "0.75rem", color: isWarm ? "#57534e" : "#94a3b8" }}>
+                        ML 預估勝率：<b style={{ color: isWarm ? "#0284c7" : "#38bdf8" }}>{ml.mlWinProbabilityPct.toFixed(1)}%</b> ｜ 預估超額：<b style={{ color: ml.predictedExcessReturnPct >= 0 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#dc2626" : "#f87171") }}>{ml.predictedExcessReturnPct >= 0 ? "+" : ""}{ml.predictedExcessReturnPct.toFixed(1)}%</b>
                       </span>
                     </div>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
                       {ml.topFeatureContributions?.slice(0, 6).map((fc: { feature: string; impact: number }, i: number) => (
                         <span key={i} style={{
-                          background: fc.impact >= 0 ? "rgba(34, 197, 94, 0.12)" : "rgba(239, 68, 68, 0.12)",
-                          border: `1px solid ${fc.impact >= 0 ? "rgba(34, 197, 94, 0.3)" : "rgba(239, 68, 68, 0.3)"}`,
-                          color: fc.impact >= 0 ? "#86efac" : "#fca5a5",
-                          padding: "3px 8px", borderRadius: "6px", fontSize: "0.72rem"
+                          background: fc.impact >= 0 ? (isWarm ? "rgba(22, 163, 74, 0.12)" : "rgba(34, 197, 94, 0.12)") : (isWarm ? "rgba(220, 38, 38, 0.12)" : "rgba(239, 68, 68, 0.12)"),
+                          border: `1px solid ${fc.impact >= 0 ? (isWarm ? "rgba(22, 163, 74, 0.3)" : "rgba(34, 197, 94, 0.3)") : (isWarm ? "rgba(220, 38, 38, 0.3)" : "rgba(239, 68, 68, 0.3)")}`,
+                          color: fc.impact >= 0 ? (isWarm ? "#15803d" : "#86efac") : (isWarm ? "#dc2626" : "#fca5a5"),
+                          padding: "3px 8px", borderRadius: "6px", fontSize: "0.72rem", fontWeight: 600
                         }}>
                           {fc.feature}: {fc.impact >= 0 ? "+" : ""}{fc.impact.toFixed(3)}
                         </span>
@@ -1516,7 +1517,7 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                 )}
 
                 {/* 因子分類篩選標籤 */}
-                <div style={{ display: "flex", gap: "6px", borderBottom: "1px solid rgba(255,255,255,0.08)", paddingBottom: "8px", flexWrap: "wrap" }}>
+                <div style={{ display: "flex", gap: "6px", borderBottom: isWarm ? "1px solid rgba(140, 110, 80, 0.15)" : "1px solid rgba(255,255,255,0.08)", paddingBottom: "8px", flexWrap: "wrap" }}>
                   {[
                     { id: "ALL", label: `全部 17 維因子 (${aiResult.factors.length})` },
                     { id: "OHLCV", label: `🚀 價量動能 (${aiResult.factors.filter(f => f.category === "OHLCV").length})` },
@@ -1528,9 +1529,9 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                       key={tab.id}
                       onClick={() => setAiModalFilter(tab.id as any)}
                       style={{
-                        background: aiModalFilter === tab.id ? "rgba(168, 85, 247, 0.35)" : "rgba(255,255,255,0.04)",
-                        border: `1px solid ${aiModalFilter === tab.id ? "rgba(168, 85, 247, 0.6)" : "rgba(255,255,255,0.08)"}`,
-                        color: aiModalFilter === tab.id ? "#f3e8ff" : "#94a3b8",
+                        background: aiModalFilter === tab.id ? (isWarm ? "rgba(217, 119, 6, 0.18)" : "rgba(168, 85, 247, 0.35)") : (isWarm ? "rgba(140, 110, 80, 0.08)" : "rgba(255,255,255,0.04)"),
+                        border: `1px solid ${aiModalFilter === tab.id ? (isWarm ? "rgba(217, 119, 6, 0.4)" : "rgba(168, 85, 247, 0.6)") : (isWarm ? "rgba(140, 110, 80, 0.15)" : "rgba(255,255,255,0.08)")}`,
+                        color: aiModalFilter === tab.id ? (isWarm ? "#b45309" : "#f3e8ff") : (isWarm ? "#57534e" : "#94a3b8"),
                         padding: "5px 12px", borderRadius: "6px", fontSize: "0.78rem", fontWeight: aiModalFilter === tab.id ? 700 : 500,
                         cursor: "pointer", transition: "all 0.2s ease"
                       }}
@@ -1545,21 +1546,21 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                   {filteredFactors.map(f => {
                     const isPos = f.status === "positive";
                     const isNeg = f.status === "negative";
-                    const bg = isPos ? "rgba(34, 197, 94, 0.08)" : isNeg ? "rgba(239, 68, 68, 0.10)" : "rgba(148, 163, 184, 0.05)";
-                    const border = isPos ? "rgba(34, 197, 94, 0.3)" : isNeg ? "rgba(239, 68, 68, 0.3)" : "rgba(148, 163, 184, 0.15)";
-                    const color = isPos ? "#4ade80" : isNeg ? "#f87171" : "#94a3b8";
+                    const bg = isPos ? (isWarm ? "rgba(22, 163, 74, 0.08)" : "rgba(34, 197, 94, 0.08)") : isNeg ? (isWarm ? "rgba(220, 38, 38, 0.08)" : "rgba(239, 68, 68, 0.10)") : (isWarm ? "rgba(140, 110, 80, 0.05)" : "rgba(148, 163, 184, 0.05)");
+                    const border = isPos ? (isWarm ? "rgba(22, 163, 74, 0.3)" : "rgba(34, 197, 94, 0.3)") : isNeg ? (isWarm ? "rgba(220, 38, 38, 0.3)" : "rgba(239, 68, 68, 0.3)") : (isWarm ? "rgba(140, 110, 80, 0.15)" : "rgba(148, 163, 184, 0.15)");
+                    const color = isPos ? (isWarm ? "#15803d" : "#4ade80") : isNeg ? (isWarm ? "#dc2626" : "#f87171") : (isWarm ? "#57534e" : "#94a3b8");
                     const icon = isPos ? "✅" : isNeg ? "❌" : "⚪";
 
                     return (
                       <div key={f.name} style={{
                         background: bg, border: `1px solid ${border}`, borderRadius: "8px", padding: "10px 12px",
-                        display: "flex", flexDirection: "column", gap: "4px"
+                        display: "flex", flexDirection: "column", gap: "4px", boxShadow: isWarm ? "0 1px 3px rgba(90, 60, 30, 0.05)" : "none"
                       }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                             <span style={{ fontSize: "1rem" }}>{icon}</span>
-                            <span style={{ fontWeight: 700, color: "#f8fafc", fontSize: "0.88rem" }}>{f.label}</span>
-                            <span style={{ fontSize: "0.68rem", color: "#94a3b8", background: "rgba(255,255,255,0.06)", padding: "1px 6px", borderRadius: "4px" }}>
+                            <span style={{ fontWeight: 700, color: isWarm ? "#18181b" : "#f8fafc", fontSize: "0.88rem" }}>{f.label}</span>
+                            <span style={{ fontSize: "0.68rem", color: isWarm ? "#57534e" : "#94a3b8", background: isWarm ? "rgba(140, 110, 80, 0.1)" : "rgba(255,255,255,0.06)", padding: "1px 6px", borderRadius: "4px" }}>
                               {f.source || "系統精算"}
                             </span>
                           </div>
@@ -1568,12 +1569,12 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                           </span>
                         </div>
 
-                        <div style={{ fontSize: "0.76rem", color: "#cbd5e1", lineHeight: 1.4, marginTop: "2px" }}>
+                        <div style={{ fontSize: "0.76rem", color: isWarm ? "#44403c" : "#cbd5e1", lineHeight: 1.4, marginTop: "2px" }}>
                           {f.explanation}
                         </div>
 
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px dashed rgba(255,255,255,0.06)", paddingTop: "4px", marginTop: "2px", fontSize: "0.70rem" }}>
-                          <span style={{ color: "#94a3b8" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: isWarm ? "1px dashed rgba(140, 110, 80, 0.15)" : "1px dashed rgba(255,255,255,0.06)", paddingTop: "4px", marginTop: "2px", fontSize: "0.70rem" }}>
+                          <span style={{ color: isWarm ? "#57534e" : "#94a3b8" }}>
                             因子權重：{((f.weight || 0) * 100).toFixed(0)}%
                           </span>
                           <span style={{ color: color, fontWeight: 700 }}>
@@ -1588,8 +1589,8 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
               </div>
 
               {/* Modal Footer */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: "12px" }}>
-                <span style={{ fontSize: "0.75rem", color: "#64748b" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: isWarm ? "1px solid rgba(140, 110, 80, 0.18)" : "1px solid rgba(255,255,255,0.1)", paddingTop: "12px" }}>
+                <span style={{ fontSize: "0.75rem", color: isWarm ? "#57534e" : "#64748b" }}>
                   🔒 StockT Cross-Sectional ML Alpha Engine ｜ 點擊遮罩或按鈕即可關閉
                 </span>
                 <button className="btn btn-primary btn-sm" onClick={() => setShowAIModal(false)}>
