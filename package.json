@@ -12,7 +12,8 @@
     "backtest:run": "node scripts/run_backtest.mjs",
     "backtest:audit": "node scripts/audit_backtest.mjs",
     "backtest:oos": "node scripts/evaluate_oos_ablation.mjs",
-    "backtest:validate": "node scripts/statistical_alpha_validator.mjs"
+    "backtest:validate": "node scripts/statistical_alpha_validator.mjs",
+    "backtest:placebo": "node scripts/negative_control_experiment.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",
