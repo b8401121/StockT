@@ -8,11 +8,12 @@ import { AnalysisTab } from "./components/AnalysisTab";
 import { ScannerTab } from "./components/ScannerTab";
 import { FundamentalScanTab } from "./components/FundamentalScanTab";
 import { HybridScanTab } from "./components/HybridScanTab";
+import { AIAlphaScanTab } from "./components/AIAlphaScanTab";
 import { WatchlistTab } from "./components/WatchlistTab";
 import { HardwareBadge } from "./components/HardwareBadge";
 import { loadStocks, updateStocks } from "./utils/stocks";
 
-type TabId = "analysis" | "scanner" | "fundamental" | "hybrid" | "watchlist";
+type TabId = "analysis" | "scanner" | "fundamental" | "hybrid" | "ai_alpha" | "watchlist";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabId>("analysis");
@@ -94,9 +95,10 @@ export default function App() {
   const isLoggedIn = !!authUser;
   const TABS: { id: TabId; label: string; requireLogin?: boolean }[] = [
     { id: "analysis", label: "📊 個股分析" },
-    { id: "scanner", label: "🤖 AI 智慧選股" },
-    { id: "fundamental", label: "📋 基本面選股" },
+    { id: "ai_alpha", label: "🧠 AI 多因子選股" },
     { id: "hybrid", label: "🎯 融合選股" },
+    { id: "scanner", label: "🤖 突破與動能選股" },
+    { id: "fundamental", label: "📋 財報基本面選股" },
     { id: "watchlist", label: "⭐ 我的收藏", requireLogin: true },
   ];
 
@@ -167,14 +169,17 @@ export default function App() {
         <div style={{ display: activeTab === "analysis" ? "block" : "none", height: "100%", width: "100%" }}>
           <AnalysisTab initialSymbol={analyzeTarget} />
         </div>
+        <div style={{ display: activeTab === "ai_alpha" ? "block" : "none", height: "100%", width: "100%" }}>
+          <AIAlphaScanTab onAnalyze={handleAnalyze} />
+        </div>
+        <div style={{ display: activeTab === "hybrid" ? "block" : "none", height: "100%", width: "100%" }}>
+          <HybridScanTab onAnalyze={handleAnalyze} />
+        </div>
         <div style={{ display: activeTab === "scanner" ? "block" : "none", height: "100%", width: "100%" }}>
           <ScannerTab onAnalyze={handleAnalyze} />
         </div>
         <div style={{ display: activeTab === "fundamental" ? "block" : "none", height: "100%", width: "100%" }}>
           <FundamentalScanTab onAnalyze={handleAnalyze} />
-        </div>
-        <div style={{ display: activeTab === "hybrid" ? "block" : "none", height: "100%", width: "100%" }}>
-          <HybridScanTab onAnalyze={handleAnalyze} />
         </div>
         {isLoggedIn && (
           <div style={{ display: activeTab === "watchlist" ? "flex" : "none", height: "100%", width: "100%" }}>
