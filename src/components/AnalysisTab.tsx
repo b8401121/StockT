@@ -1,5 +1,5 @@
 import { AddToWatchlistBtn } from "./AddToWatchlistBtn";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { stockService, newsService, fundamentalService } from "../services";
 import twseFundamentals from "../utils/twse_mops_fundamentals.json";
 import { ChartPanel, ZoomChartModal, SubChartType } from "./Chart";
@@ -16,6 +16,100 @@ import { useAppTheme } from "../utils/theme";
 
 import { getCachedStocks, subscribeStocks, StockEntry } from "../utils/stocks";
 import { getCompanyBusinessSummary } from "../utils/companyProfiles";
+
+// ─── 大盤與指數專用定義與說明字典 ─────────────────────────────────────────
+const INDEX_INFO_MAP: Record<string, { name: string; region: string; type: string; desc: string }> = {
+  "^TWII": {
+    name: "台灣發行量加權股價指數 (TAIEX)",
+    region: "台灣 🇹🇼",
+    type: "市值加權型全體上市股票基準指數",
+    desc: "台灣證券交易所編制之旗艦大盤指數，涵蓋全體上市普通股，以發行市值為加權權重（台積電為最大權重成分股），為台股現貨與期貨市場最核心之晴雨表。"
+  },
+  "^TWOII": {
+    name: "櫃買指數 (TPEx Index)",
+    region: "台灣 🇹🇼",
+    type: "上櫃股票綜合指數",
+    desc: "台灣證券櫃檯買賣中心編制，涵蓋全體上櫃股票，主要由中小型電子、半導體供應鏈、生技醫療及創新題材股組成，為觀察台股內資動能與中小型飆股的重要指標。"
+  },
+  "^GSPC": {
+    name: "標普 500 指數 (S&P 500)",
+    region: "美國 🇺🇸",
+    type: "五百大龍頭企業市值加權指數",
+    desc: "標準普爾公司編制，挑選美股市場各主要產業最具代表性之 500 家龍頭企業，涵蓋美股市值約 80%，為全球機構投資人最廣泛使用的美股大盤投資基準。"
+  },
+  "^SOX": {
+    name: "費城半導體指數 (PHLX Semiconductor)",
+    region: "美國 🇺🇸",
+    type: "全球半導體全產業鏈核心指數",
+    desc: "由全球 30 大半導體設計（輝達、高通、超微）、晶圓代工（台積電 ADR）、設備（艾司摩爾、應材）等巨頭組成，為全球科技業景氣最前瞻之先行指標，與台股連動性極高。"
+  },
+  "^IXIC": {
+    name: "那斯達克綜合指數 (Nasdaq Composite)",
+    region: "美國 🇺🇸",
+    type: "科技與成長股綜合指數",
+    desc: "涵蓋那斯達克交易所掛牌之所有普通股與 ADR，以大型科技巨頭（蘋果、微軟、亞馬遜、谷歌、Meta）為核心權重，反映全球科技創新產業的估值與動能。"
+  },
+  "^DJI": {
+    name: "道瓊工業平均指數 (Dow Jones Industrial Average)",
+    region: "美國 🇺🇸",
+    type: "三十大藍籌股價加權指數",
+    desc: "歷史最悠久的道瓊 30 大工業指數，挑選 30 家美國最具歷史與代表性的跨國藍籌巨頭（如微軟、波音、高盛、開拓重工等），採股價加權計算。"
+  },
+  "^VIX": {
+    name: "CBOE 恐慌指數 (Volatility Index)",
+    region: "美國 🇺🇸 / 全球宏觀",
+    type: "標普 500 選擇權隱含波動率指數",
+    desc: "由芝加哥選擇權交易所 (CBOE) 計算，衡量市場對未來 30 天標普 500 波動幅度的預期。<20 代表市場情緒平穩樂觀，>30 代表避險情緒升溫恐慌。"
+  },
+  "^TNX": {
+    name: "美國 10 年期公債殖利率 (US 10-Yr Yield)",
+    region: "美國 🇺🇸 / 全球宏觀",
+    type: "基準無風險收益率與折現率指標",
+    desc: "全球各類資產定價之基準錨，代表美國聯準會與長天期市場資金成本預期。殖利率走升通常壓抑高估值科技股倍數，回落則有利風險性資產重估。"
+  },
+  "^N225": {
+    name: "日經 225 指數 (Nikkei 225)",
+    region: "日本 🇯🇵",
+    type: "東京證交所主要股價平均指數",
+    desc: "日本經濟新聞社編制，涵蓋東京證券交易所 225 檔最具流動性與代表性之藍籌大型企業，為觀察日本總體經濟復甦與出口產業的重要窗口。"
+  },
+  "^KS11": {
+    name: "韓國綜合股價指數 (KOSPI)",
+    region: "韓國 🇰🇷",
+    type: "韓國證券交易所主板綜合指數",
+    desc: "韓國綜合股價指數，以三星電子、SK海力士、現代汽車等跨國製造與半導體巨頭為主要權重，與台灣科技產業存在直接競爭與景氣循環連動。"
+  },
+  "^HSI": {
+    name: "香港恆生指數 (Hang Seng Index)",
+    region: "香港 🇭🇰",
+    type: "香港股市旗艦藍籌指數",
+    desc: "涵蓋香港聯交所主要大型藍籌股，包含科技巨頭（騰訊、阿里巴巴）、中資國有銀行、保險及大型地產商，為觀察大中華離岸資本市場動態的核心指標。"
+  },
+  "000001.SS": {
+    name: "上證綜合指數 (SSE Composite)",
+    region: "中國 🇨🇳",
+    type: "上海證券交易所綜合股價指數",
+    desc: "涵蓋上海證券交易所所有掛牌之 A 股與 B 股，反映中國內地大型金融、基建、能源與消費國企等核心資本市場表現。"
+  },
+  "^FTSE": {
+    name: "英國富時 100 指數 (FTSE 100)",
+    region: "英國 🇬🇧",
+    type: "倫敦證券交易所百大企業代表指數",
+    desc: "涵蓋倫敦證交所市值前一百大藍籌企業，包括匯豐、殼牌、阿斯特捷利康等跨國企業，高度受全球大宗商品價格與外匯匯率影響。"
+  },
+  "^GDAXI": {
+    name: "德國 DAX 指數 (DAX 40)",
+    region: "德國 🇩🇪",
+    type: "法蘭克福證券交易所旗艦指數",
+    desc: "涵蓋德國 40 家最重要的跨國製造、汽車（SAP、西門子、福斯、BMW）與化工巨頭，為歐洲最大經濟體景氣強弱的最關鍵指標。"
+  },
+  "^FCHI": {
+    name: "法國 CAC 40 指數",
+    region: "法國 🇫🇷",
+    type: "巴黎泛歐交易所旗艦指數",
+    desc: "涵蓋法國前 40 大跨國龍頭企業，主要包括 LVMH、愛馬仕、歐萊雅等頂級精品巨頭，以及道達爾、空中巴士等頂級工業龍頭。"
+  },
+};
 
 // ─── 股票資料庫 (taiwan_stocks.json) ─────────────────────────────────────────
 let STOCK_DB: StockEntry[] = getCachedStocks();
@@ -393,7 +487,8 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
       const indicators = calculateAllIndicators(stockOhlcv);
       const lastN = stockOhlcv.timestamp.length - 1;
       const { signals, score } = getAnalysisSuggestions(indicators, lastN);
-      const riskList = checkLandmineRisks(indicators, stockInfo, lastN);
+      const isIdxTarget = target.startsWith("^") || target === "000001.SS" || ["^TWII", "^TWOII", "^GSPC", "^SOX", "^IXIC", "^DJI", "^VIX", "^TNX", "^N225", "^KS11", "^HSI", "000001.SS", "^FTSE", "^GDAXI", "^FCHI"].includes(target.toUpperCase());
+      const riskList = isIdxTarget ? [] : checkLandmineRisks(indicators, stockInfo, lastN);
 
       setSuggestions(signals);
       setTechScore(score);
@@ -469,6 +564,83 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
     if (finalScore <= -1) return { title: "📉 偏空觀望 (Bearish)", color: "#f87171", bg: "rgba(239,68,68,0.08)", border: "rgba(239,68,68,0.3)" };
     return { title: "⚖️ 中性持有 (Hold)", color: "#b0bec5", bg: "rgba(176,190,197,0.05)", border: "rgba(176,190,197,0.2)" };
   })();
+
+  // ── 判斷是否為大盤指數 / 總體指標
+  const isIndex = useMemo(() => {
+    const sym = (info?.symbol || query || "").trim().toUpperCase();
+    return (
+      sym.startsWith("^") ||
+      sym === "000001.SS" ||
+      ["^TWII", "^TWOII", "^GSPC", "^SOX", "^IXIC", "^DJI", "^VIX", "^TNX", "^N225", "^KS11", "^HSI", "000001.SS", "^FTSE", "^GDAXI", "^FCHI"].includes(sym)
+    );
+  }, [info?.symbol, query]);
+
+  // ── 大盤指數技術與均線指標運算
+  const indexMetrics = useMemo(() => {
+    if (!ohlcv || ohlcv.close.length === 0) return null;
+    const closes = ohlcv.close.filter((c) => typeof c === "number" && !isNaN(c) && c > 0);
+    const highs = ohlcv.high.filter((h) => typeof h === "number" && !isNaN(h) && h > 0);
+    const lows = ohlcv.low.filter((l) => typeof l === "number" && !isNaN(l) && l > 0);
+    const opens = ohlcv.open.filter((o) => typeof o === "number" && !isNaN(o) && o > 0);
+    const len = closes.length;
+    if (len === 0) return null;
+
+    const cur = info?.current_price?.value ?? closes[len - 1];
+    const prev = info?.previous_close?.value ?? (len >= 2 ? closes[len - 2] : cur);
+    const chg = cur - prev;
+    const chgPct = prev > 0 ? (chg / prev) * 100 : 0;
+
+    const todayHigh = highs[highs.length - 1] ?? cur;
+    const todayLow = lows[lows.length - 1] ?? cur;
+    const todayOpen = opens[opens.length - 1] ?? cur;
+    const amplitude = prev > 0 ? ((todayHigh - todayLow) / prev) * 100 : 0;
+
+    const calcMa = (period: number) => {
+      if (len < period) return null;
+      const slice = closes.slice(-period);
+      const sum = slice.reduce((a, b) => a + b, 0);
+      return sum / period;
+    };
+
+    const ma5 = calcMa(5);
+    const ma20 = calcMa(20);
+    const ma60 = calcMa(60);
+    const ma120 = calcMa(120);
+
+    const bias5 = ma5 ? ((cur - ma5) / ma5) * 100 : null;
+    const bias20 = ma20 ? ((cur - ma20) / ma20) * 100 : null;
+    const bias60 = ma60 ? ((cur - ma60) / ma60) * 100 : null;
+
+    const ret5 = len >= 5 ? ((cur - closes[len - 5]) / closes[len - 5]) * 100 : null;
+    const ret20 = len >= 20 ? ((cur - closes[len - 20]) / closes[len - 20]) * 100 : null;
+    const ret60 = len >= 60 ? ((cur - closes[len - 60]) / closes[len - 60]) * 100 : null;
+    const ret120 = len >= 120 ? ((cur - closes[len - 120]) / closes[len - 120]) * 100 : null;
+
+    let trendLabel = "震盪整理";
+    let trendColor = "#facc15";
+    if (ma5 && ma20 && cur > ma5 && ma5 > ma20) {
+      trendLabel = "🔥 多頭排列 (短中均線向上助漲)";
+      trendColor = "#ff5252";
+    } else if (ma5 && ma20 && cur < ma5 && ma5 < ma20) {
+      trendLabel = "❄️ 空頭排列 (短期均線承壓修正)";
+      trendColor = "#4caf50";
+    } else if (ma20 && cur > ma20) {
+      trendLabel = "⚖️ 偏多震盪 (站穩月線關卡)";
+      trendColor = "#60a5fa";
+    } else if (ma20 && cur <= ma20) {
+      trendLabel = "⚠️ 偏空震盪 (月線承壓回檔)";
+      trendColor = "#f59e0b";
+    }
+
+    return {
+      cur, prev, chg, chgPct,
+      todayHigh, todayLow, todayOpen, amplitude,
+      ma5, ma20, ma60, ma120,
+      bias5, bias20, bias60,
+      ret5, ret20, ret60, ret120,
+      trendLabel, trendColor,
+    };
+  }, [ohlcv, info]);
 
   const changeAmt =
     info?.current_price && info?.previous_close
@@ -572,7 +744,7 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
               </div>
 
               {/* 地雷風險警示 */}
-              {risks.length > 0 && (
+              {risks.length > 0 && !isIndex && (
                 <div className="risk-banner">
                   <div className="risk-banner-title">⚠️ 偵測到潛在風險</div>
                   {risks.map((r, i) => <div className="risk-item" key={i}>{r}</div>)}
@@ -597,176 +769,345 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                 </div>
               </div>
 
-              {/* 🧠 Data-backed Multi-Factor Model v1 多因子量化診斷卡片 */}
-              {(() => {
-                const aiResult = evaluateAIAlpha(info, info.current_price?.value || 0, info.previous_close?.value || (info.current_price?.value || 0), ohlcv);
-                const winRate = aiResult.winRatePct;
-                const alphaColor = winRate >= 75 ? (isWarm ? "#0284c7" : "#38bdf8") : winRate >= 50 ? (isWarm ? "#7e22ce" : "#c084fc") : (isWarm ? "#dc2626" : "#ef4444");
-                const dq = aiResult.dataQuality;
-
-                return (
-                  <div
-                    className="score-card"
-                    onClick={() => setShowAIModal(true)}
-                    style={{
-                      background: isWarm ? "#ffffff" : "linear-gradient(135deg, rgba(123, 31, 162, 0.18), rgba(74, 20, 140, 0.28))",
-                      borderColor: isWarm ? "rgba(140, 110, 80, 0.25)" : "rgba(168, 85, 247, 0.5)",
-                      marginBottom: "12px",
-                      boxShadow: isWarm ? "0 2px 8px rgba(90, 60, 30, 0.08)" : "0 4px 14px rgba(123, 31, 162, 0.15)",
-                      cursor: "pointer",
-                      transition: "transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease",
-                    }}
-                    title="點擊展開 AI 多因子量化全景診斷視窗"
-                  >
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "6px", fontWeight: 700, fontSize: "0.95rem", color: isWarm ? "#9a3412" : "#e9d5ff" }}>
-                        <span>🧠 CPU 內建 AI 多因子診斷 (量化校準版)</span>
-                      </div>
-                      <HardwareBadge />
-                    </div>
-
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: isWarm ? "#fcfaf6" : "rgba(0,0,0,0.28)", padding: "10px 12px", borderRadius: "8px", marginBottom: "10px", border: isWarm ? "1px solid rgba(140, 110, 80, 0.18)" : "none" }}>
-                      <div>
-                        <div style={{ fontSize: "0.76rem", color: isWarm ? "#57534e" : "#cbd5e1", marginBottom: "2px" }}>預估 20 日超額勝率</div>
-                        <div style={{ fontSize: "1.45rem", fontWeight: 800, color: alphaColor }}>
-                          {winRate.toFixed(1)}%
+              {/* ─── 大盤指數專屬資訊面板 (isIndex === true) ─── */}
+              {isIndex ? (
+                <>
+                  {/* 🌐 大盤指數宏觀與技術診斷卡片 */}
+                  {indexMetrics && (
+                    <div
+                      className="score-card"
+                      onClick={() => setShowTechModal(true)}
+                      style={{
+                        background: isWarm ? "#ffffff" : "linear-gradient(135deg, rgba(30, 58, 138, 0.25), rgba(15, 23, 42, 0.6))",
+                        borderColor: isWarm ? "rgba(140, 110, 80, 0.25)" : "rgba(59, 130, 246, 0.5)",
+                        marginBottom: "12px",
+                        boxShadow: isWarm ? "0 2px 8px rgba(90, 60, 30, 0.08)" : "0 4px 14px rgba(37, 99, 235, 0.15)",
+                        cursor: "pointer",
+                      }}
+                      title="點擊展開 8 大技術指標智慧診斷全景視窗"
+                    >
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
+                        <div style={{ fontWeight: 700, fontSize: "0.95rem", color: isWarm ? "#0369a1" : "#93c5fd" }}>
+                          🌐 大盤指數與趨勢診斷
                         </div>
+                        <span style={{ fontSize: "0.75rem", color: "#94a3b8" }}>大盤專屬</span>
                       </div>
-                      <div style={{ textAlign: "right" }}>
-                        <div style={{ fontSize: "0.76rem", color: isWarm ? "#57534e" : "#cbd5e1", marginBottom: "2px" }}>AI 置信評級</div>
-                        <div style={{ fontSize: "0.92rem", fontWeight: 700, color: alphaColor }}>
-                          {aiResult.convictionTier}
+
+                      <div style={{ background: isWarm ? "#fcfaf6" : "rgba(0,0,0,0.28)", padding: "10px 12px", borderRadius: "8px", marginBottom: "4px" }}>
+                        <div style={{ fontSize: "0.76rem", color: isWarm ? "#57534e" : "#94a3b8", marginBottom: "2px" }}>當前多空趨勢狀態</div>
+                        <div style={{ fontSize: "1.05rem", fontWeight: 800, color: indexMetrics.trendColor }}>
+                          {indexMetrics.trendLabel}
                         </div>
                       </div>
                     </div>
+                  )}
 
-                    {/* 勝率光條 */}
-                    <div style={{ height: "6px", width: "100%", background: isWarm ? "rgba(140, 110, 80, 0.15)" : "rgba(255,255,255,0.1)", borderRadius: "3px", overflow: "hidden", marginBottom: "12px" }}>
-                      <div style={{ height: "100%", width: `${winRate}%`, background: winRate >= 70 ? (isWarm ? "linear-gradient(90deg, #0284c7, #7e22ce)" : "linear-gradient(90deg, #38bdf8, #a855f7)") : (isWarm ? "linear-gradient(90deg, #d97706, #dc2626)" : "linear-gradient(90deg, #f59e0b, #ef4444)"), transition: "width 0.6s ease" }} />
-                    </div>
-
-                    {/* 🛡️ 資料品質與可信度分析 (Data Quality Report) */}
-                    <div style={{
-                      background: isWarm ? "#fcfaf6" : "rgba(15, 23, 42, 0.5)",
-                      border: isWarm ? "1px solid rgba(140, 110, 80, 0.18)" : "1px solid rgba(148, 163, 184, 0.2)",
-                      borderRadius: "6px",
-                      padding: "8px 10px",
-                      fontSize: "0.75rem"
-                    }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
-                        <span style={{ fontWeight: 700, color: isWarm ? "#18181b" : "#cbd5e1" }}>
-                          📊 資料品質評分：
-                          <b style={{ color: dq.overallScore >= 80 ? (isWarm ? "#15803d" : "#4ade80") : dq.overallScore >= 50 ? (isWarm ? "#d97706" : "#facc15") : (isWarm ? "#dc2626" : "#f87171") }}>
-                            {dq.overallScore} / 100
-                          </b>
-                          {dq.isDegraded && <span style={{ color: isWarm ? "#dc2626" : "#f87171", marginLeft: "6px" }}>(⚠️ 核心財報有缺項)</span>}
-                        </span>
-                        <span style={{ color: isWarm ? "#57534e" : "#94a3b8" }}>{dq.availableCount} / {dq.totalRequired} 指標完備</span>
-                      </div>
-                      <div style={{ display: "flex", gap: "8px", color: isWarm ? "#57534e" : "#94a3b8", fontSize: "0.70rem" }}>
-                        <span>財報獲利: {dq.financialCompleteness}%</span>
-                        <span>・ 官方估值: {dq.valuationCompleteness}%</span>
-                        <span>・ 財務安全: {dq.financialSafetyCompleteness}%</span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* 基本面評分卡 (點擊彈出全景明細) */}
-              {fs && (
-                <div
-                  className="score-card"
-                  onClick={() => setShowFsModal(true)}
-                  style={{
-                    background: fsGrade.bg,
-                    borderColor: fsGrade.border,
-                    marginBottom: "12px",
-                    cursor: "pointer",
-                    transition: "transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease",
-                  }}
-                  title="點擊展開基本面完整評分與各項指標明細"
-                >
-                  <div className="score-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div className="score-grade" style={{ color: fsGrade.color, fontWeight: 700 }}>
-                      📊 基本面：{fsGrade.label} <span style={{ fontSize: "0.72rem", color: isWarm ? "#57534e" : "rgba(255,255,255,0.6)", fontWeight: 400 }}>(2026 Q2 累計)</span>
-                    </div>
-                    <div className="score-num" style={{ color: isWarm ? "#18181b" : "var(--text-secondary)", fontSize: "0.85rem" }}>
-                      評分 <b style={{ color: fsGrade.color }}>{fsScore > 0 ? "+" : ""}{fsScore}</b>
-                      &nbsp;｜ ✅{fs.passed.length} ❌{fs.failed.length} ⬜{fs.na.length}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* 獲利能力 */}
-              <div className="info-section">
-                <div className="info-section-header"><span style={{ color: isWarm ? "#9a3412" : "#ffffff", fontWeight: 800 }}>一、獲利能力</span> <span style={{ fontSize: "0.80rem", color: isWarm ? "#0369a1" : "#93c5fd", fontWeight: 600 }}>(2026 Q2 財報 / 7月營收)</span></div>
-                <div className="info-section-body">
-                  <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("EPS")}>EPS <small style={{ color: isWarm ? "#0369a1" : "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(TTM)</small></span><span className="info-value" style={{ color: (info.eps?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (info.eps?.value ?? 0) >= 6 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{n2s(info.eps?.value)}</span></div>
-                  <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("ROE")}>ROE <small style={{ color: isWarm ? "#0369a1" : "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(Q2累計)</small></span><span className="info-value" style={{ color: (info.roe?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (info.roe?.value ?? 0) >= 0.15 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.roe?.value)}</span></div>
-                  <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("毛利率")}>毛利率 <small style={{ color: isWarm ? "#0369a1" : "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(Q2)</small></span><span className="info-value" style={{ color: (info.gross_margins?.value ?? 0) < 0.10 ? (isWarm ? "#dc2626" : "#ff5252") : (info.gross_margins?.value ?? 0) >= 0.35 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.gross_margins?.value)}</span></div>
-                  <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("營業利益率")}>營業利益率 <small style={{ color: isWarm ? "#0369a1" : "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(Q2)</small></span><span className="info-value" style={{ color: (info.operating_margins?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (info.operating_margins?.value ?? 0) >= 0.15 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.operating_margins?.value)}</span></div>
-                  <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("淨利率")}>淨利率 <small style={{ color: isWarm ? "#0369a1" : "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(Q2)</small></span><span className="info-value" style={{ color: (info.profit_margins?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (info.profit_margins?.value ?? 0) >= 0.15 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.profit_margins?.value)}</span></div>
-                  <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("營收YoY")}>營收成長 YoY <small style={{ color: isWarm ? "#0369a1" : "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(2026/07)</small></span><span className="info-value" style={{ color: (info.revenue_growth?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (info.revenue_growth?.value ?? 0) >= 0.15 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.revenue_growth?.value)}</span></div>
-                  <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("盈餘YoY")}>盈餘成長 YoY <small style={{ color: isWarm ? "#0369a1" : "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(Q2)</small></span><span className="info-value" style={{ color: (info.earnings_growth?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (info.earnings_growth?.value ?? 0) >= 0.20 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.earnings_growth?.value)}</span></div>
-                </div>
-              </div>
-
-              {/* 財務穩健度 */}
-              <div className="info-section">
-                <div className="info-section-header"><span style={{ color: isWarm ? "#9a3412" : "#ffffff", fontWeight: 800 }}>二、財務穩健度</span> <span style={{ fontSize: "0.80rem", color: isWarm ? "#0369a1" : "#93c5fd", fontWeight: 600 }}>(2026 Q2 資產負債與現金流)</span></div>
-                <div className="info-section-body">
-                  <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("自由現金流")}>自由現金流</span><span className="info-value" style={{ color: (info.free_cashflow?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (isWarm ? "#15803d" : "#4ade80"), fontWeight: 800, fontSize: "1.02rem" }}>{fmtNum(info.free_cashflow?.value)}</span></div>
-                  <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("營業現金流")}>營業現金流</span><span className="info-value" style={{ color: (info.operating_cashflow?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (isWarm ? "#15803d" : "#4ade80"), fontWeight: 800, fontSize: "1.02rem" }}>{fmtNum(info.operating_cashflow?.value)}</span></div>
-                  <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("流動比率")}>流動比率</span><span className="info-value" style={{ color: (info.current_ratio?.value ?? 2) < 1.0 ? (isWarm ? "#dc2626" : "#ff5252") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{n2s(info.current_ratio?.value)}</span></div>
-                  <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("速動比率")}>速動比率</span><span className="info-value" style={{ color: (info.quick_ratio?.value ?? 2) < 1.0 ? (isWarm ? "#dc2626" : "#ff5252") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{n2s(info.quick_ratio?.value)}</span></div>
-                  <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("負債/權益比")}>負債/權益比</span><span className="info-value" style={{ color: (info.debt_to_equity?.value ?? 0) > 200 ? (isWarm ? "#dc2626" : "#ff5252") : (info.debt_to_equity?.value ?? 100) <= 60 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{info.debt_to_equity?.value != null && !isNaN(info.debt_to_equity?.value) ? `${info.debt_to_equity?.value.toFixed(1)}%` : "N/A"}</span></div>
-                  <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("自有資本率")}>自有資本率</span><span className="info-value" style={{ color: (calcEquityRatio(info) ?? 100) < 30 ? (isWarm ? "#dc2626" : "#ff5252") : (calcEquityRatio(info) ?? 0) >= 50 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{fmtEquityRatio(info)}</span></div>
-                </div>
-              </div>
-
-              {/* 估值指標 */}
-              {(() => {
-                const coId = info.symbol.split(".")[0];
-                const fund = (twseFundamentals as Record<string, any>)[coId];
-                const cashDiv = fund?.cash_dividend != null ? Number(fund.cash_dividend) : 0;
-                const stockDiv = fund?.stock_dividend != null ? Number(fund.stock_dividend) : 0;
-                const exType = stockDiv > 0 && cashDiv > 0 ? "除權息" : stockDiv > 0 ? "除權" : cashDiv > 0 ? "除息" : "無配息";
-
-                return (
+                  {/* 一、指數即時行情與波動區間 */}
                   <div className="info-section">
-                    <div className="info-section-header"><span style={{ color: isWarm ? "#9a3412" : "#ffffff", fontWeight: 800 }}>三、估值與除權息指標</span> <span style={{ fontSize: "0.80rem", color: isWarm ? "#0369a1" : "#93c5fd", fontWeight: 600 }}>(最新公佈 / 每日收盤)</span></div>
+                    <div className="info-section-header">
+                      <span style={{ color: isWarm ? "#9a3412" : "#ffffff", fontWeight: 800 }}>一、指數行情與波動區間</span>
+                    </div>
                     <div className="info-section-body">
-                      <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("PE")}>本益比 (PE)</span><span className="info-value" style={{ color: isWarm ? "#0369a1" : "#60a5fa", fontWeight: 800, fontSize: "1.02rem" }}>{n2s(info.tw_pe?.value ?? info.pe?.value)}</span></div>
-                      <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("PB")}>股價淨值比 (PB)</span><span className="info-value" style={{ color: isWarm ? "#0369a1" : "#60a5fa", fontWeight: 800, fontSize: "1.02rem" }}>{n2s(info.tw_pb?.value ?? info.pb?.value)}</span></div>
-                      <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("殖利率")}>現金殖利率</span><span className="info-value" style={{ color: isWarm ? "#b45309" : "#facc15", fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.tw_yield?.value ?? info.dividend_yield?.value)}</span></div>
-                      <div className="info-row"><span className="info-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }}>每股現金股利 (除息)</span><span className="info-value" style={{ color: isWarm ? "#b45309" : "#facc15", fontWeight: 800, fontSize: "1.02rem" }}>{cashDiv > 0 ? `${cashDiv.toFixed(2)} 元` : "無配息"}</span></div>
-                      <div className="info-row"><span className="info-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }}>每股股票股利 (除權)</span><span className="info-value" style={{ color: stockDiv > 0 ? (isWarm ? "#7e22ce" : "#c084fc") : (isWarm ? "#57534e" : "#94a3b8"), fontWeight: 800, fontSize: "1.02rem" }}>{stockDiv > 0 ? `${stockDiv.toFixed(2)} 元` : "0.00 元 (未除權)"}</span></div>
-                      <div className="info-row"><span className="info-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }}>除權息性質</span><span className="info-value" style={{ color: isWarm ? "#0369a1" : "#38bdf8", fontWeight: 800, fontSize: "0.95rem" }}>{exType}</span></div>
-                      <div className="info-row"><span className="info-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }}>除息交易日</span><span className="info-value" style={{ color: fund?.ex_dividend_date ? (isWarm ? "#b45309" : "#facc15") : (isWarm ? "#57534e" : "#94a3b8"), fontWeight: 800, fontSize: "0.95rem" }}>{fund?.ex_dividend_date || "尚待公告"}</span></div>
-                      <div className="info-row"><span className="info-label" style={{ color: isWarm ? "#57534e" : "#cbd5e1", fontSize: "0.82rem" }}>二代健保補充保費 (2.11%)</span><span className="info-value" style={{ color: isWarm ? "#57534e" : "#cbd5e1", fontSize: "0.82rem" }}>單筆達 2 萬元代扣 2.11%</span></div>
-                      <div className="info-row"><span className="info-label" style={{ color: isWarm ? "#57534e" : "#cbd5e1", fontSize: "0.82rem" }}>股利抵減稅額 (8.5%)</span><span className="info-value" style={{ color: isWarm ? "#0369a1" : "#38bdf8", fontSize: "0.82rem" }}>可抵減稅額 8.5% (上限 8 萬)</span></div>
-                      <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("市值")}>市值</span><span className="info-value" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 800, fontSize: "1.02rem" }}>{fmtNum(info.market_cap?.value)}</span></div>
-                      <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("所屬產業")}>所屬產業</span><span className="info-value" style={{ color: isWarm ? "#0369a1" : "#67e8f9", fontWeight: 700, fontSize: "0.92rem" }}>{info.sector ?? "N/A"}</span></div>
+                      <div className="info-row">
+                        <span className="info-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700 }}>最新點數</span>
+                        <span className="info-value" style={{ fontWeight: 800, fontSize: "1.02rem" }}>
+                          {indexMetrics ? (indexMetrics.cur > 1000 ? indexMetrics.cur.toLocaleString() : indexMetrics.cur.toFixed(2)) : "--"}
+                        </span>
+                      </div>
+                      <div className="info-row">
+                        <span className="info-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700 }}>今日漲跌</span>
+                        <span className="info-value" style={{ color: (indexMetrics?.chg ?? 0) >= 0 ? (isWarm ? "#dc2626" : "#ff5252") : (isWarm ? "#15803d" : "#4caf50"), fontWeight: 800 }}>
+                          {indexMetrics ? `${indexMetrics.chg >= 0 ? "+" : ""}${indexMetrics.chg.toFixed(2)} (${indexMetrics.chgPct >= 0 ? "+" : ""}${indexMetrics.chgPct.toFixed(2)}%)` : "--"}
+                        </span>
+                      </div>
+                      <div className="info-row">
+                        <span className="info-label" style={{ color: isWarm ? "#57534e" : "#94a3b8" }}>昨收點數</span>
+                        <span className="info-value">{indexMetrics ? (indexMetrics.prev > 1000 ? indexMetrics.prev.toLocaleString() : indexMetrics.prev.toFixed(2)) : "--"}</span>
+                      </div>
+                      <div className="info-row">
+                        <span className="info-label" style={{ color: isWarm ? "#57534e" : "#94a3b8" }}>今日開盤</span>
+                        <span className="info-value">{indexMetrics ? (indexMetrics.todayOpen > 1000 ? indexMetrics.todayOpen.toLocaleString() : indexMetrics.todayOpen.toFixed(2)) : "--"}</span>
+                      </div>
+                      <div className="info-row">
+                        <span className="info-label" style={{ color: isWarm ? "#57534e" : "#94a3b8" }}>今日最高 / 最低</span>
+                        <span className="info-value">{indexMetrics ? `${indexMetrics.todayHigh.toFixed(1)} / ${indexMetrics.todayLow.toFixed(1)}` : "--"}</span>
+                      </div>
+                      <div className="info-row">
+                        <span className="info-label" style={{ color: isWarm ? "#57534e" : "#94a3b8" }}>今日高低振幅</span>
+                        <span className="info-value" style={{ color: isWarm ? "#0369a1" : "#38bdf8", fontWeight: 700 }}>
+                          {indexMetrics ? `${indexMetrics.amplitude.toFixed(2)}%` : "--"}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                );
-              })()}
 
-              {/* 業務介紹 */}
-              {(() => {
-                const coId = info.symbol.split(".")[0];
-                const summary = getCompanyBusinessSummary(coId, info.symbol, info.name || info.symbol, info.sector || undefined);
-                return (
+                  {/* 二、關鍵均線與乖離率指標 (BIAS) */}
                   <div className="info-section">
-                    <div className="info-section-header"><span style={{ color: isWarm ? "#9a3412" : "#ffffff", fontWeight: 800 }}>🏢 四、公司業務與營業項目介紹</span> <span style={{ fontSize: "0.80rem", color: isWarm ? "#0369a1" : "#93c5fd", fontWeight: 600 }}>(官方公開資訊與產業深度分析)</span></div>
-                    <div className="info-section-body" style={{ fontSize: "0.86rem", color: isWarm ? "#292524" : "#e2e8f0", lineHeight: 1.75, whiteSpace: "pre-line", padding: "10px 14px", background: isWarm ? "rgba(255, 255, 255, 0.95)" : "rgba(15, 23, 42, 0.4)", border: isWarm ? "1px solid rgba(140, 110, 80, 0.15)" : "none", borderRadius: "6px" }}>
-                      {summary}
+                    <div className="info-section-header">
+                      <span style={{ color: isWarm ? "#9a3412" : "#ffffff", fontWeight: 800 }}>二、關鍵均線與乖離率 (BIAS)</span>
+                    </div>
+                    <div className="info-section-body">
+                      <div className="info-row">
+                        <span className="info-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700 }}>5 日線 (週線)</span>
+                        <span className="info-value" style={{ fontWeight: 700 }}>
+                          {indexMetrics?.ma5 ? `${indexMetrics.ma5.toFixed(1)} (${indexMetrics.bias5! >= 0 ? "+" : ""}${indexMetrics.bias5!.toFixed(2)}%)` : "計算中"}
+                        </span>
+                      </div>
+                      <div className="info-row">
+                        <span className="info-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700 }}>20 日線 (月線)</span>
+                        <span className="info-value" style={{ fontWeight: 700, color: (indexMetrics?.bias20 ?? 0) >= 0 ? "#38bdf8" : "#f59e0b" }}>
+                          {indexMetrics?.ma20 ? `${indexMetrics.ma20.toFixed(1)} (${indexMetrics.bias20! >= 0 ? "+" : ""}${indexMetrics.bias20!.toFixed(2)}%)` : "計算中"}
+                        </span>
+                      </div>
+                      <div className="info-row">
+                        <span className="info-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700 }}>60 日線 (季線)</span>
+                        <span className="info-value" style={{ fontWeight: 700, color: (indexMetrics?.bias60 ?? 0) >= 0 ? "#c084fc" : "#f59e0b" }}>
+                          {indexMetrics?.ma60 ? `${indexMetrics.ma60.toFixed(1)} (${indexMetrics.bias60! >= 0 ? "+" : ""}${indexMetrics.bias60!.toFixed(2)}%)` : "計算中"}
+                        </span>
+                      </div>
+                      <div className="info-row">
+                        <span className="info-label" style={{ color: isWarm ? "#57534e" : "#94a3b8" }}>120 日線 (半年線)</span>
+                        <span className="info-value">{indexMetrics?.ma120 ? indexMetrics.ma120.toFixed(1) : "計算中"}</span>
+                      </div>
                     </div>
                   </div>
-                );
-              })()}
+
+                  {/* 三、週期性累積報酬統計 */}
+                  <div className="info-section">
+                    <div className="info-section-header">
+                      <span style={{ color: isWarm ? "#9a3412" : "#ffffff", fontWeight: 800 }}>三、週期性累積報酬統計</span>
+                    </div>
+                    <div className="info-section-body">
+                      <div className="info-row">
+                        <span className="info-label">近 5 日報酬 (1週)</span>
+                        <span className="info-value" style={{ color: (indexMetrics?.ret5 ?? 0) >= 0 ? (isWarm ? "#dc2626" : "#ff5252") : (isWarm ? "#15803d" : "#4caf50"), fontWeight: 700 }}>
+                          {indexMetrics?.ret5 != null ? `${indexMetrics.ret5 >= 0 ? "+" : ""}${indexMetrics.ret5.toFixed(2)}%` : "--"}
+                        </span>
+                      </div>
+                      <div className="info-row">
+                        <span className="info-label">近 20 日報酬 (1個月)</span>
+                        <span className="info-value" style={{ color: (indexMetrics?.ret20 ?? 0) >= 0 ? (isWarm ? "#dc2626" : "#ff5252") : (isWarm ? "#15803d" : "#4caf50"), fontWeight: 700 }}>
+                          {indexMetrics?.ret20 != null ? `${indexMetrics.ret20 >= 0 ? "+" : ""}${indexMetrics.ret20.toFixed(2)}%` : "--"}
+                        </span>
+                      </div>
+                      <div className="info-row">
+                        <span className="info-label">近 60 日報酬 (1季)</span>
+                        <span className="info-value" style={{ color: (indexMetrics?.ret60 ?? 0) >= 0 ? (isWarm ? "#dc2626" : "#ff5252") : (isWarm ? "#15803d" : "#4caf50"), fontWeight: 700 }}>
+                          {indexMetrics?.ret60 != null ? `${indexMetrics.ret60 >= 0 ? "+" : ""}${indexMetrics.ret60.toFixed(2)}%` : "--"}
+                        </span>
+                      </div>
+                      <div className="info-row">
+                        <span className="info-label">近 120 日報酬 (半年)</span>
+                        <span className="info-value" style={{ color: (indexMetrics?.ret120 ?? 0) >= 0 ? (isWarm ? "#dc2626" : "#ff5252") : (isWarm ? "#15803d" : "#4caf50"), fontWeight: 700 }}>
+                          {indexMetrics?.ret120 != null ? `${indexMetrics.ret120 >= 0 ? "+" : ""}${indexMetrics.ret120.toFixed(2)}%` : "--"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 四、指數編制與市場地位說明 */}
+                  {(() => {
+                    const meta = INDEX_INFO_MAP[info.symbol] || {
+                      name: info.name || info.symbol,
+                      region: "全球市場",
+                      type: "總體市場指數",
+                      desc: "此標的為整體市場指數或宏觀基準，不具備個別企業之營收、EPS 與財務報表數據。"
+                    };
+                    return (
+                      <div className="info-section">
+                        <div className="info-section-header">
+                          <span style={{ color: isWarm ? "#9a3412" : "#ffffff", fontWeight: 800 }}>🌐 四、指數編制與市場地位說明</span>
+                        </div>
+                        <div className="info-section-body" style={{ fontSize: "0.86rem", color: isWarm ? "#292524" : "#e2e8f0", lineHeight: 1.75, padding: "10px 14px", background: isWarm ? "rgba(255, 255, 255, 0.95)" : "rgba(15, 23, 42, 0.4)", border: isWarm ? "1px solid rgba(140, 110, 80, 0.15)" : "none", borderRadius: "6px" }}>
+                          <div style={{ marginBottom: "6px" }}>
+                            <b>代表地區：</b>{meta.region}
+                          </div>
+                          <div style={{ marginBottom: "8px" }}>
+                            <b>指數類型：</b>{meta.type}
+                          </div>
+                          <div style={{ color: isWarm ? "#57534e" : "#cbd5e1" }}>
+                            {meta.desc}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </>
+              ) : (
+                <>
+                  {/* ─── 個股專屬資訊面板 (isIndex === false) ─── */}
+                  {/* 🧠 Data-backed Multi-Factor Model v1 多因子量化診斷卡片 */}
+                  {(() => {
+                    const aiResult = evaluateAIAlpha(info, info.current_price?.value || 0, info.previous_close?.value || (info.current_price?.value || 0), ohlcv);
+                    const winRate = aiResult.winRatePct;
+                    const alphaColor = winRate >= 75 ? (isWarm ? "#0284c7" : "#38bdf8") : winRate >= 50 ? (isWarm ? "#7e22ce" : "#c084fc") : (isWarm ? "#dc2626" : "#ef4444");
+                    const dq = aiResult.dataQuality;
+
+                    return (
+                      <div
+                        className="score-card"
+                        onClick={() => setShowAIModal(true)}
+                        style={{
+                          background: isWarm ? "#ffffff" : "linear-gradient(135deg, rgba(123, 31, 162, 0.18), rgba(74, 20, 140, 0.28))",
+                          borderColor: isWarm ? "rgba(140, 110, 80, 0.25)" : "rgba(168, 85, 247, 0.5)",
+                          marginBottom: "12px",
+                          boxShadow: isWarm ? "0 2px 8px rgba(90, 60, 30, 0.08)" : "0 4px 14px rgba(123, 31, 162, 0.15)",
+                          cursor: "pointer",
+                          transition: "transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease",
+                        }}
+                        title="點擊展開 AI 多因子量化全景診斷視窗"
+                      >
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px", fontWeight: 700, fontSize: "0.95rem", color: isWarm ? "#9a3412" : "#e9d5ff" }}>
+                            <span>🧠 CPU 內建 AI 多因子診斷 (量化校準版)</span>
+                          </div>
+                          <HardwareBadge />
+                        </div>
+
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: isWarm ? "#fcfaf6" : "rgba(0,0,0,0.28)", padding: "10px 12px", borderRadius: "8px", marginBottom: "10px", border: isWarm ? "1px solid rgba(140, 110, 80, 0.18)" : "none" }}>
+                          <div>
+                            <div style={{ fontSize: "0.76rem", color: isWarm ? "#57534e" : "#cbd5e1", marginBottom: "2px" }}>預估 20 日超額勝率</div>
+                            <div style={{ fontSize: "1.45rem", fontWeight: 800, color: alphaColor }}>
+                              {winRate.toFixed(1)}%
+                            </div>
+                          </div>
+                          <div style={{ textAlign: "right" }}>
+                            <div style={{ fontSize: "0.76rem", color: isWarm ? "#57534e" : "#cbd5e1", marginBottom: "2px" }}>AI 置信評級</div>
+                            <div style={{ fontSize: "0.92rem", fontWeight: 700, color: alphaColor }}>
+                              {aiResult.convictionTier}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 勝率光條 */}
+                        <div style={{ height: "6px", width: "100%", background: isWarm ? "rgba(140, 110, 80, 0.15)" : "rgba(255,255,255,0.1)", borderRadius: "3px", overflow: "hidden", marginBottom: "12px" }}>
+                          <div style={{ height: "100%", width: `${winRate}%`, background: winRate >= 70 ? (isWarm ? "linear-gradient(90deg, #0284c7, #7e22ce)" : "linear-gradient(90deg, #38bdf8, #a855f7)") : (isWarm ? "linear-gradient(90deg, #d97706, #dc2626)" : "linear-gradient(90deg, #f59e0b, #ef4444)"), transition: "width 0.6s ease" }} />
+                        </div>
+
+                        {/* 🛡️ 資料品質與可信度分析 (Data Quality Report) */}
+                        <div style={{
+                          background: isWarm ? "#fcfaf6" : "rgba(15, 23, 42, 0.5)",
+                          border: isWarm ? "1px solid rgba(140, 110, 80, 0.18)" : "1px solid rgba(148, 163, 184, 0.2)",
+                          borderRadius: "6px",
+                          padding: "8px 10px",
+                          fontSize: "0.75rem"
+                        }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+                            <span style={{ fontWeight: 700, color: isWarm ? "#18181b" : "#cbd5e1" }}>
+                              📊 資料品質評分：
+                              <b style={{ color: dq.overallScore >= 80 ? (isWarm ? "#15803d" : "#4ade80") : dq.overallScore >= 50 ? (isWarm ? "#d97706" : "#facc15") : (isWarm ? "#dc2626" : "#f87171") }}>
+                                {dq.overallScore} / 100
+                              </b>
+                              {dq.isDegraded && <span style={{ color: isWarm ? "#dc2626" : "#f87171", marginLeft: "6px" }}>(⚠️ 核心財報有缺項)</span>}
+                            </span>
+                            <span style={{ color: isWarm ? "#57534e" : "#94a3b8" }}>{dq.availableCount} / {dq.totalRequired} 指標完備</span>
+                          </div>
+                          <div style={{ display: "flex", gap: "8px", color: isWarm ? "#57534e" : "#94a3b8", fontSize: "0.70rem" }}>
+                            <span>財報獲利: {dq.financialCompleteness}%</span>
+                            <span>・ 官方估值: {dq.valuationCompleteness}%</span>
+                            <span>・ 財務安全: {dq.financialSafetyCompleteness}%</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* 基本面評分卡 (點擊彈出全景明細) */}
+                  {fs && (
+                    <div
+                      className="score-card"
+                      onClick={() => setShowFsModal(true)}
+                      style={{
+                        background: fsGrade.bg,
+                        borderColor: fsGrade.border,
+                        marginBottom: "12px",
+                        cursor: "pointer",
+                        transition: "transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease",
+                      }}
+                      title="點擊展開基本面完整評分與各項指標明細"
+                    >
+                      <div className="score-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div className="score-grade" style={{ color: fsGrade.color, fontWeight: 700 }}>
+                          📊 基本面：{fsGrade.label} <span style={{ fontSize: "0.72rem", color: isWarm ? "#57534e" : "rgba(255,255,255,0.6)", fontWeight: 400 }}>(2026 Q2 累計)</span>
+                        </div>
+                        <div className="score-num" style={{ color: isWarm ? "#18181b" : "var(--text-secondary)", fontSize: "0.85rem" }}>
+                          評分 <b style={{ color: fsGrade.color }}>{fsScore > 0 ? "+" : ""}{fsScore}</b>
+                          &nbsp;｜ ✅{fs.passed.length} ❌{fs.failed.length} ⬜{fs.na.length}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 獲利能力 */}
+                  <div className="info-section">
+                    <div className="info-section-header"><span style={{ color: isWarm ? "#9a3412" : "#ffffff", fontWeight: 800 }}>一、獲利能力</span> <span style={{ fontSize: "0.80rem", color: isWarm ? "#0369a1" : "#93c5fd", fontWeight: 600 }}>(2026 Q2 財報 / 7月營收)</span></div>
+                    <div className="info-section-body">
+                      <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("EPS")}>EPS <small style={{ color: isWarm ? "#0369a1" : "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(TTM)</small></span><span className="info-value" style={{ color: (info.eps?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (info.eps?.value ?? 0) >= 6 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{n2s(info.eps?.value)}</span></div>
+                      <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("ROE")}>ROE <small style={{ color: isWarm ? "#0369a1" : "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(Q2累計)</small></span><span className="info-value" style={{ color: (info.roe?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (info.roe?.value ?? 0) >= 0.15 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.roe?.value)}</span></div>
+                      <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("毛利率")}>毛利率 <small style={{ color: isWarm ? "#0369a1" : "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(Q2)</small></span><span className="info-value" style={{ color: (info.gross_margins?.value ?? 0) < 0.10 ? (isWarm ? "#dc2626" : "#ff5252") : (info.gross_margins?.value ?? 0) >= 0.35 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.gross_margins?.value)}</span></div>
+                      <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("營業利益率")}>營業利益率 <small style={{ color: isWarm ? "#0369a1" : "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(Q2)</small></span><span className="info-value" style={{ color: (info.operating_margins?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (info.operating_margins?.value ?? 0) >= 0.15 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.operating_margins?.value)}</span></div>
+                      <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("淨利率")}>淨利率 <small style={{ color: isWarm ? "#0369a1" : "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(Q2)</small></span><span className="info-value" style={{ color: (info.profit_margins?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (info.profit_margins?.value ?? 0) >= 0.15 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.profit_margins?.value)}</span></div>
+                      <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("營收YoY")}>營收成長 YoY <small style={{ color: isWarm ? "#0369a1" : "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(2026/07)</small></span><span className="info-value" style={{ color: (info.revenue_growth?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (info.revenue_growth?.value ?? 0) >= 0.15 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.revenue_growth?.value)}</span></div>
+                      <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("盈餘YoY")}>盈餘成長 YoY <small style={{ color: isWarm ? "#0369a1" : "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(Q2)</small></span><span className="info-value" style={{ color: (info.earnings_growth?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (info.earnings_growth?.value ?? 0) >= 0.20 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.earnings_growth?.value)}</span></div>
+                    </div>
+                  </div>
+
+                  {/* 財務穩健度 */}
+                  <div className="info-section">
+                    <div className="info-section-header"><span style={{ color: isWarm ? "#9a3412" : "#ffffff", fontWeight: 800 }}>二、財務穩健度</span> <span style={{ fontSize: "0.80rem", color: isWarm ? "#0369a1" : "#93c5fd", fontWeight: 600 }}>(2026 Q2 資產負債與現金流)</span></div>
+                    <div className="info-section-body">
+                      <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("自由現金流")}>自由現金流</span><span className="info-value" style={{ color: (info.free_cashflow?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (isWarm ? "#15803d" : "#4ade80"), fontWeight: 800, fontSize: "1.02rem" }}>{fmtNum(info.free_cashflow?.value)}</span></div>
+                      <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("營業現金流")}>營業現金流</span><span className="info-value" style={{ color: (info.operating_cashflow?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (isWarm ? "#15803d" : "#4ade80"), fontWeight: 800, fontSize: "1.02rem" }}>{fmtNum(info.operating_cashflow?.value)}</span></div>
+                      <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("流動比率")}>流動比率</span><span className="info-value" style={{ color: (info.current_ratio?.value ?? 2) < 1.0 ? (isWarm ? "#dc2626" : "#ff5252") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{n2s(info.current_ratio?.value)}</span></div>
+                      <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("速動比率")}>速動比率</span><span className="info-value" style={{ color: (info.quick_ratio?.value ?? 2) < 1.0 ? (isWarm ? "#dc2626" : "#ff5252") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{n2s(info.quick_ratio?.value)}</span></div>
+                      <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("負債/權益比")}>負債/權益比</span><span className="info-value" style={{ color: (info.debt_to_equity?.value ?? 0) > 200 ? (isWarm ? "#dc2626" : "#ff5252") : (info.debt_to_equity?.value ?? 100) <= 60 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{info.debt_to_equity?.value != null && !isNaN(info.debt_to_equity?.value) ? `${info.debt_to_equity?.value.toFixed(1)}%` : "N/A"}</span></div>
+                      <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("自有資本率")}>自有資本率</span><span className="info-value" style={{ color: (calcEquityRatio(info) ?? 100) < 30 ? (isWarm ? "#dc2626" : "#ff5252") : (calcEquityRatio(info) ?? 0) >= 50 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{fmtEquityRatio(info)}</span></div>
+                    </div>
+                  </div>
+
+                  {/* 估值指標 */}
+                  {(() => {
+                    const coId = info.symbol.split(".")[0];
+                    const fund = (twseFundamentals as Record<string, any>)[coId];
+                    const cashDiv = fund?.cash_dividend != null ? Number(fund.cash_dividend) : 0;
+                    const stockDiv = fund?.stock_dividend != null ? Number(fund.stock_dividend) : 0;
+                    const exType = stockDiv > 0 && cashDiv > 0 ? "除權息" : stockDiv > 0 ? "除權" : cashDiv > 0 ? "除息" : "無配息";
+
+                    return (
+                      <div className="info-section">
+                        <div className="info-section-header"><span style={{ color: isWarm ? "#9a3412" : "#ffffff", fontWeight: 800 }}>三、估值與除權息指標</span> <span style={{ fontSize: "0.80rem", color: isWarm ? "#0369a1" : "#93c5fd", fontWeight: 600 }}>(最新公佈 / 每日收盤)</span></div>
+                        <div className="info-section-body">
+                          <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("PE")}>本益比 (PE)</span><span className="info-value" style={{ color: isWarm ? "#0369a1" : "#60a5fa", fontWeight: 800, fontSize: "1.02rem" }}>{n2s(info.tw_pe?.value ?? info.pe?.value)}</span></div>
+                          <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("PB")}>股價淨值比 (PB)</span><span className="info-value" style={{ color: isWarm ? "#0369a1" : "#60a5fa", fontWeight: 800, fontSize: "1.02rem" }}>{n2s(info.tw_pb?.value ?? info.pb?.value)}</span></div>
+                          <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("殖利率")}>現金殖利率</span><span className="info-value" style={{ color: isWarm ? "#b45309" : "#facc15", fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.tw_yield?.value ?? info.dividend_yield?.value)}</span></div>
+                          <div className="info-row"><span className="info-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }}>每股現金股利 (除息)</span><span className="info-value" style={{ color: isWarm ? "#b45309" : "#facc15", fontWeight: 800, fontSize: "1.02rem" }}>{cashDiv > 0 ? `${cashDiv.toFixed(2)} 元` : "無配息"}</span></div>
+                          <div className="info-row"><span className="info-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }}>每股股票股利 (除權)</span><span className="info-value" style={{ color: stockDiv > 0 ? (isWarm ? "#7e22ce" : "#c084fc") : (isWarm ? "#57534e" : "#94a3b8"), fontWeight: 800, fontSize: "1.02rem" }}>{stockDiv > 0 ? `${stockDiv.toFixed(2)} 元` : "0.00 元 (未除權)"}</span></div>
+                          <div className="info-row"><span className="info-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }}>除權息性質</span><span className="info-value" style={{ color: isWarm ? "#0369a1" : "#38bdf8", fontWeight: 800, fontSize: "0.95rem" }}>{exType}</span></div>
+                          <div className="info-row"><span className="info-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }}>除息交易日</span><span className="info-value" style={{ color: fund?.ex_dividend_date ? (isWarm ? "#b45309" : "#facc15") : (isWarm ? "#57534e" : "#94a3b8"), fontWeight: 800, fontSize: "0.95rem" }}>{fund?.ex_dividend_date || "尚待公告"}</span></div>
+                          <div className="info-row"><span className="info-label" style={{ color: isWarm ? "#57534e" : "#cbd5e1", fontSize: "0.82rem" }}>二代健保補充保費 (2.11%)</span><span className="info-value" style={{ color: isWarm ? "#57534e" : "#cbd5e1", fontSize: "0.82rem" }}>單筆達 2 萬元代扣 2.11%</span></div>
+                          <div className="info-row"><span className="info-label" style={{ color: isWarm ? "#57534e" : "#cbd5e1", fontSize: "0.82rem" }}>股利抵減稅額 (8.5%)</span><span className="info-value" style={{ color: isWarm ? "#0369a1" : "#38bdf8", fontSize: "0.82rem" }}>可抵減稅額 8.5% (上限 8 萬)</span></div>
+                          <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("市值")}>市值</span><span className="info-value" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 800, fontSize: "1.02rem" }}>{fmtNum(info.market_cap?.value)}</span></div>
+                          <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("所屬產業")}>所屬產業</span><span className="info-value" style={{ color: isWarm ? "#0369a1" : "#67e8f9", fontWeight: 700, fontSize: "0.92rem" }}>{info.sector ?? "N/A"}</span></div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* 業務介紹 */}
+                  {(() => {
+                    const coId = info.symbol.split(".")[0];
+                    const summary = getCompanyBusinessSummary(coId, info.symbol, info.name || info.symbol, info.sector || undefined);
+                    return (
+                      <div className="info-section">
+                        <div className="info-section-header"><span style={{ color: isWarm ? "#9a3412" : "#ffffff", fontWeight: 800 }}>🏢 四、公司業務與營業項目介紹</span> <span style={{ fontSize: "0.80rem", color: isWarm ? "#0369a1" : "#93c5fd", fontWeight: 600 }}>(官方公開資訊與產業深度分析)</span></div>
+                        <div className="info-section-body" style={{ fontSize: "0.86rem", color: isWarm ? "#292524" : "#e2e8f0", lineHeight: 1.75, whiteSpace: "pre-line", padding: "10px 14px", background: isWarm ? "rgba(255, 255, 255, 0.95)" : "rgba(15, 23, 42, 0.4)", border: isWarm ? "1px solid rgba(140, 110, 80, 0.15)" : "none", borderRadius: "6px" }}>
+                          {summary}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </>
+              )}
 
               {/* 相關新聞 */}
               {news.length > 0 && (

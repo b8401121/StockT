@@ -1,12 +1,12 @@
 {
   "provenance": {
-    "run_id": "RUN-PIT-1787937169311",
-    "git_commit": "29cd96c",
+    "run_id": "RUN-PIT-1788039619790",
+    "git_commit": "c92dda5",
     "config_sha256": "0e80b50903deda83169ffc47daaf10e7e424296a3f728b0ada01e0a0baad7c55",
     "dataset_sha256": "a1da4d07780c42ec0ec5af8197e48e44776f17e544109f885d43467eb6b066ee",
-    "engine_sha256": "c6d5e77e735659dcd3d6bb2abce2f04bc7c477740370095ec2df00b27fee753d",
+    "engine_sha256": "6877ef263ad4ee05aa42a4ac9674dfc1231bcbc6bfbaf4b1b90a08299906e4f1",
     "engine_version": "v1.0.0-pit-audited",
-    "generated_at": "2026-08-28T17:12:49.924Z",
+    "generated_at": "2026-08-29T21:40:19.967Z",
     "audit_status": "AUDITED_VERIFIED_POINT_IN_TIME",
     "dataset_spec": "TWSE / TPEx / MOPS Point-in-Time Historical Database (Institutional Grade)",
     "benchmark": "^TWII (Synchronized T+1 Open to T+20 Close)"
@@ -101,7 +101,7 @@
       "benchmark_return_pct": 24.25,
       "net_alpha_pct": -6.07,
       "sharpe_ratio": 0.47,
-      "max_drawdown_pct": -2.7,
+      "max_drawdown_pct": -2.8,
       "friction_paid_ntd": 585070
     },
     {
@@ -131,7 +131,7 @@
       "benchmark_return_pct": 3.59,
       "net_alpha_pct": 8.86,
       "sharpe_ratio": 0.36,
-      "max_drawdown_pct": -4.8,
+      "max_drawdown_pct": -4.9,
       "friction_paid_ntd": 634108
     },
     {
@@ -198,27 +198,27 @@
   "calibration_curve": [
     {
       "raw_probability_min": 90,
-      "empirical_win_rate_pct": 72.2,
-      "sample_count": 18,
-      "avg_net_return_pct": 4.74
+      "empirical_win_rate_pct": 50,
+      "sample_count": 0,
+      "avg_net_return_pct": 0
     },
     {
       "raw_probability_min": 80,
-      "empirical_win_rate_pct": 52.9,
-      "sample_count": 648,
-      "avg_net_return_pct": 1.27
+      "empirical_win_rate_pct": 54.8,
+      "sample_count": 555,
+      "avg_net_return_pct": 1.69
     },
     {
       "raw_probability_min": 70,
-      "empirical_win_rate_pct": 52,
-      "sample_count": 304,
-      "avg_net_return_pct": 0.86
+      "empirical_win_rate_pct": 50.8,
+      "sample_count": 398,
+      "avg_net_return_pct": 0.45
     },
     {
       "raw_probability_min": 60,
-      "empirical_win_rate_pct": 62.9,
-      "sample_count": 70,
-      "avg_net_return_pct": 4.01
+      "empirical_win_rate_pct": 59.8,
+      "sample_count": 87,
+      "avg_net_return_pct": 3.87
     },
     {
       "raw_probability_min": 50,
