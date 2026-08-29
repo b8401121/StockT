@@ -469,16 +469,22 @@ export function MarketOverviewTab({ onNavigateToAnalysis }: MarketOverviewTabPro
 
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", margin: "4px 0" }}>
                     <div style={{ fontSize: "1.15rem", fontWeight: 800, color: "#ffffff" }}>
-                      {q.price > 1000 ? q.price.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : q.price.toFixed(2)}
+                      {q.price <= 0
+                        ? "--"
+                        : q.price > 1000
+                        ? q.price.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+                        : q.price.toFixed(2)}
                     </div>
-                    <div style={{
-                      fontSize: "0.78rem", fontWeight: 700,
-                      color: isUp ? "#ff5252" : "#4caf50",
-                      display: "flex", alignItems: "center", gap: "2px"
-                    }}>
-                      <span>{isUp ? "▲" : "▼"}</span>
-                      <span>{Math.abs(q.changePct).toFixed(2)}%</span>
-                    </div>
+                    {q.price > 0 && (
+                      <div style={{
+                        fontSize: "0.78rem", fontWeight: 700,
+                        color: isUp ? "#ff5252" : "#4caf50",
+                        display: "flex", alignItems: "center", gap: "2px"
+                      }}>
+                        <span>{isUp ? "▲" : "▼"}</span>
+                        <span>{Math.abs(q.changePct).toFixed(2)}%</span>
+                      </div>
+                    )}
                   </div>
 
                   {/* 迷你走勢圖 (Sparkline SVG) */}
