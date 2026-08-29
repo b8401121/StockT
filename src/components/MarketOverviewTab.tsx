@@ -11,6 +11,7 @@ import {
 import {
   MarketIndexQuote,
   IndexHistoryData,
+  GLOBAL_INDICES,
   fetchMarketIndices,
   fetchIndexHistory,
 } from "../utils/marketService";
@@ -73,6 +74,40 @@ export function MarketOverviewTab({ onNavigateToAnalysis }: MarketOverviewTabPro
         if (isMounted) {
           setHistoryData(data);
           setHistoryLoading(false);
+          if (data && data.close && data.close.length > 0) {
+            const validCloses = data.close.filter((c) => typeof c === "number" && !isNaN(c) && c > 0);
+            const len = validCloses.length;
+            if (len > 0) {
+              const cur = validCloses[len - 1];
+              const prev = len > 1 ? validCloses[len - 2] : cur;
+              const chg = cur - prev;
+              const chgPct = prev > 0 ? (chg / prev) * 100 : 0;
+              const highs = data.high.filter((h) => typeof h === "number" && !isNaN(h) && h > 0);
+              const lows = data.low.filter((l) => typeof l === "number" && !isNaN(l) && l > 0);
+              const opens = data.open.filter((o) => typeof o === "number" && !isNaN(o) && o > 0);
+
+              setQuotes((prevQuotes) => {
+                const idx = prevQuotes.findIndex((q) => q.symbol === selectedSymbol);
+                if (idx >= 0) {
+                  const next = [...prevQuotes];
+                  next[idx] = {
+                    ...next[idx],
+                    price: cur,
+                    previousClose: prev,
+                    change: chg,
+                    changePct: chgPct,
+                    high: highs[highs.length - 1] || cur,
+                    low: lows[lows.length - 1] || cur,
+                    open: opens[opens.length - 1] || cur,
+                    sparkline: validCloses.slice(-10),
+                    status: "live",
+                  };
+                  return next;
+                }
+                return prevQuotes;
+              });
+            }
+          }
         }
       })
       .catch((e) => {
@@ -248,8 +283,37 @@ export function MarketOverviewTab({ onNavigateToAnalysis }: MarketOverviewTabPro
 
   // 目前選中的指數 Quote
   const currentQuote = useMemo(() => {
-    return quotes.find((q) => q.symbol === selectedSymbol) || quotes[0] || null;
-  }, [quotes, selectedSymbol]);
+    const q = quotes.find((x) => x.symbol === selectedSymbol);
+    if (q && q.price > 0) return q;
+    if (historyData && historyData.close && historyData.close.length > 0) {
+      const closes = historyData.close.filter((c) => typeof c === "number" && !isNaN(c) && c > 0);
+      const len = closes.length;
+      if (len > 0) {
+        const cur = closes[len - 1];
+        const prev = len > 1 ? closes[len - 2] : cur;
+        const chg = cur - prev;
+        const chgPct = prev > 0 ? (chg / prev) * 100 : 0;
+        const meta = GLOBAL_INDICES.find((m) => m.symbol === selectedSymbol);
+        return {
+          symbol: selectedSymbol,
+          name: q?.name || meta?.name || selectedSymbol,
+          category: q?.category || meta?.category || "tw",
+          flag: q?.flag || meta?.flag || "🌐",
+          price: cur,
+          previousClose: prev,
+          change: chg,
+          changePct: chgPct,
+          high: Math.max(...historyData.high.filter((h) => !isNaN(h) && h > 0)),
+          low: Math.min(...historyData.low.filter((l) => !isNaN(l) && l > 0)),
+          open: historyData.open[historyData.open.length - 1] || cur,
+          sparkline: closes.slice(-10),
+          updatedAt: new Date().toLocaleTimeString("zh-TW"),
+          status: "live" as const,
+        };
+      }
+    }
+    return q || quotes[0] || null;
+  }, [quotes, selectedSymbol, historyData]);
 
   // 篩選分類後的指數清單
   const filteredQuotes = useMemo(() => {

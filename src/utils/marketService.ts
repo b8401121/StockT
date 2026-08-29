@@ -77,6 +77,8 @@ function extractNum(m: any): number | null {
   return isNaN(n) ? null : n;
 }
 
+const CACHED_INDEX_QUOTES = new Map<string, MarketIndexQuote>();
+
 export async function fetchMarketIndices(): Promise<MarketIndexQuote[]> {
   // 1. 若在 Tauri 桌面端，直接呼叫 Rust 後端高效能平行批次抓取 (單一 IPC 通訊)
   if (isTauri()) {
@@ -100,7 +102,7 @@ export async function fetchMarketIndices(): Promise<MarketIndexQuote[]> {
         return GLOBAL_INDICES.map((meta) => {
           const found = itemMap.get(meta.symbol);
           if (found && found.price > 0) {
-            return {
+            const q: MarketIndexQuote = {
               symbol: meta.symbol,
               name: meta.name,
               category: meta.category,
@@ -117,8 +119,10 @@ export async function fetchMarketIndices(): Promise<MarketIndexQuote[]> {
               isRateOrVix: meta.isRateOrVix,
               status: "live",
             };
+            CACHED_INDEX_QUOTES.set(meta.symbol, q);
+            return q;
           }
-          return getEmptyErrorQuote(meta);
+          return CACHED_INDEX_QUOTES.get(meta.symbol) || getEmptyErrorQuote(meta);
         });
       }
     } catch (e) {
@@ -126,19 +130,32 @@ export async function fetchMarketIndices(): Promise<MarketIndexQuote[]> {
     }
   }
 
-  // 2. Web 瀏覽器端：以受控並發隊列獲取數據
-  const fetchPromises = GLOBAL_INDICES.map(async (meta) => {
-    try {
-      const q = await fetchSingleIndexQuote(meta);
-      return q;
-    } catch (e) {
-      console.warn(`[MarketService] Failed to fetch ${meta.symbol}:`, e);
-      return getEmptyErrorQuote(meta);
+  // 2. Web 瀏覽器端：使用受控並發隊列 (一次最多 3 檔並行，防止代理伺服器觸發 429 速率限制)
+  const results: MarketIndexQuote[] = [];
+  const chunkSize = 3;
+  for (let i = 0; i < GLOBAL_INDICES.length; i += chunkSize) {
+    const chunk = GLOBAL_INDICES.slice(i, i + chunkSize);
+    const chunkResults = await Promise.all(
+      chunk.map(async (meta) => {
+        try {
+          const q = await fetchSingleIndexQuote(meta);
+          if (q && q.price > 0) {
+            CACHED_INDEX_QUOTES.set(meta.symbol, q);
+            return q;
+          }
+        } catch (e) {
+          console.warn(`[MarketService] Failed to fetch ${meta.symbol}:`, e);
+        }
+        return CACHED_INDEX_QUOTES.get(meta.symbol) || getEmptyErrorQuote(meta);
+      })
+    );
+    results.push(...chunkResults);
+    if (i + chunkSize < GLOBAL_INDICES.length) {
+      await new Promise((res) => setTimeout(res, 80));
     }
-  });
+  }
 
-  const quotes = await Promise.all(fetchPromises);
-  return quotes;
+  return results;
 }
 
 async function fetchSingleIndexQuote(meta: MarketIndexMeta): Promise<MarketIndexQuote> {
@@ -153,7 +170,7 @@ async function fetchSingleIndexQuote(meta: MarketIndexMeta): Promise<MarketIndex
       }>("fetch_stock_data", { symbol, range: "1mo" });
 
       if (res && res.ohlcv && res.ohlcv.close.length > 0) {
-        const closes = res.ohlcv.close.filter((c) => typeof c === "number" && !isNaN(c));
+        const closes = res.ohlcv.close.filter((c) => typeof c === "number" && !isNaN(c) && c > 0);
         const len = closes.length;
         
         const priceFromInfo = extractNum(res.info?.current_price);
@@ -164,9 +181,9 @@ async function fetchSingleIndexQuote(meta: MarketIndexMeta): Promise<MarketIndex
         const change = currentPrice - prevClose;
         const changePct = prevClose > 0 ? (change / prevClose) * 100 : 0;
 
-        const highs = res.ohlcv.high.filter((h) => typeof h === "number" && !isNaN(h));
-        const lows = res.ohlcv.low.filter((l) => typeof l === "number" && !isNaN(l));
-        const opens = res.ohlcv.open.filter((o) => typeof o === "number" && !isNaN(o));
+        const highs = res.ohlcv.high.filter((h) => typeof h === "number" && !isNaN(h) && h > 0);
+        const lows = res.ohlcv.low.filter((l) => typeof l === "number" && !isNaN(l) && l > 0);
+        const opens = res.ohlcv.open.filter((o) => typeof o === "number" && !isNaN(o) && o > 0);
 
         const sparkline = closes.slice(-10);
 
@@ -193,20 +210,20 @@ async function fetchSingleIndexQuote(meta: MarketIndexMeta): Promise<MarketIndex
     }
   }
 
-  // 2. Web 瀏覽器端：使用帶 CORS 代理或直接請求 Yahoo Finance Chart API
+  // 2. Web 瀏覽器端：多組可靠代理輪替解碼
   try {
     const encSym = symbol.startsWith("^") ? "%5E" + symbol.slice(1) : symbol;
     const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encSym}?range=1mo&interval=1d`;
     const proxyUrls = [
-      `https://r.jina.ai/http://query1.finance.yahoo.com/v8/finance/chart/${encSym}?range=1mo&interval=1d`,
       `https://corsproxy.org/?url=${encodeURIComponent(targetUrl)}`,
+      `https://r.jina.ai/http://query1.finance.yahoo.com/v8/finance/chart/${encSym}?range=1mo&interval=1d`,
       targetUrl,
     ];
 
     let data: any = null;
     for (const url of proxyUrls) {
       try {
-        const resp = await fetch(url, { signal: AbortSignal.timeout(5000) });
+        const resp = await fetch(url, { signal: AbortSignal.timeout(4500) });
         if (resp.ok) {
           const text = await resp.text();
           let json: any = null;
@@ -234,16 +251,16 @@ async function fetchSingleIndexQuote(meta: MarketIndexMeta): Promise<MarketIndex
       const rawLows: number[] = quoteObj.low || [];
       const rawOpens: number[] = quoteObj.open || [];
 
-      const closes = rawCloses.filter((c) => typeof c === "number" && !isNaN(c));
+      const closes = rawCloses.filter((c) => typeof c === "number" && !isNaN(c) && c > 0);
       const len = closes.length;
       const currentPrice = metaObj.regularMarketPrice ?? (len > 0 ? closes[len - 1] : 0);
       const prevClose = metaObj.chartPreviousClose ?? metaObj.previousClose ?? (len >= 2 ? closes[len - 2] : currentPrice);
       const change = currentPrice - prevClose;
       const changePct = prevClose > 0 ? (change / prevClose) * 100 : 0;
 
-      const validHighs = rawHighs.filter((h) => typeof h === "number" && !isNaN(h));
-      const validLows = rawLows.filter((l) => typeof l === "number" && !isNaN(l));
-      const validOpens = rawOpens.filter((o) => typeof o === "number" && !isNaN(o));
+      const validHighs = rawHighs.filter((h) => typeof h === "number" && !isNaN(h) && h > 0);
+      const validLows = rawLows.filter((l) => typeof l === "number" && !isNaN(l) && l > 0);
+      const validOpens = rawOpens.filter((o) => typeof o === "number" && !isNaN(o) && o > 0);
 
       return {
         symbol: meta.symbol,
@@ -267,7 +284,7 @@ async function fetchSingleIndexQuote(meta: MarketIndexMeta): Promise<MarketIndex
     console.warn(`[Web] Chart fetch error for ${symbol}:`, err);
   }
 
-  return getEmptyErrorQuote(meta);
+  return CACHED_INDEX_QUOTES.get(meta.symbol) || getEmptyErrorQuote(meta);
 }
 
 export async function fetchIndexHistory(symbol: string, range: "1d" | "1mo" | "3mo" | "6mo" | "1y" = "1mo"): Promise<IndexHistoryData> {
