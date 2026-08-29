@@ -5,6 +5,7 @@ import { onAuthChange, logoutUser } from "./utils/firebase";
 import { useAppTheme } from "./utils/theme";
 import "./index.css";
 import { AuthScreen } from "./components/AuthScreen";
+import { MarketOverviewTab } from "./components/MarketOverviewTab";
 import { AnalysisTab } from "./components/AnalysisTab";
 import { ScannerTab } from "./components/ScannerTab";
 import { FundamentalScanTab } from "./components/FundamentalScanTab";
@@ -14,13 +15,13 @@ import { WatchlistTab } from "./components/WatchlistTab";
 import { HardwareBadge } from "./components/HardwareBadge";
 import { loadStocks, updateStocks } from "./utils/stocks";
 
-type TabId = "analysis" | "scanner" | "fundamental" | "hybrid" | "ai_alpha" | "watchlist";
+type TabId = "market" | "analysis" | "ai_alpha" | "hybrid" | "scanner" | "fundamental" | "watchlist";
 
 export default function App() {
   const [theme, , toggleTheme] = useAppTheme();
   const isWarm = theme === "warm";
-  const [activeTab, setActiveTab] = useState<TabId>("analysis");
-  const [visitedTabs, setVisitedTabs] = useState<Set<TabId>>(() => new Set(["analysis"]));
+  const [activeTab, setActiveTab] = useState<TabId>("market");
+  const [visitedTabs, setVisitedTabs] = useState<Set<TabId>>(() => new Set(["market"]));
   const [analyzeTarget, setAnalyzeTarget] = useState<string>("");
   const [stockStatus, setStockStatus] = useState<string>("載入中...");
   const [isUpdating, setIsUpdating] = useState<boolean>(false);
@@ -109,6 +110,7 @@ export default function App() {
 
   const isLoggedIn = !!authUser;
   const TABS: { id: TabId; label: string; requireLogin?: boolean }[] = [
+    { id: "market", label: "🌐 全球大盤" },
     { id: "analysis", label: "📊 個股分析" },
     { id: "ai_alpha", label: "🧠 AI 多因子選股" },
     { id: "hybrid", label: "🎯 融合選股" },
@@ -203,6 +205,11 @@ export default function App() {
       </header>
 
       <main className="app-main" style={{ position: "relative", height: "100%", width: "100%" }}>
+        {visitedTabs.has("market") && (
+          <div style={{ display: activeTab === "market" ? "block" : "none", height: "100%", width: "100%", overflowY: "auto" }}>
+            <MarketOverviewTab onNavigateToAnalysis={handleAnalyze} />
+          </div>
+        )}
         {visitedTabs.has("analysis") && (
           <div style={{ display: activeTab === "analysis" ? "block" : "none", height: "100%", width: "100%" }}>
             <AnalysisTab initialSymbol={analyzeTarget} />
