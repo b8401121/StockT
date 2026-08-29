@@ -195,11 +195,12 @@ async function fetchSingleIndexQuote(meta: MarketIndexMeta): Promise<MarketIndex
 
   // 2. Web 瀏覽器端：使用帶 CORS 代理或直接請求 Yahoo Finance Chart API
   try {
-    const rawUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=1mo&interval=1d`;
+    const encSym = symbol.startsWith("^") ? "%5E" + symbol.slice(1) : symbol;
+    const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encSym}?range=1mo&interval=1d`;
     const proxyUrls = [
-      `https://corsproxy.io/?url=${encodeURIComponent(rawUrl)}`,
-      `https://api.allorigins.win/raw?url=${encodeURIComponent(rawUrl)}`,
-      rawUrl,
+      `https://r.jina.ai/http://query1.finance.yahoo.com/v8/finance/chart/${encSym}?range=1mo&interval=1d`,
+      `https://corsproxy.org/?url=${encodeURIComponent(targetUrl)}`,
+      targetUrl,
     ];
 
     let data: any = null;
@@ -207,7 +208,16 @@ async function fetchSingleIndexQuote(meta: MarketIndexMeta): Promise<MarketIndex
       try {
         const resp = await fetch(url, { signal: AbortSignal.timeout(5000) });
         if (resp.ok) {
-          const json = await resp.json();
+          const text = await resp.text();
+          let json: any = null;
+          try {
+            json = JSON.parse(text);
+          } catch {
+            const match = text.match(/\{[\s\S]*\}/);
+            if (match) {
+              try { json = JSON.parse(match[0]); } catch {}
+            }
+          }
           if (json?.chart?.result?.[0]) {
             data = json.chart.result[0];
             break;
@@ -278,18 +288,28 @@ export async function fetchIndexHistory(symbol: string, range: "1d" | "1mo" | "3
   }
 
   try {
-    const rawUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${interval}`;
+    const encSym = symbol.startsWith("^") ? "%5E" + symbol.slice(1) : symbol;
+    const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encSym}?range=${range}&interval=${interval}`;
     const proxyUrls = [
-      `https://corsproxy.io/?url=${encodeURIComponent(rawUrl)}`,
-      `https://api.allorigins.win/raw?url=${encodeURIComponent(rawUrl)}`,
-      rawUrl,
+      `https://r.jina.ai/http://query1.finance.yahoo.com/v8/finance/chart/${encSym}?range=${range}&interval=${interval}`,
+      `https://corsproxy.org/?url=${encodeURIComponent(targetUrl)}`,
+      targetUrl,
     ];
 
     for (const url of proxyUrls) {
       try {
         const resp = await fetch(url, { signal: AbortSignal.timeout(6000) });
         if (resp.ok) {
-          const json = await resp.json();
+          const text = await resp.text();
+          let json: any = null;
+          try {
+            json = JSON.parse(text);
+          } catch {
+            const match = text.match(/\{[\s\S]*\}/);
+            if (match) {
+              try { json = JSON.parse(match[0]); } catch {}
+            }
+          }
           const res = json?.chart?.result?.[0];
           if (res) {
             const timestamps: number[] = res.timestamp || [];
