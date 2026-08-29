@@ -301,7 +301,8 @@ async function fetchWebStockData(symbol: string, range = "1y"): Promise<StockDat
   let normSym = symbol.trim().toUpperCase();
   const rawNum = normSym.split(".")[0];
   
-  if (!normSym.includes(".")) {
+  // 只有當代碼為純數字的台股個股/ETF 時，才自動補後綴
+  if (!normSym.includes(".") && !normSym.startsWith("^") && /^\d+$/.test(rawNum)) {
     const num = parseInt(rawNum, 10);
     // 常見上櫃代碼區間自動補 .TWO，其餘補 .TW
     if (

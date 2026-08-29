@@ -166,11 +166,17 @@ pub async fn fetch_detailed_fundamentals(symbol: String) -> Result<Value, String
 #[tauri::command]
 pub async fn fetch_stock_data(symbol: String, range: String) -> Result<StockData, String> {
     let client = make_client();
+    let clean_symbol = symbol.trim();
+    let encoded_sym = if clean_symbol.starts_with('^') {
+        format!("%5E{}", &clean_symbol[1..])
+    } else {
+        clean_symbol.to_string()
+    };
 
     // ① 抓取歷史K線
     let chart_url = format!(
         "https://query1.finance.yahoo.com/v8/finance/chart/{}?range={}&interval=1d&includeAdjustedClose=true",
-        symbol, range
+        encoded_sym, range
     );
 
     let chart_res = client
@@ -240,8 +246,9 @@ pub async fn fetch_stock_data(symbol: String, range: String) -> Result<StockData
         long_business_summary: None,
     };
 
-    if let Ok(json) = fetch_yahoo_quote_summary(&symbol).await {
-        let qs = &json["quoteSummary"]["result"][0];
+    if !symbol.starts_with('^') {
+        if let Ok(json) = fetch_yahoo_quote_summary(&symbol).await {
+            let qs = &json["quoteSummary"]["result"][0];
         if !qs.is_null() {
             let ap = &qs["assetProfile"];
             let fd = &qs["financialData"];
@@ -288,6 +295,7 @@ pub async fn fetch_stock_data(symbol: String, range: String) -> Result<StockData
             }
         }
     }
+}
 
     // 補充台股官方估值 (PE/PB/殖利率)
     let co_id = symbol.split('.').next().unwrap_or(&symbol);
@@ -476,9 +484,15 @@ pub async fn fetch_news(query: String) -> Result<Vec<NewsItem>, String> {
 // ─── 批次抓取股票報價 ─────────────────────────────────────────────────────────
 
 async fn fetch_single_stock_data_limited(client: &reqwest::Client, symbol: &str) -> Option<StockData> {
+    let clean_symbol = symbol.trim();
+    let encoded_sym = if clean_symbol.starts_with('^') {
+        format!("%5E{}", &clean_symbol[1..])
+    } else {
+        clean_symbol.to_string()
+    };
     let url = format!(
         "https://query1.finance.yahoo.com/v8/finance/chart/{}?range=1y&interval=1d",
-        symbol
+        encoded_sym
     );
     if let Ok(resp) = client.get(&url).send().await {
         if let Ok(json) = resp.json::<Value>().await {
