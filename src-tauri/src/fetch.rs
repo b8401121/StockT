@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::sync::OnceLock;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 pub use crate::models::{MetricF64, NewsItem, OhlcvData, StockData, StockInfo, TwFundamental};
@@ -596,6 +597,112 @@ pub async fn fetch_batch_stock_data_full(symbols: Vec<String>, range: String) ->
     for task in tasks {
         if let Ok(Ok(data)) = task.await {
             results.push(data);
+        }
+    }
+
+    Ok(results)
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct MarketOverviewItem {
+    pub symbol: String,
+    pub price: f64,
+    pub previous_close: f64,
+    pub change: f64,
+    pub change_pct: f64,
+    pub high: f64,
+    pub low: f64,
+    pub open: f64,
+    pub sparkline: Vec<f64>,
+}
+
+#[tauri::command]
+pub async fn fetch_market_overview() -> Result<Vec<MarketOverviewItem>, String> {
+    use std::sync::Arc;
+    let client = Arc::new(make_client());
+    let semaphore = Arc::new(tokio::sync::Semaphore::new(6));
+
+    let symbols = vec![
+        "^TWII", "^TWOII", "TSM", "^GSPC", "^SOX", "^IXIC", "^DJI", "^VIX", "^TNX",
+        "^N225", "^KS11", "^HSI", "000001.SS", "^FTSE", "^GDAXI", "^FCHI",
+    ];
+
+    let mut tasks = vec![];
+    for sym in symbols {
+        let client = client.clone();
+        let semaphore = semaphore.clone();
+        let symbol = sym.to_string();
+
+        tasks.push(tokio::spawn(async move {
+            let _permit = semaphore.acquire().await.ok();
+            let clean_symbol = symbol.trim();
+            let encoded_sym = if clean_symbol.starts_with('^') {
+                format!("%5E{}", &clean_symbol[1..])
+            } else {
+                clean_symbol.to_string()
+            };
+            let url = format!(
+                "https://query1.finance.yahoo.com/v8/finance/chart/{}?range=1mo&interval=1d",
+                encoded_sym
+            );
+
+            if let Ok(resp) = client.get(&url).send().await {
+                if let Ok(json) = resp.json::<Value>().await {
+                    if let Some(res) = json.get("chart").and_then(|c| c.get("result")).and_then(|r| r.get(0)) {
+                        let meta = &res["meta"];
+                        let quote = &res["indicators"]["quote"][0];
+                        let raw_closes = extract_f64(&quote["close"]);
+                        let raw_highs = extract_f64(&quote["high"]);
+                        let raw_lows = extract_f64(&quote["low"]);
+                        let raw_opens = extract_f64(&quote["open"]);
+
+                        let valid_closes: Vec<f64> = raw_closes.into_iter().filter(|c| !c.is_nan() && *c > 0.0).collect();
+                        let len = valid_closes.len();
+
+                        let current_price = meta["regularMarketPrice"].as_f64()
+                            .or_else(|| valid_closes.last().copied())
+                            .unwrap_or(0.0);
+
+                        let prev_close = meta["chartPreviousClose"].as_f64()
+                            .or_else(|| meta["previousClose"].as_f64())
+                            .or_else(|| if len >= 2 { Some(valid_closes[len - 2]) } else { None })
+                            .unwrap_or(current_price);
+
+                        let change = current_price - prev_close;
+                        let change_pct = if prev_close > 0.0 { (change / prev_close) * 100.0 } else { 0.0 };
+
+                        let high = raw_highs.into_iter().filter(|h| !h.is_nan() && *h > 0.0).last().unwrap_or(current_price);
+                        let low = raw_lows.into_iter().filter(|l| !l.is_nan() && *l > 0.0).last().unwrap_or(current_price);
+                        let open = raw_opens.into_iter().filter(|o| !o.is_nan() && *o > 0.0).last().unwrap_or(current_price);
+
+                        let sparkline = if len > 10 {
+                            valid_closes[len - 10..].to_vec()
+                        } else {
+                            valid_closes
+                        };
+
+                        return Some(MarketOverviewItem {
+                            symbol,
+                            price: current_price,
+                            previous_close: prev_close,
+                            change,
+                            change_pct,
+                            high,
+                            low,
+                            open,
+                            sparkline,
+                        });
+                    }
+                }
+            }
+            None
+        }));
+    }
+
+    let mut results = vec![];
+    for task in tasks {
+        if let Ok(Some(item)) = task.await {
+            results.push(item);
         }
     }
 

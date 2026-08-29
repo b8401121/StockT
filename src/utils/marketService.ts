@@ -78,6 +78,55 @@ function extractNum(m: any): number | null {
 }
 
 export async function fetchMarketIndices(): Promise<MarketIndexQuote[]> {
+  // 1. 若在 Tauri 桌面端，直接呼叫 Rust 後端高效能平行批次抓取 (單一 IPC 通訊)
+  if (isTauri()) {
+    try {
+      const items = await tauriInvoke<Array<{
+        symbol: string;
+        price: number;
+        previous_close: number;
+        change: number;
+        change_pct: number;
+        high: number;
+        low: number;
+        open: number;
+        sparkline: number[];
+      }>>("fetch_market_overview");
+
+      if (Array.isArray(items) && items.length > 0) {
+        const itemMap = new Map(items.map((it) => [it.symbol, it]));
+        const timeStr = new Date().toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+
+        return GLOBAL_INDICES.map((meta) => {
+          const found = itemMap.get(meta.symbol);
+          if (found && found.price > 0) {
+            return {
+              symbol: meta.symbol,
+              name: meta.name,
+              category: meta.category,
+              flag: meta.flag,
+              price: found.price,
+              previousClose: found.previous_close,
+              change: found.change,
+              changePct: found.change_pct,
+              high: found.high,
+              low: found.low,
+              open: found.open,
+              sparkline: found.sparkline,
+              updatedAt: timeStr,
+              isRateOrVix: meta.isRateOrVix,
+              status: "live",
+            };
+          }
+          return getEmptyErrorQuote(meta);
+        });
+      }
+    } catch (e) {
+      console.warn("[MarketService] tauri fetch_market_overview failed:", e);
+    }
+  }
+
+  // 2. Web 瀏覽器端：以受控並發隊列獲取數據
   const fetchPromises = GLOBAL_INDICES.map(async (meta) => {
     try {
       const q = await fetchSingleIndexQuote(meta);

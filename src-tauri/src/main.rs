@@ -49,6 +49,7 @@ fn main() {
             fetch::get_stock_list,
             fetch::update_stock_list,
             fetch::fetch_detailed_fundamentals,
+            fetch::fetch_market_overview,
             // 投資組合
             portfolio::load_watchlist,
             portfolio::save_watchlist,
