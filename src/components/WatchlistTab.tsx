@@ -42,6 +42,11 @@ export interface UnrealizedHolding {
   bankFee: number;
   taxCredit85: number;
   estNetDividend: number;
+  qualifiedStockShares: number;      // 預估獲配股票股利股數
+  estStockDividendValue: number;     // 預估除權配股收益 (qualifiedStockShares * curPrice)
+  estTotalDividendValue: number;     // 預估除權息總收益 (estNetDividend + estStockDividendValue)
+  totalPnlWithDividends: number;     // 含除權息預估總獲利 (pnl + estTotalDividendValue)
+  totalRoiWithDividends: number;     // 含除權息預估總報酬率
   exType: string;
   buyLots: {
     id: string;
@@ -51,6 +56,8 @@ export interface UnrealizedHolding {
     buyFee: number;
     isQualified: boolean;
     lotGrossDividend: number;
+    lotStockShares: number;
+    lotStockDividendValue: number;
     note?: string;
   }[];
   exDate?: string;
@@ -71,11 +78,18 @@ export interface RealizedTrade {
   revenue: number;
   fee: number;
   tax: number;
-  pnl: number;
-  roi: number;
+  pnl: number;                       // 價差淨損益 (淨賣出額 - 買進總成本)
+  roi: number;                       // 價差報酬率
   exDate?: string;
-  realizedDividend?: number;
-  isExQualified?: boolean;
+  cashDividend: number;              // 每股現金股利
+  stockDividend: number;             // 每股股票股利
+  isExQualified?: boolean;           // 是否跨越除權息日
+  realizedDividend: number;          // 已實現除權息總收益 (realizedCashDividend + realizedStockDividend)
+  realizedCashDividend: number;      // 實收現金股利
+  realizedStockShares: number;       // 獲配股票股利股數
+  realizedStockDividend: number;     // 除權配股收益 (獲配股數 * sellPrice)
+  totalRealizedIncome: number;       // 含除權息總損益 (pnl + realizedDividend)
+  totalRoiWithDividends: number;     // 含除權息總報酬率
   note?: string;
 }
 
@@ -85,10 +99,17 @@ export interface ObservingStock {
   name: string;
   curPrice: number;
   remainingShares: number;
-  cashDividend: number;
-  stockDividend: number;
+  cashDividend: number;              // 每股現金股利
+  stockDividend: number;             // 每股股票股利
   exType: string;
   exDate?: string;
+  stockDividendSharesPerLot: number; // 每張(1000股)獲配股數
+  stockDividendValuePerLot: number;  // 每張預估除權收益 (市價 * 配股股數)
+  cashDividendPerLot: number;        // 每張現金股息
+  totalDividendPerLot: number;       // 每張除權息總收益 (現金 + 配股除權收益)
+  cashYieldPct: number;              // 現金殖利率 (%)
+  stockYieldPct: number;             // 股票股利除權殖利率 (%)
+  totalYieldPct: number;             // 綜合殖利率 (%)
   note?: string;
 }
 
@@ -412,9 +433,16 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
             const fund = (twseFundamentals as Record<string, any>)[coCode];
             const exDate = fund?.ex_dividend_date || null;
             const cashDiv = fund?.cash_dividend != null ? Number(fund.cash_dividend) : 0;
-            // 持有期間涵蓋除息日判斷：買進日 < 除息日 且 賣出日 >= 除息日
-            const isExQualified = !!(exDate && cashDiv > 0 && lot.date < exDate && trade.date >= exDate);
-            const realizedDividend = isExQualified ? Math.round(cashDiv * matchShares) : 0;
+            const stockDiv = fund?.stock_dividend != null ? Number(fund.stock_dividend) : 0;
+
+            // 持有期間涵蓋除權息日判斷：買進日 < 除權息日 且 賣出日 >= 除權息日
+            const isExQualified = !!(exDate && (cashDiv > 0 || stockDiv > 0) && lot.date < exDate && trade.date >= exDate);
+            const realizedCashDividend = isExQualified && cashDiv > 0 ? Math.round(cashDiv * matchShares) : 0;
+            const realizedStockShares = isExQualified && stockDiv > 0 ? Math.round(matchShares * (stockDiv / 10)) : 0;
+            const realizedStockDividend = realizedStockShares * sellPrice;
+            const totalDividendIncome = realizedCashDividend + realizedStockDividend;
+            const totalRealizedIncome = pnl + totalDividendIncome;
+            const totalRoiWithDividends = buyCost > 0 ? (totalRealizedIncome / buyCost) * 100 : 0;
 
             realizedTrades.push({
               id: `${trade.id}-${lot.id}`,
@@ -432,8 +460,15 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
               pnl,
               roi,
               exDate: exDate || undefined,
-              realizedDividend,
+              cashDividend: cashDiv,
+              stockDividend: stockDiv,
               isExQualified,
+              realizedDividend: totalDividendIncome,
+              realizedCashDividend,
+              realizedStockShares,
+              realizedStockDividend,
+              totalRealizedIncome,
+              totalRoiWithDividends,
               note: trade.note,
             });
 
@@ -469,25 +504,34 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
         const exDate = fund?.ex_dividend_date || null;
         const exType = stockDiv > 0 && cashDiv > 0 ? "除權息" : stockDiv > 0 ? "除權" : cashDiv > 0 ? "除息" : "無配息";
 
-        // 依據各批次買進日期，驗證持有時間是否涵蓋除息日 (買進日 < 除息日)
+        // 依據各批次買進日期，驗證持有時間是否涵蓋除權息日 (買進日 < 除權息日)
         const enrichedLots = buyLots.map((lot) => {
-          const isQualified = !!(exDate && cashDiv > 0 && lot.date < exDate);
-          const lotGrossDividend = isQualified ? Math.round(cashDiv * lot.shares) : 0;
+          const isQualified = !!(exDate && (cashDiv > 0 || stockDiv > 0) && lot.date < exDate);
+          const lotGrossDividend = isQualified && cashDiv > 0 ? Math.round(cashDiv * lot.shares) : 0;
+          const lotStockShares = isQualified && stockDiv > 0 ? Math.round(lot.shares * (stockDiv / 10)) : 0;
+          const lotStockDividendValue = lotStockShares * curPrice;
           return {
             ...lot,
             isQualified,
             lotGrossDividend,
+            lotStockShares,
+            lotStockDividendValue,
           };
         });
 
         const qualifiedShares = enrichedLots.filter((l) => l.isQualified).reduce((acc, l) => acc + l.shares, 0);
         const estGrossDividend = enrichedLots.reduce((acc, l) => acc + l.lotGrossDividend, 0);
-        
+        const qualifiedStockShares = enrichedLots.reduce((acc, l) => acc + l.lotStockShares, 0);
+        const estStockDividendValue = enrichedLots.reduce((acc, l) => acc + l.lotStockDividendValue, 0);
+
         // 單筆股利達 20,000 元扣 2.11% 二代健保補充保費
         const nhiPremium = estGrossDividend >= 20000 ? Math.floor(estGrossDividend * 0.0211) : 0;
         const bankFee = estGrossDividend > 0 ? 10 : 0;
         const taxCredit85 = Math.min(Math.floor(estGrossDividend * 0.085), 80000);
         const estNetDividend = Math.max(estGrossDividend - nhiPremium - bankFee, 0);
+        const estTotalDividendValue = estNetDividend + estStockDividendValue;
+        const totalPnlWithDividends = pnl + estTotalDividendValue;
+        const totalRoiWithDividends = totalCost > 0 ? (totalPnlWithDividends / totalCost) * 100 : 0;
 
         unrealizedHoldings.push({
           symbol,
@@ -510,6 +554,11 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
           bankFee,
           taxCredit85,
           estNetDividend,
+          qualifiedStockShares,
+          estStockDividendValue,
+          estTotalDividendValue,
+          totalPnlWithDividends,
+          totalRoiWithDividends,
           exType,
           exDate: exDate || undefined,
           qualifiedShares,
@@ -536,16 +585,34 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
       const note = symTrades.find((t) => t.note)?.note || "";
       const holding = unrealizedHoldings.find((h) => h.symbol === symbol);
       const remainingShares = holding ? holding.remainingShares : 0;
+      const curPrice = prices[symbol] || (fund?.close_price ? Number(fund.close_price) : 0);
+
+      // 每張 (1,000 股) 配股股數與除權價值
+      const stockDividendSharesPerLot = stockDiv > 0 ? Math.round(1000 * (stockDiv / 10)) : 0;
+      const stockDividendValuePerLot = stockDividendSharesPerLot * curPrice;
+      const cashDividendPerLot = cashDiv * 1000;
+      const totalDividendPerLot = cashDividendPerLot + stockDividendValuePerLot;
+
+      const cashYieldPct = curPrice > 0 && cashDiv > 0 ? (cashDiv / curPrice) * 100 : (fund?.yield_pct != null ? Number(fund.yield_pct) : 0);
+      const stockYieldPct = (stockDiv / 10) * 100;
+      const totalYieldPct = cashYieldPct + stockYieldPct;
 
       observingStocks.push({
         symbol,
         name: stockName,
-        curPrice: prices[symbol] || 0,
+        curPrice,
         remainingShares,
         cashDividend: cashDiv,
         stockDividend: stockDiv,
         exType,
         exDate: exDate || undefined,
+        stockDividendSharesPerLot,
+        stockDividendValuePerLot,
+        cashDividendPerLot,
+        totalDividendPerLot,
+        cashYieldPct,
+        stockYieldPct,
+        totalYieldPct,
         note,
       });
     }
@@ -567,14 +634,26 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
     const totalRealizedRevenue = realizedTrades.reduce((acc, r) => acc + r.revenue, 0);
     const totalRealizedPnl = realizedTrades.reduce((acc, r) => acc + r.pnl, 0);
     const totalRealizedRoi = totalRealizedCost > 0 ? (totalRealizedPnl / totalRealizedCost) * 100 : 0;
-    const winTrades = realizedTrades.filter((r) => r.pnl > 0).length;
+    const winTrades = realizedTrades.filter((r) => (r.totalRealizedIncome ?? r.pnl) > 0).length;
     const winRate = realizedTrades.length > 0 ? (winTrades / realizedTrades.length) * 100 : 0;
 
+    // 未實現股利與除權
     const totalGrossDividends = unrealizedHoldings.reduce((acc, h) => acc + h.estGrossDividend, 0);
     const totalNhiPremium = unrealizedHoldings.reduce((acc, h) => acc + h.nhiPremium, 0);
     const totalTaxCredit85 = Math.min(unrealizedHoldings.reduce((acc, h) => acc + h.taxCredit85, 0), 80000);
     const totalNetDividends = unrealizedHoldings.reduce((acc, h) => acc + h.estNetDividend, 0);
-    const grandTotalPnl = totalUnrealizedPnl + totalRealizedPnl + totalNetDividends;
+    const totalUnrealizedStockShares = unrealizedHoldings.reduce((acc, h) => acc + h.qualifiedStockShares, 0);
+    const totalUnrealizedStockDividend = unrealizedHoldings.reduce((acc, h) => acc + h.estStockDividendValue, 0);
+
+    // 已實現股利與除權
+    const totalRealizedCashDividends = realizedTrades.reduce((acc, r) => acc + (r.realizedCashDividend || 0), 0);
+    const totalRealizedStockShares = realizedTrades.reduce((acc, r) => acc + (r.realizedStockShares || 0), 0);
+    const totalRealizedStockDividends = realizedTrades.reduce((acc, r) => acc + (r.realizedStockDividend || 0), 0);
+    const totalRealizedAllDividends = totalRealizedCashDividends + totalRealizedStockDividends;
+
+    // 全部除權息總收益 (現金 + 配股除權收益)
+    const totalAllDividendsAndRights = totalNetDividends + totalUnrealizedStockDividend + totalRealizedAllDividends;
+    const grandTotalPnl = totalUnrealizedPnl + totalRealizedPnl + totalAllDividendsAndRights;
     const totalCombinedCost = totalUnrealizedCost + totalRealizedCost;
     const grandTotalRoi = totalCombinedCost > 0 ? (grandTotalPnl / totalCombinedCost) * 100 : 0;
 
@@ -598,6 +677,13 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
         totalNhiPremium,
         totalTaxCredit85,
         totalNetDividends,
+        totalUnrealizedStockShares,
+        totalUnrealizedStockDividend,
+        totalRealizedCashDividends,
+        totalRealizedStockShares,
+        totalRealizedStockDividends,
+        totalRealizedAllDividends,
+        totalAllDividendsAndRights,
       },
     };
   }, [currentTrades, prices, deductFees, feeDiscount, stockDb]);
@@ -798,8 +884,9 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
 
       const curPrice = s.curPrice > 0 ? `$${s.curPrice.toFixed(2)}` : "-";
       const cashDiv = s.cashDividend > 0 ? `${s.cashDividend.toFixed(2)} 元` : (fund.cash_dividend ? `${Number(fund.cash_dividend).toFixed(2)} 元` : "無配息");
+      const stockDiv = s.stockDividend > 0 ? `${s.stockDividend.toFixed(2)} 元` : (fund.stock_dividend ? `${Number(fund.stock_dividend).toFixed(2)} 元` : "無配股");
       const exDate = s.exDate || fund.ex_dividend_date || "尚待公告";
-      const yieldPct = fund.yield_pct != null ? `${fmtFixed(fund.yield_pct, 2)}%` : (s.curPrice > 0 && s.cashDividend > 0 ? `${((s.cashDividend / s.curPrice) * 100).toFixed(2)}%` : "-");
+      const yieldPct = `綜合 ${s.totalYieldPct.toFixed(2)}% (現金 ${s.cashYieldPct.toFixed(2)}% + 配股 ${s.stockYieldPct.toFixed(2)}%)`;
 
       const _wm = (v: number | null | undefined) => v != null ? mkMops(v) : null;
       const stockInfoFull = {
@@ -834,7 +921,9 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
           <td style="text-align:center;">PE: <b>${pe}</b> / PB: <b>${pb}</b></td>
           <td style="text-align:right;">
             <b style="color:#b45309;">${yieldPct}</b>
-            <div style="font-size:0.75rem; color:#64748b;">${cashDiv} (${exDate})</div>
+            <div style="font-size:0.75rem; color:#64748b;">配息: ${cashDiv} ｜ 配股: ${stockDiv}</div>
+            ${s.stockDividend > 0 ? `<div style="font-size:0.72rem; color:#7e22ce;">每張配 ${s.stockDividendSharesPerLot}股 (估值約 $${Math.round(s.stockDividendValuePerLot).toLocaleString()})</div>` : ''}
+            <div style="font-size:0.70rem; color:#0284c7;">除權息日: ${exDate}</div>
           </td>
           <td style="text-align:right;">
             <div style="color:${roeColor}; font-weight:700;">ROE: ${roe}</div>
@@ -1201,7 +1290,7 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
           </div>
 
           {/* 四大資產與損益卡片 */}
-          {totals.totalGrossDividends > 0 && (
+          {(totals.totalGrossDividends > 0 || totals.totalUnrealizedStockDividend > 0) && (
             <div style={{
               background: isWarm ? "rgba(245, 158, 11, 0.08)" : "linear-gradient(90deg, rgba(234, 179, 8, 0.18), rgba(202, 138, 4, 0.08))",
               border: isWarm ? "1px solid rgba(217, 119, 6, 0.3)" : "1px solid rgba(234, 179, 8, 0.4)", borderRadius: "8px", padding: "10px 14px",
@@ -1210,17 +1299,20 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                   <span style={{ fontSize: "1.1rem" }}>🎁</span>
-                  <span style={{ fontWeight: 800, fontSize: "0.95rem", color: isWarm ? "#9a3412" : "#ffffff" }}>目前持股除權息與股利稅務試算：</span>
+                  <span style={{ fontWeight: 800, fontSize: "0.95rem", color: isWarm ? "#9a3412" : "#ffffff" }}>目前持股除權息與股利收益試算：</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
-                  <span>股利毛額: <b style={{ color: isWarm ? "#b45309" : "#facc15" }}>NT$ {totals.totalGrossDividends.toLocaleString()}</b></span>
+                  <span>現金股利實收: <b style={{ color: isWarm ? "#b45309" : "#facc15" }}>NT$ {totals.totalNetDividends.toLocaleString()}</b> <span style={{ fontSize: "0.74rem", color: isWarm ? "#57534e" : "#cbd5e1" }}>(毛額 ${totals.totalGrossDividends.toLocaleString()})</span></span>
+                  {totals.totalUnrealizedStockShares > 0 && (
+                    <span>預估獲配股票: <b style={{ color: isWarm ? "#7e22ce" : "#c084fc" }}>{totals.totalUnrealizedStockShares.toLocaleString()} 股</b> <span style={{ color: isWarm ? "#7e22ce" : "#c084fc" }}>(除權約 NT$ {Math.round(totals.totalUnrealizedStockDividend).toLocaleString()})</span></span>
+                  )}
                   <span>健保補充保費(2.11%): <b style={{ color: totals.totalNhiPremium > 0 ? (isWarm ? "#dc2626" : "#f87171") : (isWarm ? "#15803d" : "#4ade80") }}>-{totals.totalNhiPremium.toLocaleString()} 元</b></span>
                   <span>8.5%抵減稅額(可退稅): <b style={{ color: isWarm ? "#0284c7" : "#38bdf8" }}>+{totals.totalTaxCredit85.toLocaleString()} 元</b></span>
                   <span style={{
                     background: isWarm ? "rgba(217, 119, 6, 0.15)" : "rgba(250, 204, 21, 0.2)", border: isWarm ? "1px solid rgba(217, 119, 6, 0.4)" : "1px solid rgba(250, 204, 21, 0.5)",
                     borderRadius: "6px", padding: "2px 8px", color: isWarm ? "#9a3412" : "#facc15", fontWeight: 800
                   }}>
-                    預估實收淨額: NT$ {totals.totalNetDividends.toLocaleString()}
+                    除權息預估總收益: NT$ {Math.round(totals.totalNetDividends + totals.totalUnrealizedStockDividend).toLocaleString()}
                   </span>
                 </div>
               </div>
@@ -1266,6 +1358,11 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
               <div style={{ fontSize: "0.74rem", fontWeight: 700, color: totals.totalRealizedPnl >= 0 ? (isWarm ? "#dc2626" : "#ff5252") : (isWarm ? "#15803d" : "#4caf50"), marginTop: "2px" }}>
                 已結算報酬率: {totals.totalRealizedPnl >= 0 ? "+" : ""}{totals.totalRealizedRoi.toFixed(2)}% (勝率 {totals.winRate.toFixed(0)}%)
               </div>
+              {totals.totalRealizedAllDividends > 0 && (
+                <div style={{ fontSize: "0.70rem", color: isWarm ? "#b45309" : "#facc15", marginTop: "2px" }}>
+                  含息權獲利: +NT$ {Math.round(totals.totalRealizedPnl + totals.totalRealizedAllDividends).toLocaleString()}
+                </div>
+              )}
             </div>
 
             {/* 4. 總累積獲利 */}
@@ -1275,10 +1372,10 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
               borderRadius: "8px", padding: "10px 14px"
             }}>
               <div style={{ fontSize: "0.76rem", color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, marginBottom: "2px" }}>
-                📈 總累積獲利 (未實現 + 已實現 + 股利)
+                📈 總累積獲利 (未實現 + 已實現 + 除權息)
               </div>
               <div style={{ fontSize: "1.25rem", fontWeight: 800, color: totals.grandTotalPnl >= 0 ? (isWarm ? "#dc2626" : "#ff5252") : (isWarm ? "#15803d" : "#4caf50") }}>
-                {totals.grandTotalPnl >= 0 ? "+" : ""}NT$ {totals.grandTotalPnl.toLocaleString()}
+                {totals.grandTotalPnl >= 0 ? "+" : ""}NT$ {Math.round(totals.grandTotalPnl).toLocaleString()}
               </div>
               <div style={{
                 fontSize: "0.82rem", fontWeight: 800,
@@ -1295,7 +1392,7 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                 </span>
               </div>
               <div style={{ fontSize: "0.70rem", color: isWarm ? "#57534e" : "#cbd5e1", marginTop: "4px" }}>
-                未實現 {totals.totalUnrealizedPnl >= 0 ? "+" : ""}{totals.totalUnrealizedPnl.toLocaleString()} ｜ 已實現 {totals.totalRealizedPnl >= 0 ? "+" : ""}{totals.totalRealizedPnl.toLocaleString()} ｜ 股息 +NT$ {totals.totalNetDividends.toLocaleString()}
+                未實現 {totals.totalUnrealizedPnl >= 0 ? "+" : ""}{totals.totalUnrealizedPnl.toLocaleString()} ｜ 已實現 {totals.totalRealizedPnl >= 0 ? "+" : ""}{totals.totalRealizedPnl.toLocaleString()} ｜ 股利與除權 +NT$ {Math.round(totals.totalAllDividendsAndRights).toLocaleString()}
               </div>
             </div>
           </div>
@@ -1374,11 +1471,11 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                       <th style={{ padding: "10px 12px", textAlign: "right" }}>買進均價</th>
                       <th style={{ padding: "10px 12px", textAlign: "right" }}>即時市價</th>
                       <th style={{ padding: "10px 12px", textAlign: "right" }}>持股市值</th>
-                      <th style={{ padding: "10px 12px", textAlign: "right" }}>現金股利 / 配股</th>
-                      <th style={{ padding: "10px 12px", textAlign: "right" }}>預估股利 (實收淨額 / 毛額)</th>
+                      <th style={{ padding: "10px 12px", textAlign: "right" }}>股利政策 (現金 / 配股)</th>
+                      <th style={{ padding: "10px 12px", textAlign: "right" }}>預估除權息總收益 (現金+配股)</th>
                       <th style={{ padding: "10px 12px", textAlign: "right" }}>總成本</th>
-                      <th style={{ padding: "10px 12px", textAlign: "right" }}>預估未實現損益</th>
-                      <th style={{ padding: "10px 12px", textAlign: "right" }}>報酬率</th>
+                      <th style={{ padding: "10px 12px", textAlign: "right" }}>預估未實現損益 (含權息)</th>
+                      <th style={{ padding: "10px 12px", textAlign: "right" }}>總報酬率</th>
                       <th style={{ padding: "10px 12px", textAlign: "center" }}>操作</th>
                     </tr>
                   </thead>
@@ -1432,44 +1529,44 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                               NT$ {h.marketValue.toLocaleString()}
                             </td>
 
-                            {/* 每股現金股利與除權息性質 */}
+                            {/* 股利政策 (現金 / 配股) */}
                             <td style={{ padding: "12px", textAlign: "right" }}>
                               <div style={{ fontWeight: 700, color: isWarm ? "#b45309" : "#facc15" }}>
-                                {h.cashDividend > 0 ? `${h.cashDividend.toFixed(2)} 元` : "無"}
+                                現金 {h.cashDividend > 0 ? `${h.cashDividend.toFixed(2)} 元` : "0 元"}
                               </div>
-                              <div style={{ fontSize: "0.72rem", color: h.stockDividend > 0 ? (isWarm ? "#7e22ce" : "#a855f7") : (isWarm ? "#57534e" : "#94a3b8"), marginTop: "1px" }}>
-                                {h.exType}{h.stockDividend > 0 ? ` (配股${h.stockDividend}元)` : ""}
+                              <div style={{ fontSize: "0.74rem", color: h.stockDividend > 0 ? (isWarm ? "#7e22ce" : "#a855f7") : (isWarm ? "#57534e" : "#94a3b8"), marginTop: "1px", fontWeight: h.stockDividend > 0 ? 600 : 400 }}>
+                                {h.stockDividend > 0 ? `配股 ${h.stockDividend} 元 (${(h.stockDividend * 100).toFixed(0)}股/張)` : "無配股"}
                               </div>
                             </td>
 
-                            {/* 預估可領現金股利總額 */}
+                            {/* 預估除權息總收益 */}
                             <td style={{ padding: "12px", textAlign: "right" }}>
-                              {h.estGrossDividend > 0 ? (
+                              {h.estTotalDividendValue > 0 ? (
                                 <div>
                                   <div style={{ fontWeight: 800, color: isWarm ? "#b45309" : "#facc15", fontSize: "0.92rem" }}>
-                                    NT$ {h.estNetDividend.toLocaleString()}
+                                    NT$ {h.estTotalDividendValue.toLocaleString()}
                                   </div>
-                                  <div style={{ fontSize: "0.72rem", color: isWarm ? "#57534e" : "#94a3b8", marginTop: "1px" }}>
-                                    毛額 ${h.estGrossDividend.toLocaleString()}
-                                    {h.nhiPremium > 0 ? (
-                                      <span style={{ color: isWarm ? "#dc2626" : "#f87171", marginLeft: "4px" }}>(扣健保 ${h.nhiPremium})</span>
-                                    ) : (
-                                      <span style={{ color: isWarm ? "#15803d" : "#4ade80", marginLeft: "4px" }}>(免扣健保)</span>
+                                  <div style={{ fontSize: "0.70rem", color: isWarm ? "#57534e" : "#94a3b8", marginTop: "1px" }}>
+                                    實收現金 ${h.estNetDividend.toLocaleString()}
+                                    {h.estStockDividendValue > 0 && (
+                                      <span style={{ color: isWarm ? "#7e22ce" : "#c084fc", marginLeft: "4px" }}>
+                                        + 配股 {h.qualifiedStockShares.toLocaleString()}股 (${h.estStockDividendValue.toLocaleString()})
+                                      </span>
                                     )}
                                   </div>
                                   <div style={{ fontSize: "0.68rem", color: isWarm ? "#0284c7" : "#38bdf8", marginTop: "1px" }}>
-                                    ✓ 符除息日 {h.exDate}
+                                    ✓ 符除權息日 {h.exDate}
                                   </div>
                                 </div>
-                              ) : h.cashDividend > 0 ? (
+                              ) : (h.cashDividend > 0 || h.stockDividend > 0) ? (
                                 <div>
                                   <span style={{ color: isWarm ? "#57534e" : "#94a3b8", fontSize: "0.80rem" }}>0 元</span>
                                   <div style={{ fontSize: "0.68rem", color: isWarm ? "#dc2626" : "#f87171", marginTop: "1px" }}>
-                                    除息後買進 (除息日 {h.exDate})
+                                    除權息後買進 ({h.exDate})
                                   </div>
                                 </div>
                               ) : (
-                                <span style={{ color: isWarm ? "#57534e" : "#94a3b8" }}>無配息</span>
+                                <span style={{ color: isWarm ? "#57534e" : "#94a3b8" }}>無除權息</span>
                               )}
                             </td>
 
@@ -1478,20 +1575,32 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                               NT$ {h.cost.toLocaleString()}
                             </td>
 
-                            {/* 損益 */}
+                            {/* 預估未實現損益 (含權息) */}
                             <td style={{
                               padding: "12px", textAlign: "right", fontWeight: 800,
-                              color: h.pnl >= 0 ? (isWarm ? "#dc2626" : "#ff5252") : (isWarm ? "#15803d" : "#4caf50")
+                              color: h.totalPnlWithDividends >= 0 ? (isWarm ? "#dc2626" : "#ff5252") : (isWarm ? "#15803d" : "#4caf50")
                             }}>
-                              {h.pnl >= 0 ? "+" : ""}NT$ {h.pnl.toLocaleString()}
+                              <div>
+                                {h.totalPnlWithDividends >= 0 ? "+" : ""}NT$ {h.totalPnlWithDividends.toLocaleString()}
+                              </div>
+                              <div style={{ fontSize: "0.70rem", color: isWarm ? "#57534e" : "#94a3b8", fontWeight: 400 }}>
+                                (未實現 {h.pnl >= 0 ? "+" : ""}${h.pnl.toLocaleString()} {h.estTotalDividendValue > 0 ? `+ 權息 $${h.estTotalDividendValue.toLocaleString()}` : ""})
+                              </div>
                             </td>
 
                             {/* 報酬率 */}
                             <td style={{
                               padding: "12px", textAlign: "right", fontWeight: 800,
-                              color: h.pnl >= 0 ? (isWarm ? "#dc2626" : "#ff5252") : (isWarm ? "#15803d" : "#4caf50")
+                              color: h.totalRoiWithDividends >= 0 ? (isWarm ? "#dc2626" : "#ff5252") : (isWarm ? "#15803d" : "#4caf50")
                             }}>
-                              {h.pnl >= 0 ? "+" : ""}{h.roi.toFixed(2)}%
+                              <div>
+                                {h.totalRoiWithDividends >= 0 ? "+" : ""}{h.totalRoiWithDividends.toFixed(2)}%
+                              </div>
+                              {h.estTotalDividendValue > 0 && (
+                                <div style={{ fontSize: "0.70rem", color: isWarm ? "#57534e" : "#94a3b8", fontWeight: 400 }}>
+                                  (價差 {h.roi >= 0 ? "+" : ""}{h.roi.toFixed(2)}%)
+                                </div>
+                              )}
                             </td>
 
                             {/* 操作按鈕 */}
@@ -1539,21 +1648,24 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                           {/* 展開的多批次買進明細 */}
                           {isExpanded && (
                             <tr style={{ background: isWarm ? "#faf7f2" : "rgba(15, 23, 42, 0.6)" }}>
-                              <td colSpan={9} style={{ padding: "8px 24px" }}>
+                              <td colSpan={11} style={{ padding: "8px 24px" }}>
                                 <div style={{ fontSize: "0.78rem", color: isWarm ? "#57534e" : "#94a3b8", marginBottom: "4px", fontWeight: 700 }}>
                                   📦 買進明細批次 (FIFO 先進先出):
                                 </div>
                                 <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
                                   {h.buyLots.map((lot, lIdx) => (
-                                    <div key={lot.id} style={{ display: "flex", gap: "16px", fontSize: "0.78rem", color: isWarm ? "#57534e" : "#cbd5e1" }}>
+                                    <div key={lot.id} style={{ display: "flex", gap: "16px", fontSize: "0.78rem", color: isWarm ? "#57534e" : "#cbd5e1", flexWrap: "wrap" }}>
                                       <span>第 {lIdx + 1} 批: <b>{lot.date}</b></span>
                                       <span>買價: <b style={{ color: isWarm ? "#18181b" : "#ffffff" }}>${lot.price}</b></span>
                                       <span>庫存剩餘: <b style={{ color: isWarm ? "#0284c7" : "#38bdf8" }}>{lot.shares.toLocaleString()} 股</b></span>
                                       <span>手續費: ${lot.buyFee}</span>
                                       {lot.isQualified ? (
-                                        <span style={{ color: isWarm ? "#15803d" : "#4ade80", fontWeight: 700 }}>✓ 跨越除息日 (可領 ${lot.lotGrossDividend} 元)</span>
+                                        <span style={{ color: isWarm ? "#15803d" : "#4ade80", fontWeight: 700 }}>
+                                          ✓ 跨越除權息: 現金 ${lot.lotGrossDividend} 元
+                                          {lot.lotStockShares > 0 && ` + 配股 ${lot.lotStockShares} 股 (市值 $${lot.lotStockDividendValue.toLocaleString()})`}
+                                        </span>
                                       ) : (
-                                        <span style={{ color: isWarm ? "#57534e" : "#94a3b8" }}>✗ 除息後建倉 (無配息)</span>
+                                        <span style={{ color: isWarm ? "#57534e" : "#94a3b8" }}>✗ 除權息後建倉 (無權息)</span>
                                       )}
                                       {lot.note && <span style={{ color: isWarm ? "#57534e" : "#94a3b8" }}>({lot.note})</span>}
                                     </div>
@@ -1617,7 +1729,9 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                       <th style={{ padding: "10px 12px", textAlign: "left" }}>股票代號 / 名稱</th>
                       <th style={{ padding: "10px 12px", textAlign: "center" }}>持股狀態</th>
                       <th style={{ padding: "10px 12px", textAlign: "right" }}>即時市價</th>
-                      <th style={{ padding: "10px 12px", textAlign: "right" }}>每股現金股利</th>
+                      <th style={{ padding: "10px 12px", textAlign: "right" }}>現金股利 (每張現金)</th>
+                      <th style={{ padding: "10px 12px", textAlign: "right" }}>股票股利 / 除權收益 (每張)</th>
+                      <th style={{ padding: "10px 12px", textAlign: "right" }}>綜合殖利率 (現金+配股)</th>
                       <th style={{ padding: "10px 12px", textAlign: "right" }}>除權息性質 / 日期</th>
                       <th style={{ padding: "10px 12px", textAlign: "left" }}>備註</th>
                       <th style={{ padding: "10px 12px", textAlign: "center" }}>操作</th>
@@ -1626,11 +1740,14 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                   <tbody>
                     {observingStocks.map((s) => (
                       <tr key={s.symbol} style={{ borderBottom: isWarm ? "1px solid rgba(140, 110, 80, 0.12)" : "1px solid rgba(255,255,255,0.06)", background: isWarm ? "#ffffff" : "rgba(255,255,255,0.01)" }}>
+                        {/* 代號 / 名稱 */}
                         <td style={{ padding: "12px", fontWeight: 700, color: isWarm ? "#18181b" : "#ffffff" }}>
                           <span style={{ color: isWarm ? "#0284c7" : "#38bdf8", cursor: "pointer" }} onClick={() => onAnalyze && onAnalyze(s.symbol)}>
                             {s.name} ({s.symbol})
                           </span>
                         </td>
+
+                        {/* 持股狀態 */}
                         <td style={{ padding: "12px", textAlign: "center" }}>
                           {s.remainingShares > 0 ? (
                             <span style={{
@@ -1650,25 +1767,74 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                             </span>
                           )}
                         </td>
+
+                        {/* 即時市價 */}
                         <td style={{ padding: "12px", textAlign: "right", color: isWarm ? "#18181b" : "#ffffff", fontWeight: 800 }}>
                           ${s.curPrice > 0 ? s.curPrice.toFixed(2) : "-"}
                         </td>
-                        <td style={{ padding: "12px", textAlign: "right", color: isWarm ? "#b45309" : "#facc15", fontWeight: 700 }}>
-                          {s.cashDividend > 0 ? `${s.cashDividend.toFixed(2)} 元` : "無"}
-                        </td>
+
+                        {/* 現金股利 */}
                         <td style={{ padding: "12px", textAlign: "right" }}>
-                          <div style={{ fontSize: "0.82rem", color: s.stockDividend > 0 ? (isWarm ? "#7e22ce" : "#a855f7") : (isWarm ? "#57534e" : "#cbd5e1") }}>
-                            {s.exType}{s.stockDividend > 0 ? ` (配股${s.stockDividend}元)` : ""}
+                          <div style={{ color: isWarm ? "#b45309" : "#facc15", fontWeight: 700 }}>
+                            {s.cashDividend > 0 ? `${s.cashDividend.toFixed(2)} 元` : "0 元"}
                           </div>
-                          {s.exDate && (
-                            <div style={{ fontSize: "0.72rem", color: isWarm ? "#0284c7" : "#38bdf8", marginTop: "2px" }}>
-                              除息日 {s.exDate}
+                          {s.cashDividend > 0 && (
+                            <div style={{ fontSize: "0.72rem", color: isWarm ? "#57534e" : "#94a3b8" }}>
+                              每張 ${s.cashDividendPerLot.toLocaleString()}
                             </div>
                           )}
                         </td>
+
+                        {/* 股票股利 / 除權收益 */}
+                        <td style={{ padding: "12px", textAlign: "right" }}>
+                          {s.stockDividend > 0 ? (
+                            <div>
+                              <div style={{ color: isWarm ? "#7e22ce" : "#c084fc", fontWeight: 700 }}>
+                                {s.stockDividend.toFixed(2)} 元 ({s.stockDividendSharesPerLot}股/張)
+                              </div>
+                              <div style={{ fontSize: "0.72rem", color: isWarm ? "#57534e" : "#94a3b8" }}>
+                                估值: NT$ {s.stockDividendValuePerLot.toLocaleString()} /張
+                              </div>
+                            </div>
+                          ) : (
+                            <span style={{ color: isWarm ? "#57534e" : "#94a3b8" }}>-</span>
+                          )}
+                        </td>
+
+                        {/* 綜合殖利率 */}
+                        <td style={{ padding: "12px", textAlign: "right" }}>
+                          {s.totalYieldPct > 0 ? (
+                            <div>
+                              <div style={{ color: isWarm ? "#15803d" : "#4ade80", fontWeight: 800, fontSize: "0.92rem" }}>
+                                {s.totalYieldPct.toFixed(2)}%
+                              </div>
+                              <div style={{ fontSize: "0.70rem", color: isWarm ? "#57534e" : "#94a3b8" }}>
+                                現金 {s.cashYieldPct.toFixed(2)}% {s.stockYieldPct > 0 ? `+ 配股 ${s.stockYieldPct.toFixed(2)}%` : ""}
+                              </div>
+                            </div>
+                          ) : (
+                            <span style={{ color: isWarm ? "#57534e" : "#94a3b8" }}>-</span>
+                          )}
+                        </td>
+
+                        {/* 除權息性質 / 日期 */}
+                        <td style={{ padding: "12px", textAlign: "right" }}>
+                          <div style={{ fontSize: "0.82rem", color: isWarm ? "#18181b" : "#cbd5e1", fontWeight: 600 }}>
+                            {s.exType}
+                          </div>
+                          {s.exDate && (
+                            <div style={{ fontSize: "0.72rem", color: isWarm ? "#0284c7" : "#38bdf8", marginTop: "2px" }}>
+                              除權息日 {s.exDate}
+                            </div>
+                          )}
+                        </td>
+
+                        {/* 備註 */}
                         <td style={{ padding: "12px", color: isWarm ? "#57534e" : "#94a3b8", fontSize: "0.82rem" }}>
                           {s.note || "-"}
                         </td>
+
+                        {/* 操作按鈕 */}
                         <td style={{ padding: "12px", textAlign: "center" }}>
                           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
                             <button
@@ -1723,7 +1889,7 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                 <div style={{ textAlign: "center", padding: "60px 0", color: isWarm ? "#57534e" : "#94a3b8" }}>
                   <div style={{ fontSize: "2.5rem", marginBottom: "10px" }}>🎯</div>
                   <div style={{ fontSize: "1.05rem", color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700 }}>尚無已實現賣出平倉紀錄</div>
-                  <div style={{ fontSize: "0.85rem", marginTop: "4px" }}>當您賣出股票時，系統會自動根據 FIFO 計算已實現獲利與投資報酬率</div>
+                  <div style={{ fontSize: "0.85rem", marginTop: "4px" }}>當您賣出股票時，系統會自動根據 FIFO 計算已實現獲利、除權息收益與總投資報酬率</div>
                 </div>
               ) : (
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.90rem" }}>
@@ -1736,8 +1902,9 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                       <th style={{ padding: "10px 12px", textAlign: "right" }}>賣出價格</th>
                       <th style={{ padding: "10px 12px", textAlign: "right" }}>淨賣出金額</th>
                       <th style={{ padding: "10px 12px", textAlign: "right" }}>手續費＋證交稅</th>
-                      <th style={{ padding: "10px 12px", textAlign: "right" }}>已實現損益</th>
-                      <th style={{ padding: "10px 12px", textAlign: "right" }}>報酬率</th>
+                      <th style={{ padding: "10px 12px", textAlign: "right" }}>除權息收益 (現金+配股)</th>
+                      <th style={{ padding: "10px 12px", textAlign: "right" }}>總已實現損益 (含權息)</th>
+                      <th style={{ padding: "10px 12px", textAlign: "right" }}>總報酬率</th>
                       <th style={{ padding: "10px 12px", textAlign: "center" }}>操作</th>
                     </tr>
                   </thead>
@@ -1766,18 +1933,57 @@ export const WatchlistTab: React.FC<WatchlistTabProps> = ({ user, username, onAn
                         <td style={{ padding: "12px", textAlign: "right", color: isWarm ? "#57534e" : "#94a3b8", fontSize: "0.82rem" }}>
                           ${r.fee + r.tax} (稅:${r.tax})
                         </td>
+
+                        {/* 除權息收益 */}
+                        <td style={{ padding: "12px", textAlign: "right" }}>
+                          {r.realizedDividend > 0 ? (
+                            <div>
+                              <div style={{ color: isWarm ? "#b45309" : "#facc15", fontWeight: 800 }}>
+                                +NT$ {r.realizedDividend.toLocaleString()}
+                              </div>
+                              <div style={{ fontSize: "0.70rem", color: isWarm ? "#57534e" : "#94a3b8" }}>
+                                現金 ${r.realizedCashDividend.toLocaleString()}
+                                {r.realizedStockShares > 0 && (
+                                  <span style={{ color: isWarm ? "#7e22ce" : "#c084fc", marginLeft: "4px" }}>
+                                    + 配股 {r.realizedStockShares}股 (${r.realizedStockDividend.toLocaleString()})
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                            <span style={{ color: isWarm ? "#57534e" : "#94a3b8" }}>-</span>
+                          )}
+                        </td>
+
+                        {/* 總已實現損益 (含權息) */}
                         <td style={{
                           padding: "12px", textAlign: "right", fontWeight: 800,
-                          color: r.pnl >= 0 ? (isWarm ? "#dc2626" : "#ff5252") : (isWarm ? "#15803d" : "#4caf50")
+                          color: r.totalRealizedIncome >= 0 ? (isWarm ? "#dc2626" : "#ff5252") : (isWarm ? "#15803d" : "#4caf50")
                         }}>
-                          {r.pnl >= 0 ? "+" : ""}NT$ {r.pnl.toLocaleString()}
+                          <div>
+                            {r.totalRealizedIncome >= 0 ? "+" : ""}NT$ {r.totalRealizedIncome.toLocaleString()}
+                          </div>
+                          <div style={{ fontSize: "0.70rem", color: isWarm ? "#57534e" : "#94a3b8", fontWeight: 400 }}>
+                            (價差 {r.pnl >= 0 ? "+" : ""}${r.pnl.toLocaleString()})
+                          </div>
                         </td>
+
+                        {/* 總報酬率 (含權息) */}
                         <td style={{
                           padding: "12px", textAlign: "right", fontWeight: 800,
-                          color: r.pnl >= 0 ? (isWarm ? "#dc2626" : "#ff5252") : (isWarm ? "#15803d" : "#4caf50")
+                          color: r.totalRoiWithDividends >= 0 ? (isWarm ? "#dc2626" : "#ff5252") : (isWarm ? "#15803d" : "#4caf50")
                         }}>
-                          {r.pnl >= 0 ? "+" : ""}{r.roi.toFixed(2)}%
+                          <div>
+                            {r.totalRoiWithDividends >= 0 ? "+" : ""}{r.totalRoiWithDividends.toFixed(2)}%
+                          </div>
+                          {r.realizedDividend > 0 && (
+                            <div style={{ fontSize: "0.70rem", color: isWarm ? "#57534e" : "#94a3b8", fontWeight: 400 }}>
+                              (價差 {r.roi >= 0 ? "+" : ""}{r.roi.toFixed(2)}%)
+                            </div>
+                          )}
                         </td>
+
+                        {/* 操作 */}
                         <td style={{ padding: "12px", textAlign: "center" }}>
                           {onAnalyze && (
                             <button
