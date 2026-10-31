@@ -59,9 +59,9 @@ export function mkYahoo(
 /** Create a MOPS static Metric wrapper */
 export function mkMops(
   value: number,
-  period = "2024Q2",
+  period = "2026 Q2",
   publishedAt?: string,
-  availableAt = "2024-08-14",
+  availableAt = "2026-08-14",
   availabilityPolicy: AvailabilityPolicy = "conservative_statutory_deadline"
 ): Metric<number> {
   return { value, source: "MOPS", period, publishedAt, availableAt, availabilityPolicy, fetchedAt: new Date().toISOString() };
@@ -499,8 +499,11 @@ async function fetchWebStockData(symbol: string, range = "1y"): Promise<StockDat
   } catch {}
 
   // Determine if values came from Yahoo Proxy (live) or MOPS static JSON
-  const _src = (v: number | null, live: boolean): Metric<number> | null =>
-    v != null ? (live ? mkYahoo(v) : mkMops(v)) : null;
+  const repPeriod = officialFund?.report_period || "2026 Q2";
+  const repAvail = repPeriod.includes("Q3") ? "2026-10-31" : "2026-08-14";
+  const revPeriod = officialFund?.revenue_month || "2026/09";
+  const _src = (v: number | null, live: boolean, p = repPeriod): Metric<number> | null =>
+    v != null ? (live ? mkYahoo(v, p) : mkMops(v, p, undefined, repAvail)) : null;
   // revGrowth/earnGrowth/roe/gm/de/cr/fcf may have been overwritten by Yahoo proxy
   // We track liveness via a flag set in the Yahoo proxy fetch block above
   const result: StockData = {
@@ -519,7 +522,7 @@ async function fetchWebStockData(symbol: string, range = "1y"): Promise<StockDat
       gross_margins:      _src(gm, yahooLive),
       operating_margins:  _src(opm != null ? opm : (gm ? gm * 0.6 : null), yahooLive),
       profit_margins:     _src(nm, yahooLive),
-      revenue_growth:     _src(revGrowth, yahooLive),
+      revenue_growth:     _src(revGrowth, yahooLive, revPeriod),
       earnings_growth:    _src(earnGrowth, yahooLive),
       current_ratio:      _src(cr, yahooLive),
       quick_ratio:        _src(cr ? cr * 0.8 : null, yahooLive),
@@ -859,6 +862,9 @@ async function refreshLiveMarketQuotes(): Promise<void> {
           const prevClose = openPrice ? openPrice : (changeVal ? curPrice - changeVal : curPrice);
           const seedFund = getDeterministicFundamentals(coId, normSym, curPrice, stockName);
           const nowTs = Math.floor(Date.now() / 1000);
+          const repPeriod = official.report_period || "2026 Q2";
+          const repAvail = repPeriod.includes("Q3") ? "2026-10-31" : "2026-08-14";
+          const revPeriod = official.revenue_month || "2026/09";
 
           results.push({
             ohlcv: {
@@ -872,26 +878,26 @@ async function refreshLiveMarketQuotes(): Promise<void> {
             info: {
               symbol: normSym,
               name: stockName,
-              current_price: curPrice > 0 ? mkMops(curPrice) : null,
-              previous_close: prevClose > 0 ? mkMops(prevClose) : null,
-              pe: seedFund.pe != null ? mkMops(seedFund.pe) : null,
-              forward_pe: seedFund.pe != null ? mkMops(seedFund.pe * 0.95) : null,
-              pb: seedFund.pb != null ? mkMops(seedFund.pb) : null,
-              dividend_yield: seedFund.dy != null ? mkMops(seedFund.dy) : null,
-              eps: seedFund.eps != null ? mkMops(seedFund.eps) : null,
-              roe: seedFund.roe != null ? mkMops(seedFund.roe) : null,
-              gross_margins: seedFund.gm != null ? mkMops(seedFund.gm) : null,
-              operating_margins: seedFund.opm != null ? mkMops(seedFund.opm) : null,
-              profit_margins: seedFund.nm != null ? mkMops(seedFund.nm) : null,
-              revenue_growth: seedFund.revGrowth != null ? mkMops(seedFund.revGrowth) : null,
-              earnings_growth: seedFund.earnGrowth != null ? mkMops(seedFund.earnGrowth) : null,
-              current_ratio: seedFund.cr != null ? mkMops(seedFund.cr) : null,
-              quick_ratio: seedFund.cr != null ? mkMops(seedFund.cr * 0.8) : null,
-              debt_to_equity: seedFund.de != null ? mkMops(seedFund.de) : null,
-              free_cashflow: seedFund.fcf != null ? mkMops(seedFund.fcf) : null,
-              operating_cashflow: seedFund.opcf != null ? mkMops(seedFund.opcf) : null,
+              current_price: curPrice > 0 ? mkMops(curPrice, repPeriod, undefined, repAvail) : null,
+              previous_close: prevClose > 0 ? mkMops(prevClose, repPeriod, undefined, repAvail) : null,
+              pe: seedFund.pe != null ? mkMops(seedFund.pe, repPeriod, undefined, repAvail) : null,
+              forward_pe: seedFund.pe != null ? mkMops(seedFund.pe * 0.95, repPeriod, undefined, repAvail) : null,
+              pb: seedFund.pb != null ? mkMops(seedFund.pb, repPeriod, undefined, repAvail) : null,
+              dividend_yield: seedFund.dy != null ? mkMops(seedFund.dy, repPeriod, undefined, repAvail) : null,
+              eps: seedFund.eps != null ? mkMops(seedFund.eps, repPeriod, undefined, repAvail) : null,
+              roe: seedFund.roe != null ? mkMops(seedFund.roe, repPeriod, undefined, repAvail) : null,
+              gross_margins: seedFund.gm != null ? mkMops(seedFund.gm, repPeriod, undefined, repAvail) : null,
+              operating_margins: seedFund.opm != null ? mkMops(seedFund.opm, repPeriod, undefined, repAvail) : null,
+              profit_margins: seedFund.nm != null ? mkMops(seedFund.nm, repPeriod, undefined, repAvail) : null,
+              revenue_growth: seedFund.revGrowth != null ? mkMops(seedFund.revGrowth, revPeriod, undefined, repAvail) : null,
+              earnings_growth: seedFund.earnGrowth != null ? mkMops(seedFund.earnGrowth, repPeriod, undefined, repAvail) : null,
+              current_ratio: seedFund.cr != null ? mkMops(seedFund.cr, repPeriod, undefined, repAvail) : null,
+              quick_ratio: seedFund.cr != null ? mkMops(seedFund.cr * 0.8, repPeriod, undefined, repAvail) : null,
+              debt_to_equity: seedFund.de != null ? mkMops(seedFund.de, repPeriod, undefined, repAvail) : null,
+              free_cashflow: seedFund.fcf != null ? mkMops(seedFund.fcf, repPeriod, undefined, repAvail) : null,
+              operating_cashflow: seedFund.opcf != null ? mkMops(seedFund.opcf, repPeriod, undefined, repAvail) : null,
               net_income: null,
-              market_cap: seedFund.marketCap != null ? mkMops(seedFund.marketCap) : null,
+              market_cap: seedFund.marketCap != null ? mkMops(seedFund.marketCap, repPeriod, undefined, repAvail) : null,
               long_business_summary: seedFund.summary,
             },
           });
@@ -921,55 +927,256 @@ async function refreshLiveMarketQuotes(): Promise<void> {
 
     case "fetch_detailed_fundamentals": {
       const sym = args.symbol || "2330.TW";
-      const coId = sym.split(".")[0];
-      
-      // 1. 嘗試從 Yahoo 奇摩股市抓取即時 HTML 財報 store (包含 2026 Q2 / 6月最新公告)
+      const coId = sym.split(".")[0].replace(/[^0-9A-Za-z]/g, "");
+      const numId = sym.split(".")[0].replace(/[^0-9]/g, "");
+
+      // 1. 優先透過 FinMind 官方台股財報 API (原生支援 CORS Access-Control-Allow-Origin: *，免代理直連，涵蓋最新 2026 Q3 / Q2 三大財報)
+      if (numId.length >= 4) {
+        try {
+          const baseUrl = "https://api.finmindtrade.com/api/v4/data";
+          const startDate = "2022-01-01";
+          const fetchDs = async (ds: string) => {
+            const controller = new AbortController();
+            const tid = setTimeout(() => controller.abort(), 7000);
+            try {
+              const r = await fetch(`${baseUrl}?dataset=${ds}&data_id=${encodeURIComponent(numId)}&start_date=${startDate}`, {
+                signal: controller.signal,
+              });
+              clearTimeout(tid);
+              if (!r.ok) return [];
+              const j = await r.json();
+              return Array.isArray(j?.data) ? j.data : [];
+            } catch {
+              clearTimeout(tid);
+              return [];
+            }
+          };
+
+          const [incRows, balRows, cfRows] = await Promise.all([
+            fetchDs("TaiwanStockFinancialStatements"),
+            fetchDs("TaiwanStockBalanceSheet"),
+            fetchDs("TaiwanStockCashFlowsStatement"),
+          ]);
+
+          const groupByDate = (rows: any[]) => {
+            const map: Record<string, Record<string, number>> = {};
+            for (const r of rows) {
+              if (!r || !r.date || !r.type) continue;
+              const val = Number(r.value);
+              if (!isNaN(val)) {
+                if (!map[r.date]) map[r.date] = {};
+                map[r.date][r.type] = val;
+              }
+            }
+            return map;
+          };
+
+          const incByDate = groupByDate(incRows);
+          const balByDate = groupByDate(balRows);
+          const cfYtdByDate = groupByDate(cfRows);
+
+          const toStr = (v: number | null | undefined) => (v !== null && v !== undefined && !isNaN(v) ? String(v) : null);
+
+          const incDatesDesc = Object.keys(incByDate).sort((a, b) => b.localeCompare(a));
+          const incomeData = incDatesDesc.map((d) => {
+            const m = incByDate[d];
+            const rev = m.Revenue ?? null;
+            const gp = m.GrossProfit ?? null;
+            const cost = m.CostOfGoodsSold ?? (rev !== null && gp !== null ? rev - gp : null);
+            const opExp = m.OperatingExpenses ?? null;
+            const opInc = m.OperatingIncome ?? null;
+            const nonOp = m.TotalNonoperatingIncomeAndExpense ?? m.OTHNOE ?? null;
+            const pbt = m.PreTaxIncome ?? null;
+            const ni = m.IncomeAfterTaxes ?? m.EquityAttributableToOwnersOfParent ?? null;
+            const tax = m.TAX ?? m.IncomeTaxExpense ?? (pbt !== null && ni !== null ? pbt - ni : null);
+            return {
+              symbol: sym,
+              date: `${d}T00:00:00+08:00`,
+              revenue: toStr(rev),
+              costOfGoodsSold: toStr(cost),
+              grossProfit: toStr(gp),
+              rdExpenses: toStr(m.ResearchAndDevelopmentExpenses),
+              sellingExpenses: toStr(m.SellingExpenses),
+              adminExpenses: toStr(m.AdministrativeExpenses),
+              operatingExpenses: toStr(opExp),
+              operatingProfit: toStr(opInc),
+              nonOperatingIncome: toStr(nonOp),
+              ebit: toStr(pbt),
+              profitBeforeTax: toStr(pbt),
+              incomeTaxExpense: toStr(tax),
+              netIncome: toStr(ni),
+              ownerParentProfit: toStr(m.EquityAttributableToOwnersOfParent),
+              eps: toStr(m.EPS),
+            };
+          });
+
+          const balDatesDesc = Object.keys(balByDate).sort((a, b) => b.localeCompare(a));
+          const balanceData = balDatesDesc.map((d) => {
+            const m = balByDate[d];
+            const sumKeys = (keys: string[]) => {
+              let s = 0;
+              let found = false;
+              for (const k of keys) {
+                if (m[k] !== undefined && !isNaN(m[k])) {
+                  s += m[k];
+                  found = true;
+                }
+              }
+              return found ? s : null;
+            };
+            const stInv = sumKeys([
+              "CurrentFinancialAssetsAtFairvalueThroughProfitOrLoss",
+              "FinancialAssetsAtFairvalueThroughOtherComprehensiveIncome",
+              "FinancialAssetsAtAmortizedCost",
+            ]);
+            const ar = sumKeys([
+              "AccountsReceivableNet",
+              "NotesReceivableNet",
+              "AccountsReceivableDuefromRelatedPartiesNet",
+            ]);
+            const ap = sumKeys(["AccountsPayable", "AccountsPayableToRelatedParties"]);
+            const stDebt = sumKeys([
+              "ShortTermBorrowings",
+              "ShortTermNotesAndBillsPayable",
+              "LongTermLiabilitiesCurrentPortion",
+              "CurrentFinancialLiabilitiesAtFairValueThroughProfitOrLoss",
+            ]);
+            const ltDebt = sumKeys(["LongtermBorrowings", "BondsPayable"]) ?? m.NoncurrentLiabilities ?? null;
+
+            return {
+              symbol: sym,
+              date: `${d}T00:00:00+08:00`,
+              cashAndEquivalents: toStr(m.CashAndCashEquivalents),
+              shortTermInvestments: toStr(stInv),
+              accountsReceivable: toStr(ar),
+              inventory: toStr(m.Inventories),
+              currentAssets: toStr(m.CurrentAssets),
+              propertyPlantEquipment: toStr(m.PropertyPlantAndEquipment),
+              goodWill: toStr(m.Goodwill),
+              intangibleAssets: toStr(m.IntangibleAssets),
+              totalAssets: toStr(m.TotalAssets),
+              accountsPayable: toStr(ap),
+              shortTermDebt: toStr(stDebt),
+              currentLiabilities: toStr(m.CurrentLiabilities),
+              longTermLiabilities: toStr(ltDebt),
+              nonCurrentLiabilities: toStr(m.NoncurrentLiabilities),
+              totalLiabilities: toStr(m.Liabilities),
+              equity: toStr(m.Equity ?? m.EquityAttributableToOwnersOfParent),
+            };
+          });
+
+          const cfDatesAsc = Object.keys(cfYtdByDate).sort((a, b) => a.localeCompare(b));
+          const cashflowData: any[] = [];
+          for (let i = cfDatesAsc.length - 1; i >= 0; i--) {
+            const d = cfDatesAsc[i];
+            const yr = d.slice(0, 4);
+            const isQ1 = d.includes("-03-") || d.includes("-01-") || d.includes("-02-");
+            const prevD = !isQ1 && i > 0 && cfDatesAsc[i - 1].startsWith(yr) ? cfDatesAsc[i - 1] : null;
+            const cur = cfYtdByDate[d];
+            const prev = prevD ? cfYtdByDate[prevD] : null;
+            const diff = (k: string): number | null => {
+              if (cur[k] === undefined) return null;
+              if (!prev || prev[k] === undefined) return cur[k];
+              return cur[k] - prev[k];
+            };
+            const dep = diff("Depreciation");
+            const amort = diff("AmortizationExpense");
+            const da = dep !== null || amort !== null ? (dep || 0) + (amort || 0) : null;
+            const ocf = diff("CashFlowsFromOperatingActivities") ?? diff("NetCashInflowFromOperatingActivities");
+            const capex = diff("PropertyAndPlantAndEquipment");
+            const icf = diff("CashProvidedByInvestingActivities");
+            const fcfVal = diff("CashFlowsProvidedFromFinancingActivities");
+            const netCf = diff("CashBalancesIncrease");
+            const freeCf = ocf !== null && capex !== null ? ocf + capex : ocf !== null && icf !== null ? ocf + icf : null;
+            const incM = incByDate[d] || {};
+            const ni = incM.IncomeAfterTaxes ?? incM.EquityAttributableToOwnersOfParent ?? diff("NetIncomeBeforeTax");
+
+            cashflowData.push({
+              symbol: sym,
+              date: `${d}T00:00:00+08:00`,
+              netIncome: toStr(ni),
+              depreciation: toStr(da),
+              amortization: toStr(amort),
+              operatingCashFlow: toStr(ocf),
+              capitalExpenditures: toStr(capex),
+              investingCashFlow: toStr(icf),
+              financingCashFlow: toStr(fcfVal),
+              netCashFlow: toStr(netCf),
+              freeCashFlow: toStr(freeCf),
+            });
+          }
+
+          if (incomeData.length > 0 || balanceData.length > 0 || cashflowData.length > 0) {
+            return {
+              [`incomeStatement-${sym}-quarter-20--date`]: { data: incomeData },
+              balanceSheet: { data: balanceData },
+              [`cashFlowStatement-${sym}-quarter-20--date`]: { data: cashflowData },
+            } as unknown as T;
+          }
+        } catch (e) {
+          console.warn("[Web Adapter] FinMind detailed fundamentals fetch failed:", e);
+        }
+      }
+
+      // 2. 備援：嘗試透過多重 CORS Proxy 從 Yahoo 奇摩股市抓取即時 HTML 財報 store
       try {
         const pages = ["income-statement", "balance-sheet", "cash-flow-statement"];
         const mergedStore: Record<string, any> = {};
-        let fetchCount = 0;
+        let hasPopulated = false;
 
         for (const page of pages) {
-          try {
-            const twUrl = `https://tw.stock.yahoo.com/quote/${coId}/${page}`;
-            const proxyUrl = `https://corsproxy.io/?url=${encodeURIComponent(twUrl)}`;
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 4000);
-            const resp = await fetch(proxyUrl, { signal: controller.signal });
-            clearTimeout(timeoutId);
-            if (resp.ok) {
-              const html = await resp.text();
-              const startMarker = "root.App.main = ";
-              const startPos = html.indexOf(startMarker);
-              if (startPos !== -1) {
-                const rest = html.slice(startPos + startMarker.length);
-                const endPos = rest.indexOf("}(this));");
-                if (endPos !== -1) {
-                  let jsonEnd = endPos;
-                  while (jsonEnd > 0 && (rest[jsonEnd - 1] === ";" || rest[jsonEnd - 1] === "\n" || rest[jsonEnd - 1] === " " || rest[jsonEnd - 1] === "\r")) {
-                    jsonEnd--;
-                  }
-                  const rawJson = rest.slice(0, jsonEnd).replace(/:undefined/g, ":null").replace(/:NaN/g, ":null");
-                  const parsed = JSON.parse(rawJson);
-                  const store = parsed?.context?.dispatcher?.stores?.QuoteFinanceStore;
-                  if (store && typeof store === "object") {
-                    Object.assign(mergedStore, store);
-                    fetchCount++;
+          const twUrl = `https://tw.stock.yahoo.com/quote/${coId}/${page}`;
+          const proxyUrls = [
+            `https://api.allorigins.win/raw?url=${encodeURIComponent(twUrl)}`,
+            `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(twUrl)}`,
+          ];
+          for (const proxyUrl of proxyUrls) {
+            try {
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => controller.abort(), 5000);
+              const resp = await fetch(proxyUrl, { signal: controller.signal });
+              clearTimeout(timeoutId);
+              if (resp.ok) {
+                const html = await resp.text();
+                const startMarker = "root.App.main = ";
+                const startPos = html.indexOf(startMarker);
+                if (startPos !== -1) {
+                  const rest = html.slice(startPos + startMarker.length);
+                  const endPos = rest.indexOf("}(this));");
+                  if (endPos !== -1) {
+                    let jsonEnd = endPos;
+                    while (jsonEnd > 0 && (rest[jsonEnd - 1] === ";" || rest[jsonEnd - 1] === "\n" || rest[jsonEnd - 1] === " " || rest[jsonEnd - 1] === "\r")) {
+                      jsonEnd--;
+                    }
+                    const rawJson = rest.slice(0, jsonEnd).replace(/:undefined/g, ":null").replace(/:NaN/g, ":null");
+                    const parsed = JSON.parse(rawJson);
+                    const store = parsed?.context?.dispatcher?.stores?.QuoteFinanceStore;
+                    if (store && typeof store === "object") {
+                      for (const [k, v] of Object.entries(store)) {
+                        const isNewPopulated = Array.isArray((v as any)?.data) && (v as any).data.length > 0;
+                        if (isNewPopulated) hasPopulated = true;
+                        const isExistingPopulated = Array.isArray(mergedStore[k]?.data) && mergedStore[k].data.length > 0;
+                        if (isNewPopulated || !isExistingPopulated) {
+                          mergedStore[k] = v;
+                        }
+                      }
+                      break;
+                    }
                   }
                 }
               }
-            }
-          } catch {}
+            } catch {}
+          }
         }
 
-        if (fetchCount > 0 && Object.keys(mergedStore).length > 0) {
+        if (hasPopulated) {
           return mergedStore as unknown as T;
         }
       } catch (e) {
         console.warn("[Web Adapter] Live Yahoo finance store fetch failed:", e);
       }
 
-      // 2. Zero-Tolerance Fallback: 若無法抓取真實財報，嚴格返回 null，絕不捏造合成財務報表
+      // 3. Zero-Tolerance Fallback: 若無法抓取真實財報，嚴格返回 null，絕不捏造合成財務報表
       return null as unknown as T;
     }
 

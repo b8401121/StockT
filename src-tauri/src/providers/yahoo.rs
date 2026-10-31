@@ -135,12 +135,58 @@ pub async fn fetch_tw_business_summary(co_id: &str) -> Option<String> {
     None
 }
 
+fn extract_json_object_after(html: &str, marker: &str) -> Option<String> {
+    let pos = html.find(marker)?;
+    let rest = &html[pos + marker.len()..];
+    let brace_start = rest.find('{')?;
+    let slice = &rest[brace_start..];
+    let mut depth = 0i32;
+    let mut in_str = false;
+    let mut escaped = false;
+
+    for (idx, b) in slice.bytes().enumerate() {
+        if in_str {
+            if escaped {
+                escaped = false;
+            } else if b == b'\\' {
+                escaped = true;
+            } else if b == b'"' {
+                in_str = false;
+            }
+        } else {
+            match b {
+                b'"' => in_str = true,
+                b'{' => depth += 1,
+                b'}' => {
+                    depth -= 1;
+                    if depth == 0 {
+                        return Some(slice[..=idx].to_string());
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    None
+}
+
 pub async fn fetch_yahoo_tw_store(co_id: &str, page: &str) -> Option<Value> {
     let client = make_client();
     let url = format!("https://tw.stock.yahoo.com/quote/{}/{}", co_id, page);
     if let Ok(resp) = client.get(&url).send().await {
         if resp.status() == 200 {
             if let Ok(html) = resp.text().await {
+                // 1) 優先直接擷取 QuoteFinanceStore JSON 區塊，避免整個 root.App.main 因前端非標準語法解析失敗
+                if let Some(qfs_raw) = extract_json_object_after(&html, "\"QuoteFinanceStore\":") {
+                    let cleaned = qfs_raw.replace(":undefined", ":null").replace(":NaN", ":null");
+                    if let Ok(store_val) = serde_json::from_str::<Value>(&cleaned) {
+                        if store_val.is_object() {
+                            return Some(store_val);
+                        }
+                    }
+                }
+
+                // 2) 備援：從 root.App.main 完整解析
                 if let Some(start_pos) = html.find("root.App.main = ") {
                     let start_idx = start_pos + "root.App.main = ".len();
                     let rest = &html[start_idx..];

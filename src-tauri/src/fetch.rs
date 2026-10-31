@@ -117,22 +117,253 @@ fn get_chinese_stock_name(symbol: &str) -> Option<String> {
 
 // ─── 取得個股詳細財務報表 (損益表、資產負債表、現金流量表) ────────────────────
 
+async fn fetch_finmind_detailed_fundamentals(symbol: &str, co_id: &str) -> Option<Value> {
+    let client = make_client();
+    let base_url = "https://api.finmindtrade.com/api/v4/data";
+    let start_date = "2022-01-01";
+    let inc_url = format!("{}?dataset=TaiwanStockFinancialStatements&data_id={}&start_date={}", base_url, co_id, start_date);
+    let bal_url = format!("{}?dataset=TaiwanStockBalanceSheet&data_id={}&start_date={}", base_url, co_id, start_date);
+    let cf_url = format!("{}?dataset=TaiwanStockCashFlowsStatement&data_id={}&start_date={}", base_url, co_id, start_date);
+
+    let (inc_res, bal_res, cf_res) = tokio::join!(
+        client.get(&inc_url).send(),
+        client.get(&bal_url).send(),
+        client.get(&cf_url).send()
+    );
+
+    let parse_dataset = |rows: Option<&Vec<Value>>| -> std::collections::BTreeMap<String, HashMap<String, f64>> {
+        let mut by_date: std::collections::BTreeMap<String, HashMap<String, f64>> = std::collections::BTreeMap::new();
+        if let Some(arr) = rows {
+            for r in arr {
+                if let (Some(d), Some(t), Some(v)) = (
+                    r.get("date").and_then(|x| x.as_str()),
+                    r.get("type").and_then(|x| x.as_str()),
+                    r.get("value").and_then(|x| x.as_f64()),
+                ) {
+                    by_date.entry(d.to_string()).or_default().insert(t.to_string(), v);
+                }
+            }
+        }
+        by_date
+    };
+
+    let inc_json = match inc_res {
+        Ok(r) => r.json::<Value>().await.ok(),
+        Err(_) => None,
+    };
+    let bal_json = match bal_res {
+        Ok(r) => r.json::<Value>().await.ok(),
+        Err(_) => None,
+    };
+    let cf_json = match cf_res {
+        Ok(r) => r.json::<Value>().await.ok(),
+        Err(_) => None,
+    };
+
+    let inc_by_date = parse_dataset(inc_json.as_ref().and_then(|j| j.get("data")).and_then(|d| d.as_array()));
+    let bal_by_date = parse_dataset(bal_json.as_ref().and_then(|j| j.get("data")).and_then(|d| d.as_array()));
+    let cf_ytd_by_date = parse_dataset(cf_json.as_ref().and_then(|j| j.get("data")).and_then(|d| d.as_array()));
+
+    if inc_by_date.is_empty() && bal_by_date.is_empty() && cf_ytd_by_date.is_empty() {
+        return None;
+    }
+
+    let opt_str = |v: Option<f64>| -> Value {
+        match v {
+            Some(n) if !n.is_nan() => Value::String(format!("{}", n)),
+            _ => Value::Null,
+        }
+    };
+
+    let mut income_list = Vec::new();
+    for (d, m) in inc_by_date.iter().rev() {
+        let rev = m.get("Revenue").copied();
+        let gp = m.get("GrossProfit").copied();
+        let cost = m.get("CostOfGoodsSold").copied().or_else(|| match (rev, gp) {
+            (Some(r), Some(g)) => Some(r - g),
+            _ => None,
+        });
+        let op_exp = m.get("OperatingExpenses").copied();
+        let op_inc = m.get("OperatingIncome").copied();
+        let non_op = m.get("TotalNonoperatingIncomeAndExpense").or_else(|| m.get("OTHNOE")).copied();
+        let pbt = m.get("PreTaxIncome").copied();
+        let ni = m.get("IncomeAfterTaxes").or_else(|| m.get("EquityAttributableToOwnersOfParent")).copied();
+        let tax = m.get("TAX").or_else(|| m.get("IncomeTaxExpense")).copied().or_else(|| match (pbt, ni) {
+            (Some(p), Some(n)) => Some(p - n),
+            _ => None,
+        });
+        income_list.push(serde_json::json!({
+            "symbol": symbol,
+            "date": format!("{}T00:00:00+08:00", d),
+            "revenue": opt_str(rev),
+            "costOfGoodsSold": opt_str(cost),
+            "grossProfit": opt_str(gp),
+            "rdExpenses": opt_str(m.get("ResearchAndDevelopmentExpenses").copied()),
+            "sellingExpenses": opt_str(m.get("SellingExpenses").copied()),
+            "adminExpenses": opt_str(m.get("AdministrativeExpenses").copied()),
+            "operatingExpenses": opt_str(op_exp),
+            "operatingProfit": opt_str(op_inc),
+            "nonOperatingIncome": opt_str(non_op),
+            "ebit": opt_str(pbt),
+            "profitBeforeTax": opt_str(pbt),
+            "incomeTaxExpense": opt_str(tax),
+            "netIncome": opt_str(ni),
+            "ownerParentProfit": opt_str(m.get("EquityAttributableToOwnersOfParent").copied()),
+            "eps": opt_str(m.get("EPS").copied()),
+        }));
+    }
+
+    let mut balance_list = Vec::new();
+    for (d, m) in bal_by_date.iter().rev() {
+        let sum_keys = |keys: &[&str]| -> Option<f64> {
+            let mut s = 0.0;
+            let mut found = false;
+            for k in keys {
+                if let Some(&v) = m.get(*k) {
+                    s += v;
+                    found = true;
+                }
+            }
+            if found { Some(s) } else { None }
+        };
+        let st_inv = sum_keys(&[
+            "CurrentFinancialAssetsAtFairvalueThroughProfitOrLoss",
+            "FinancialAssetsAtFairvalueThroughOtherComprehensiveIncome",
+            "FinancialAssetsAtAmortizedCost",
+        ]);
+        let ar = sum_keys(&[
+            "AccountsReceivableNet",
+            "NotesReceivableNet",
+            "AccountsReceivableDuefromRelatedPartiesNet",
+        ]);
+        let ap = sum_keys(&["AccountsPayable", "AccountsPayableToRelatedParties"]);
+        let st_debt = sum_keys(&[
+            "ShortTermBorrowings",
+            "ShortTermNotesAndBillsPayable",
+            "LongTermLiabilitiesCurrentPortion",
+            "CurrentFinancialLiabilitiesAtFairValueThroughProfitOrLoss",
+        ]);
+        let lt_debt = sum_keys(&["LongtermBorrowings", "BondsPayable"]).or_else(|| m.get("NoncurrentLiabilities").copied());
+
+        balance_list.push(serde_json::json!({
+            "symbol": symbol,
+            "date": format!("{}T00:00:00+08:00", d),
+            "cashAndEquivalents": opt_str(m.get("CashAndCashEquivalents").copied()),
+            "shortTermInvestments": opt_str(st_inv),
+            "accountsReceivable": opt_str(ar),
+            "inventory": opt_str(m.get("Inventories").copied()),
+            "currentAssets": opt_str(m.get("CurrentAssets").copied()),
+            "propertyPlantEquipment": opt_str(m.get("PropertyPlantAndEquipment").copied()),
+            "goodWill": opt_str(m.get("Goodwill").copied()),
+            "intangibleAssets": opt_str(m.get("IntangibleAssets").copied()),
+            "totalAssets": opt_str(m.get("TotalAssets").copied()),
+            "accountsPayable": opt_str(ap),
+            "shortTermDebt": opt_str(st_debt),
+            "currentLiabilities": opt_str(m.get("CurrentLiabilities").copied()),
+            "longTermLiabilities": opt_str(lt_debt),
+            "nonCurrentLiabilities": opt_str(m.get("NoncurrentLiabilities").copied()),
+            "totalLiabilities": opt_str(m.get("Liabilities").copied()),
+            "equity": opt_str(m.get("Equity").or_else(|| m.get("EquityAttributableToOwnersOfParent")).copied()),
+        }));
+    }
+
+    let cf_dates_asc: Vec<String> = cf_ytd_by_date.keys().cloned().collect();
+    let mut cashflow_list = Vec::new();
+    for i in (0..cf_dates_asc.len()).rev() {
+        let d = &cf_dates_asc[i];
+        let yr = &d[..4.min(d.len())];
+        let is_q1 = d.contains("-03-") || d.contains("-01-") || d.contains("-02-");
+        let prev_d = if !is_q1 && i > 0 && cf_dates_asc[i - 1].starts_with(yr) {
+            Some(&cf_dates_asc[i - 1])
+        } else {
+            None
+        };
+        let cur = &cf_ytd_by_date[d];
+        let prev = prev_d.and_then(|pd| cf_ytd_by_date.get(pd));
+        let diff = |k: &str| -> Option<f64> {
+            let cv = *cur.get(k)?;
+            if let Some(p) = prev {
+                if let Some(&pv) = p.get(k) {
+                    return Some(cv - pv);
+                }
+            }
+            Some(cv)
+        };
+        let dep = diff("Depreciation");
+        let amort = diff("AmortizationExpense");
+        let da = match (dep, amort) {
+            (Some(a), Some(b)) => Some(a + b),
+            (Some(a), None) => Some(a),
+            (None, Some(b)) => Some(b),
+            (None, None) => None,
+        };
+        let ocf = diff("CashFlowsFromOperatingActivities").or_else(|| diff("NetCashInflowFromOperatingActivities"));
+        let capex = diff("PropertyAndPlantAndEquipment");
+        let icf = diff("CashProvidedByInvestingActivities");
+        let fcf_val = diff("CashFlowsProvidedFromFinancingActivities");
+        let net_cf = diff("CashBalancesIncrease");
+        let free_cf = match (ocf, capex) {
+            (Some(o), Some(c)) => Some(o + c),
+            _ => match (ocf, icf) {
+                (Some(o), Some(ic)) => Some(o + ic),
+                _ => None,
+            },
+        };
+        let ni = inc_by_date
+            .get(d)
+            .and_then(|im| im.get("IncomeAfterTaxes").or_else(|| im.get("EquityAttributableToOwnersOfParent")).copied())
+            .or_else(|| diff("NetIncomeBeforeTax"));
+
+        cashflow_list.push(serde_json::json!({
+            "symbol": symbol,
+            "date": format!("{}T00:00:00+08:00", d),
+            "netIncome": opt_str(ni),
+            "depreciation": opt_str(da),
+            "amortization": opt_str(amort),
+            "operatingCashFlow": opt_str(ocf),
+            "capitalExpenditures": opt_str(capex),
+            "investingCashFlow": opt_str(icf),
+            "financingCashFlow": opt_str(fcf_val),
+            "netCashFlow": opt_str(net_cf),
+            "freeCashFlow": opt_str(free_cf),
+        }));
+    }
+
+    let inc_key = format!("incomeStatement-{}-quarter-20--date", symbol);
+    let cf_key = format!("cashFlowStatement-{}-quarter-20--date", symbol);
+    let mut store = serde_json::Map::new();
+    store.insert(inc_key, serde_json::json!({ "data": income_list }));
+    store.insert("balanceSheet".to_string(), serde_json::json!({ "data": balance_list }));
+    store.insert(cf_key, serde_json::json!({ "data": cashflow_list }));
+    Some(Value::Object(store))
+}
+
 #[tauri::command]
 pub async fn fetch_detailed_fundamentals(symbol: String) -> Result<Value, String> {
     let co_id = symbol.split('.').next().unwrap_or(&symbol).to_string();
     let is_tw = symbol.ends_with(".TW") || symbol.ends_with(".TWO") || co_id.chars().all(|c| c.is_ascii_digit());
 
     if is_tw {
+        let (inc_store, bal_store, cf_store) = tokio::join!(
+            fetch_yahoo_tw_store(&co_id, "income-statement"),
+            fetch_yahoo_tw_store(&co_id, "balance-sheet"),
+            fetch_yahoo_tw_store(&co_id, "cash-flow-statement")
+        );
+
         let mut merged_store = serde_json::Map::new();
-        for page in &["income-statement", "balance-sheet", "cash-flow-statement"] {
-            if let Some(store) = fetch_yahoo_tw_store(&co_id, page).await {
+        let mut has_populated_data = false;
+
+        for store_opt in [inc_store, bal_store, cf_store] {
+            if let Some(store) = store_opt {
                 if let Some(obj) = store.as_object() {
                     for (k, v) in obj {
                         let is_new_val_populated = v.get("data")
                             .and_then(|d| d.as_array())
                             .map(|arr| !arr.is_empty())
                             .unwrap_or(false);
-                            
+                        if is_new_val_populated {
+                            has_populated_data = true;
+                        }
                         let is_existing_val_populated = merged_store.get(k)
                             .and_then(|d| d.get("data"))
                             .and_then(|d| d.as_array())
@@ -146,8 +377,12 @@ pub async fn fetch_detailed_fundamentals(symbol: String) -> Result<Value, String
                 }
             }
         }
-        if !merged_store.is_empty() {
+        if has_populated_data {
             return Ok(Value::Object(merged_store));
+        }
+
+        if let Some(finmind_store) = fetch_finmind_detailed_fundamentals(&symbol, &co_id).await {
+            return Ok(finmind_store);
         }
     }
 
@@ -298,13 +533,70 @@ pub async fn fetch_stock_data(symbol: String, range: String) -> Result<StockData
     }
 }
 
-    // 補充台股官方估值 (PE/PB/殖利率)
+    // 補充台股官方估值 (PE/PB/殖利率) 與 Yahoo TW 最新季報 (例如 2026 Q3 搶先公告)
     let co_id = symbol.split('.').next().unwrap_or(&symbol);
     let symbol_upper = symbol.to_uppercase();
     if symbol_upper.ends_with(".TW") || symbol_upper.ends_with(".TWO") {
         if let Some(summary_tw) = fetch_tw_business_summary(&symbol_upper).await {
             info.long_business_summary = Some(summary_tw);
         }
+
+        // 若 quoteSummary 尚未滾動至最新季報 (如 2026Q3)，檢查 Yahoo 奇摩股市損益表是否已率先公布 Q3
+        let current_period = info.eps.as_ref().and_then(|m| m.period.clone()).unwrap_or_default();
+        if !current_period.contains("Q3") {
+            if let Some(store) = fetch_yahoo_tw_store(&symbol_upper, "income-statement").await {
+                if let Some(obj) = store.as_object() {
+                    if let Some((_, q_val)) = obj.iter().find(|(k, _)| k.starts_with("incomeStatement-") && k.contains("quarter")) {
+                        if let Some(quarters) = q_val.get("data").and_then(|d| d.as_array()) {
+                            if let Some(q0) = quarters.first() {
+                                let q_date = q0.get("date").and_then(|d| d.as_str()).unwrap_or("");
+                                if q_date.starts_with("2026-09") {
+                                    let ts = now_utc();
+                                    let p_q3 = Some("2026Q3".to_string());
+                                    let avail_q3 = Some("2026-11-14".to_string());
+                                    let pol_stat = Some("conservative_statutory_deadline".to_string());
+
+                                    if quarters.len() >= 4 {
+                                        let ttm_eps: f64 = quarters.iter().take(4).filter_map(|q| {
+                                            q.get("eps").and_then(|v| v.as_str()).and_then(|s| s.parse::<f64>().ok())
+                                        }).sum();
+                                        if ttm_eps != 0.0 {
+                                            info.eps = Some(MetricF64::yahoo_fundamental((ttm_eps * 100.0).round() / 100.0, p_q3.clone(), None, avail_q3.clone(), pol_stat.clone(), &ts));
+                                        }
+                                    }
+                                    let parse_q_f64 = |field: &str| -> Option<f64> {
+                                        q0.get(field).and_then(|v| v.as_str()).and_then(|s| s.parse::<f64>().ok())
+                                    };
+                                    if let Some(rev) = parse_q_f64("revenue") {
+                                        if rev > 0.0 {
+                                            if let Some(gp) = parse_q_f64("grossProfit") {
+                                                info.gross_margins = Some(MetricF64::yahoo_fundamental(gp / rev, p_q3.clone(), None, avail_q3.clone(), pol_stat.clone(), &ts));
+                                            }
+                                            if let Some(op) = parse_q_f64("operatingProfit") {
+                                                info.operating_margins = Some(MetricF64::yahoo_fundamental(op / rev, p_q3.clone(), None, avail_q3.clone(), pol_stat.clone(), &ts));
+                                            }
+                                            if let Some(ni) = parse_q_f64("ownerParentProfit").or_else(|| parse_q_f64("netIncome")) {
+                                                info.profit_margins = Some(MetricF64::yahoo_fundamental(ni / rev, p_q3.clone(), None, avail_q3.clone(), pol_stat.clone(), &ts));
+                                            }
+                                        }
+                                    }
+                                    if quarters.len() >= 5 {
+                                        let eps_now = parse_q_f64("eps");
+                                        let eps_prev = quarters[4].get("eps").and_then(|v| v.as_str()).and_then(|s| s.parse::<f64>().ok());
+                                        if let (Some(en), Some(ep)) = (eps_now, eps_prev) {
+                                            if ep.abs() > 0.01 {
+                                                info.earnings_growth = Some(MetricF64::yahoo_fundamental((en - ep) / ep.abs(), p_q3.clone(), None, avail_q3.clone(), pol_stat.clone(), &ts));
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         if let Ok(tw_data) = fetch_tw_fundamentals().await {
             if let Some(fund) = tw_data.get(co_id) {
                 let ts = now_utc();

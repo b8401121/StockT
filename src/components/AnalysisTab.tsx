@@ -1012,58 +1012,84 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                     );
                   })()}
 
-                  {/* 基本面評分卡 (點擊彈出全景明細) */}
-                  {fs && (
-                    <div
-                      className="score-card"
-                      onClick={() => setShowFsModal(true)}
-                      style={{
-                        background: fsGrade.bg,
-                        borderColor: fsGrade.border,
-                        marginBottom: "12px",
-                        cursor: "pointer",
-                        transition: "transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease",
-                      }}
-                      title="點擊展開基本面完整評分與各項指標明細"
-                    >
-                      <div className="score-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <div className="score-grade" style={{ color: fsGrade.color, fontWeight: 700 }}>
-                          📊 基本面：{fsGrade.label} <span style={{ fontSize: "0.72rem", color: isWarm ? "#57534e" : "rgba(255,255,255,0.6)", fontWeight: 400 }}>(2026 Q2 累計)</span>
-                        </div>
-                        <div className="score-num" style={{ color: isWarm ? "#18181b" : "var(--text-secondary)", fontSize: "0.85rem" }}>
-                          評分 <b style={{ color: fsGrade.color }}>{fsScore > 0 ? "+" : ""}{fsScore}</b>
-                          &nbsp;｜ ✅{fs.passed.length} ❌{fs.failed.length} ⬜{fs.na.length}
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                  {/* 基本面評分卡与獲利能力、財務穩健度 */}
+                  {(() => {
+                    const coId = info.symbol.split(".")[0];
+                    const fund = (twseFundamentals as Record<string, any>)[coId];
+                    const rawPeriod = info.eps?.period || fund?.report_period || "2026 Q2";
+                    const reportPeriod = rawPeriod.replace(/^(\d{4})(Q\d)$/i, "$1 $2");
+                    const qMatch = reportPeriod.match(/Q[1-4]/i);
+                    const shortQuarter = qMatch ? qMatch[0].toUpperCase() : "Q2";
+                    const isQ3Updated = reportPeriod.includes("Q3") || reportPeriod.includes("Q4");
+                    const revMonth = info.revenue_growth?.period || fund?.revenue_month || "2026/09";
+                    const shortRevMonth = revMonth.includes("/") ? `${parseInt(revMonth.split("/")[1], 10)}月營收` : revMonth;
+                    const latestQEps = fund?.latest_quarter_eps != null ? Number(fund.latest_quarter_eps) : null;
 
-                  {/* 獲利能力 */}
-                  <div className="info-section">
-                    <div className="info-section-header"><span style={{ color: isWarm ? "#9a3412" : "#ffffff", fontWeight: 800 }}>一、獲利能力</span> <span style={{ fontSize: "0.80rem", color: isWarm ? "#0369a1" : "#93c5fd", fontWeight: 600 }}>(2026 Q2 財報 / 7月營收)</span></div>
-                    <div className="info-section-body">
-                      <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("EPS")}>EPS <small style={{ color: isWarm ? "#0369a1" : "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(TTM)</small></span><span className="info-value" style={{ color: (info.eps?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (info.eps?.value ?? 0) >= 6 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{n2s(info.eps?.value)}</span></div>
-                      <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("ROE")}>ROE <small style={{ color: isWarm ? "#0369a1" : "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(Q2累計)</small></span><span className="info-value" style={{ color: (info.roe?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (info.roe?.value ?? 0) >= 0.15 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.roe?.value)}</span></div>
-                      <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("毛利率")}>毛利率 <small style={{ color: isWarm ? "#0369a1" : "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(Q2)</small></span><span className="info-value" style={{ color: (info.gross_margins?.value ?? 0) < 0.10 ? (isWarm ? "#dc2626" : "#ff5252") : (info.gross_margins?.value ?? 0) >= 0.35 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.gross_margins?.value)}</span></div>
-                      <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("營業利益率")}>營業利益率 <small style={{ color: isWarm ? "#0369a1" : "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(Q2)</small></span><span className="info-value" style={{ color: (info.operating_margins?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (info.operating_margins?.value ?? 0) >= 0.15 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.operating_margins?.value)}</span></div>
-                      <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("淨利率")}>淨利率 <small style={{ color: isWarm ? "#0369a1" : "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(Q2)</small></span><span className="info-value" style={{ color: (info.profit_margins?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (info.profit_margins?.value ?? 0) >= 0.15 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.profit_margins?.value)}</span></div>
-                      <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("營收YoY")}>營收成長 YoY <small style={{ color: isWarm ? "#0369a1" : "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(2026/07)</small></span><span className="info-value" style={{ color: (info.revenue_growth?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (info.revenue_growth?.value ?? 0) >= 0.15 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.revenue_growth?.value)}</span></div>
-                      <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("盈餘YoY")}>盈餘成長 YoY <small style={{ color: isWarm ? "#0369a1" : "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(Q2)</small></span><span className="info-value" style={{ color: (info.earnings_growth?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (info.earnings_growth?.value ?? 0) >= 0.20 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.earnings_growth?.value)}</span></div>
-                    </div>
-                  </div>
+                    return (
+                      <>
+                        {fs && (
+                          <div
+                            className="score-card"
+                            onClick={() => setShowFsModal(true)}
+                            style={{
+                              background: fsGrade.bg,
+                              borderColor: fsGrade.border,
+                              marginBottom: "12px",
+                              cursor: "pointer",
+                              transition: "transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease",
+                            }}
+                            title="點擊展開基本面完整評分與各項指標明細"
+                          >
+                            <div className="score-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                              <div className="score-grade" style={{ color: fsGrade.color, fontWeight: 700, display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                                <span>📊 基本面：{fsGrade.label}</span>
+                                <span style={{ fontSize: "0.72rem", color: isWarm ? "#57534e" : "rgba(255,255,255,0.6)", fontWeight: 400 }}>({reportPeriod} 累計)</span>
+                                {isQ3Updated && (
+                                  <span style={{ fontSize: "0.68rem", background: isWarm ? "rgba(22, 163, 74, 0.15)" : "rgba(74, 222, 128, 0.18)", color: isWarm ? "#15803d" : "#4ade80", border: `1px solid ${isWarm ? "rgba(22, 163, 74, 0.4)" : "rgba(74, 222, 128, 0.4)"}`, padding: "1px 6px", borderRadius: "10px", fontWeight: 700 }}>
+                                    ✨ {shortQuarter} 新財報已出爐
+                                  </span>
+                                )}
+                              </div>
+                              <div className="score-num" style={{ color: isWarm ? "#18181b" : "var(--text-secondary)", fontSize: "0.85rem" }}>
+                                評分 <b style={{ color: fsGrade.color }}>{fsScore > 0 ? "+" : ""}{fsScore}</b>
+                                &nbsp;｜ ✅{fs.passed.length} ❌{fs.failed.length} ⬜{fs.na.length}
+                              </div>
+                            </div>
+                          </div>
+                        )}
 
-                  {/* 財務穩健度 */}
-                  <div className="info-section">
-                    <div className="info-section-header"><span style={{ color: isWarm ? "#9a3412" : "#ffffff", fontWeight: 800 }}>二、財務穩健度</span> <span style={{ fontSize: "0.80rem", color: isWarm ? "#0369a1" : "#93c5fd", fontWeight: 600 }}>(2026 Q2 資產負債與現金流)</span></div>
-                    <div className="info-section-body">
-                      <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("自由現金流")}>自由現金流</span><span className="info-value" style={{ color: (info.free_cashflow?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (isWarm ? "#15803d" : "#4ade80"), fontWeight: 800, fontSize: "1.02rem" }}>{fmtNum(info.free_cashflow?.value)}</span></div>
-                      <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("營業現金流")}>營業現金流</span><span className="info-value" style={{ color: (info.operating_cashflow?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (isWarm ? "#15803d" : "#4ade80"), fontWeight: 800, fontSize: "1.02rem" }}>{fmtNum(info.operating_cashflow?.value)}</span></div>
-                      <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("流動比率")}>流動比率</span><span className="info-value" style={{ color: (info.current_ratio?.value ?? 2) < 1.0 ? (isWarm ? "#dc2626" : "#ff5252") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{n2s(info.current_ratio?.value)}</span></div>
-                      <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("速動比率")}>速動比率</span><span className="info-value" style={{ color: (info.quick_ratio?.value ?? 2) < 1.0 ? (isWarm ? "#dc2626" : "#ff5252") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{n2s(info.quick_ratio?.value)}</span></div>
-                      <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("負債/權益比")}>負債/權益比</span><span className="info-value" style={{ color: (info.debt_to_equity?.value ?? 0) > 200 ? (isWarm ? "#dc2626" : "#ff5252") : (info.debt_to_equity?.value ?? 100) <= 60 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{info.debt_to_equity?.value != null && !isNaN(info.debt_to_equity?.value) ? `${info.debt_to_equity?.value.toFixed(1)}%` : "N/A"}</span></div>
-                      <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("自有資本率")}>自有資本率</span><span className="info-value" style={{ color: (calcEquityRatio(info) ?? 100) < 30 ? (isWarm ? "#dc2626" : "#ff5252") : (calcEquityRatio(info) ?? 0) >= 50 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{fmtEquityRatio(info)}</span></div>
-                    </div>
-                  </div>
+                        {/* 獲利能力 */}
+                        <div className="info-section">
+                          <div className="info-section-header"><span style={{ color: isWarm ? "#9a3412" : "#ffffff", fontWeight: 800 }}>一、獲利能力</span> <span style={{ fontSize: "0.80rem", color: isWarm ? "#0369a1" : "#93c5fd", fontWeight: 600 }}>({reportPeriod} 財報 / {shortRevMonth})</span></div>
+                          <div className="info-section-body">
+                            <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("EPS")}>EPS <small style={{ color: isWarm ? "#0369a1" : "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>(近4季TTM)</small></span><span className="info-value" style={{ color: (info.eps?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (info.eps?.value ?? 0) >= 6 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{n2s(info.eps?.value)}</span></div>
+                            {latestQEps != null && !isNaN(latestQEps) && (
+                              <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("EPS")}>最新單季 EPS <small style={{ color: isWarm ? "#15803d" : "#4ade80", fontSize: "0.78rem", fontWeight: 700 }}>({reportPeriod})</small></span><span className="info-value" style={{ color: latestQEps < 0 ? (isWarm ? "#dc2626" : "#ff5252") : latestQEps >= 2 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{latestQEps.toFixed(2)} 元</span></div>
+                            )}
+                            <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("ROE")}>ROE <small style={{ color: isWarm ? "#0369a1" : "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>({shortQuarter}累計)</small></span><span className="info-value" style={{ color: (info.roe?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (info.roe?.value ?? 0) >= 0.15 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.roe?.value)}</span></div>
+                            <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("毛利率")}>毛利率 <small style={{ color: isWarm ? "#0369a1" : "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>({shortQuarter})</small></span><span className="info-value" style={{ color: (info.gross_margins?.value ?? 0) < 0.10 ? (isWarm ? "#dc2626" : "#ff5252") : (info.gross_margins?.value ?? 0) >= 0.35 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.gross_margins?.value)}</span></div>
+                            <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("營業利益率")}>營業利益率 <small style={{ color: isWarm ? "#0369a1" : "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>({shortQuarter})</small></span><span className="info-value" style={{ color: (info.operating_margins?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (info.operating_margins?.value ?? 0) >= 0.15 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.operating_margins?.value)}</span></div>
+                            <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("淨利率")}>淨利率 <small style={{ color: isWarm ? "#0369a1" : "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>({shortQuarter})</small></span><span className="info-value" style={{ color: (info.profit_margins?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (info.profit_margins?.value ?? 0) >= 0.15 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.profit_margins?.value)}</span></div>
+                            <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("營收YoY")}>營收成長 YoY <small style={{ color: isWarm ? "#0369a1" : "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>({revMonth})</small></span><span className="info-value" style={{ color: (info.revenue_growth?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (info.revenue_growth?.value ?? 0) >= 0.15 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.revenue_growth?.value)}</span></div>
+                            <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("盈餘YoY")}>盈餘成長 YoY <small style={{ color: isWarm ? "#0369a1" : "#38bdf8", fontSize: "0.78rem", fontWeight: 700 }}>({shortQuarter})</small></span><span className="info-value" style={{ color: (info.earnings_growth?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (info.earnings_growth?.value ?? 0) >= 0.20 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{pct(info.earnings_growth?.value)}</span></div>
+                          </div>
+                        </div>
+
+                        {/* 財務穩健度 */}
+                        <div className="info-section">
+                          <div className="info-section-header"><span style={{ color: isWarm ? "#9a3412" : "#ffffff", fontWeight: 800 }}>二、財務穩健度</span> <span style={{ fontSize: "0.80rem", color: isWarm ? "#0369a1" : "#93c5fd", fontWeight: 600 }}>({reportPeriod} 資產負債與現金流)</span></div>
+                          <div className="info-section-body">
+                            <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("自由現金流")}>自由現金流</span><span className="info-value" style={{ color: (info.free_cashflow?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (isWarm ? "#15803d" : "#4ade80"), fontWeight: 800, fontSize: "1.02rem" }}>{fmtNum(info.free_cashflow?.value)}</span></div>
+                            <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("營業現金流")}>營業現金流</span><span className="info-value" style={{ color: (info.operating_cashflow?.value ?? 0) < 0 ? (isWarm ? "#dc2626" : "#ff5252") : (isWarm ? "#15803d" : "#4ade80"), fontWeight: 800, fontSize: "1.02rem" }}>{fmtNum(info.operating_cashflow?.value)}</span></div>
+                            <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("流動比率")}>流動比率</span><span className="info-value" style={{ color: (info.current_ratio?.value ?? 2) < 1.0 ? (isWarm ? "#dc2626" : "#ff5252") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{n2s(info.current_ratio?.value)}</span></div>
+                            <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("速動比率")}>速動比率</span><span className="info-value" style={{ color: (info.quick_ratio?.value ?? 2) < 1.0 ? (isWarm ? "#dc2626" : "#ff5252") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{n2s(info.quick_ratio?.value)}</span></div>
+                            <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("負債/權益比")}>負債/權益比</span><span className="info-value" style={{ color: (info.debt_to_equity?.value ?? 0) > 200 ? (isWarm ? "#dc2626" : "#ff5252") : (info.debt_to_equity?.value ?? 100) <= 60 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{info.debt_to_equity?.value != null && !isNaN(info.debt_to_equity?.value) ? `${info.debt_to_equity?.value.toFixed(1)}%` : "N/A"}</span></div>
+                            <div className="info-row"><span className="info-label clickable-label" style={{ color: isWarm ? "#18181b" : "#ffffff", fontWeight: 700, fontSize: "0.95rem" }} onClick={() => showMetricExplanation("自有資本率")}>自有資本率</span><span className="info-value" style={{ color: (calcEquityRatio(info) ?? 100) < 30 ? (isWarm ? "#dc2626" : "#ff5252") : (calcEquityRatio(info) ?? 0) >= 50 ? (isWarm ? "#15803d" : "#4ade80") : (isWarm ? "#18181b" : "#ffffff"), fontWeight: 800, fontSize: "1.02rem" }}>{fmtEquityRatio(info)}</span></div>
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()}
 
                   {/* 估值指標 */}
                   {(() => {
@@ -1334,23 +1360,26 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
               const sortedYears = Object.keys(yearsMap).sort((a, b) => b.localeCompare(a));
               for (const y of sortedYears) {
                 const quarters = yearsMap[y];
+                const labelDate = quarters.length >= 4 ? `${y} 全年` : `${y} (累計${quarters.length}季)`;
                 if (isBalance) {
-                  // 資產負債表是期末值 (存量)，取該年度 12 月或最後一季的數據
+                  // 資產負債表是期末值 (存量)，取該年度 12 月或最新一季的數據
                   const q4 = quarters.find(q => q.date && (q.date.includes("-12-") || q.date.includes("-12T")));
                   const targetQ = q4 || quarters[0];
                   annualList.push({
                     ...targetQ,
-                    date: `${y}-12-31T00:00:00+08:00`
+                    date: `${y}-12-31T00:00:00+08:00`,
+                    displayDate: labelDate
                   });
                 } else {
                   // 損益表與現金流量表為累計值 (流量)，將該年度所有單季相加
                   const template = quarters[0];
                   const annualEntry: any = {
                     symbol: template.symbol,
-                    date: `${y}-12-31T00:00:00+08:00`
+                    date: `${y}-12-31T00:00:00+08:00`,
+                    displayDate: labelDate
                   };
                   
-                  const keysToSum = Object.keys(template).filter(k => k !== "symbol" && k !== "date");
+                  const keysToSum = Object.keys(template).filter(k => k !== "symbol" && k !== "date" && k !== "displayDate");
                   for (const key of keysToSum) {
                     let sum = 0;
                     let foundAny = false;
@@ -1395,7 +1424,26 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
           }
         })();
 
-        const dates = statements.map((s: any) => s.endDate?.fmt || s.date?.slice(0, 10) || "N/A");
+        const formatQuarterLabel = (rawDate: string) => {
+          const d = rawDate.slice(0, 10);
+          const m = d.match(/^(\d{4})-(\d{2})/);
+          if (!m) return d;
+          const yr = m[1];
+          const mo = parseInt(m[2], 10);
+          if (mo >= 1 && mo <= 3) return `${yr} Q1`;
+          if (mo >= 4 && mo <= 6) return `${yr} Q2`;
+          if (mo >= 7 && mo <= 9) return `${yr} Q3`;
+          return `${yr} Q4`;
+        };
+
+        const dates = statements.map((s: any) => {
+          if (s.displayDate) return s.displayDate;
+          const raw = s.endDate?.fmt || s.date?.slice(0, 10) || "N/A";
+          if (fundFreq === "quarterly" && /^\d{4}-\d{2}/.test(raw)) {
+            return formatQuarterLabel(raw);
+          }
+          return raw;
+        });
 
         const getSingleVal = (statement: any, key: string) => {
           const field = statement[key];
@@ -1415,25 +1463,50 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
           if (!statement) return null;
           
           if (rowConfig.calc === "costOfRevenue") {
+            const directCost = getSingleVal(statement, "costOfRevenue") ?? getSingleVal(statement, "costOfGoodsSold");
+            if (directCost !== null) return directCost;
             const rev = getSingleVal(statement, "revenue") ?? getSingleVal(statement, "totalRevenue");
             const gp = getSingleVal(statement, "grossProfit");
             if (rev !== null && gp !== null) return rev - gp;
           } else if (rowConfig.calc === "incomeTaxExpense") {
+            const directTax = getSingleVal(statement, "incomeTaxExpense");
+            if (directTax !== null) return directTax;
             const pbt = getSingleVal(statement, "profitBeforeTax") ?? getSingleVal(statement, "incomeBeforeTax");
             const ni = getSingleVal(statement, "netIncome");
             if (pbt !== null && ni !== null) return pbt - ni;
           } else if (rowConfig.calc === "cashflowNetIncome") {
+            const directNi = getSingleVal(statement, "netIncome");
+            if (directNi !== null) return directNi;
             const dateStr = statement.date || statement.endDate?.fmt || "";
             const targetDate = dateStr.slice(0, 10);
             if (targetDate) {
-              const incKey = findTwKey("incomeStatement-", fundFreq);
+              const incKey = findTwKey("incomeStatement-", "quarterly");
               const incStatements = incKey ? (rawResult[incKey]?.data || []) : [];
-              const incMatch = incStatements.find((s: any) => (s.date || s.endDate?.fmt || "").startsWith(targetDate));
-              if (incMatch) {
-                return getSingleVal(incMatch, "netIncome");
+              if (fundFreq === "annual") {
+                const yr = targetDate.slice(0, 4);
+                const yrMatches = incStatements.filter((s: any) => (s.date || s.endDate?.fmt || "").startsWith(yr));
+                if (yrMatches.length > 0) {
+                  let sum = 0;
+                  let found = false;
+                  for (const m of yrMatches) {
+                    const v = getSingleVal(m, "netIncome");
+                    if (v !== null) {
+                      sum += v;
+                      found = true;
+                    }
+                  }
+                  if (found) return sum;
+                }
+              } else {
+                const incMatch = incStatements.find((s: any) => (s.date || s.endDate?.fmt || "").startsWith(targetDate));
+                if (incMatch) {
+                  return getSingleVal(incMatch, "netIncome");
+                }
               }
             }
           } else if (rowConfig.calc === "capitalExpenditures") {
+            const directCapex = getSingleVal(statement, "capitalExpenditures");
+            if (directCapex !== null) return directCapex;
             const ocf = getSingleVal(statement, "totalCashFromOperatingActivities") ?? getSingleVal(statement, "operatingCashFlow");
             const fcf = getSingleVal(statement, "freeCashFlow");
             if (ocf !== null && fcf !== null) {
@@ -1482,6 +1555,7 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
           { keys: ["incomeBeforeTax", "profitBeforeTax"], label: "稅前淨利 (Income Before Tax)" },
           { keys: ["incomeTaxExpense"], calc: "incomeTaxExpense", label: "所得稅費用 (Income Tax Expense)" },
           { keys: ["netIncome"], label: "稅後淨利 (Net Income)" },
+          { keys: ["eps"], isEps: true, label: "基本每股盈餘 (Basic EPS, 元)" },
         ];
 
         const balanceRows = [
@@ -1520,13 +1594,14 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
         return (
           <div style={{
             position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-            background: "rgba(0,0,0,0.8)", backdropFilter: "blur(8px)",
+            background: isWarm ? "rgba(40, 30, 20, 0.45)" : "rgba(0,0,0,0.8)", backdropFilter: "blur(8px)",
             zIndex: 10000, display: "flex", justifyContent: "center", alignItems: "center"
           }} onClick={() => setShowFundModal(false)}>
             <div style={{
-              background: "#1a1a24", borderRadius: "12px", width: "950px", maxWidth: "95%",
-              height: "85vh", display: "flex", flexDirection: "column", border: "1px solid rgba(255,255,255,0.1)",
-              boxShadow: "0 20px 40px rgba(0, 0, 0, 0.5)"
+              background: isWarm ? "#faf7f2" : "#1a1a24", borderRadius: "12px", width: "950px", maxWidth: "95%",
+              height: "85vh", display: "flex", flexDirection: "column",
+              border: isWarm ? "1px solid rgba(140, 110, 80, 0.25)" : "1px solid rgba(255,255,255,0.1)",
+              boxShadow: isWarm ? "0 20px 45px rgba(100, 80, 50, 0.25)" : "0 20px 40px rgba(0, 0, 0, 0.5)"
             }} onClick={e => e.stopPropagation()}>
               
               {/* Header */}
@@ -1556,7 +1631,7 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                 alignItems: "center",
                 flexWrap: "wrap",
                 gap: "12px",
-                background: isWarm ? "rgba(245, 238, 225, 0.4)" : "rgba(255,255,255,0.01)"
+                background: isWarm ? "rgba(245, 238, 225, 0.6)" : "rgba(255,255,255,0.01)"
               }}>
                 {/* Statement Tabs */}
                 <div style={{ display: "flex", gap: "6px" }}>
@@ -1575,18 +1650,18 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                 </div>
 
                 {/* Frequency Toggle */}
-                <div style={{ display: "flex", gap: "6px", background: isWarm ? "rgba(140, 110, 80, 0.1)" : "rgba(255,255,255,0.05)", padding: "3px", borderRadius: "8px" }}>
+                <div style={{ display: "flex", gap: "6px", background: isWarm ? "rgba(140, 110, 80, 0.12)" : "rgba(255,255,255,0.05)", padding: "3px", borderRadius: "8px" }}>
                   <button 
                     onClick={() => setFundFreq("annual")}
                     style={{
                       border: "none",
                       background: fundFreq === "annual" ? (isWarm ? "#d97706" : "var(--btn-primary-bg, #4d94ff)") : "transparent",
-                      color: "#fff",
+                      color: fundFreq === "annual" ? "#fff" : (isWarm ? "#57534e" : "rgba(255,255,255,0.75)"),
                       fontSize: "0.78rem",
                       padding: "5px 12px",
                       borderRadius: "6px",
                       cursor: "pointer",
-                      fontWeight: fundFreq === "annual" ? 600 : 400,
+                      fontWeight: fundFreq === "annual" ? 700 : 500,
                       transition: "all 0.2s"
                     }}
                   >年度</button>
@@ -1595,12 +1670,12 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                     style={{
                       border: "none",
                       background: fundFreq === "quarterly" ? (isWarm ? "#d97706" : "var(--btn-primary-bg, #4d94ff)") : "transparent",
-                      color: "#fff",
+                      color: fundFreq === "quarterly" ? "#fff" : (isWarm ? "#57534e" : "rgba(255,255,255,0.75)"),
                       fontSize: "0.78rem",
                       padding: "5px 12px",
                       borderRadius: "6px",
                       cursor: "pointer",
-                      fontWeight: fundFreq === "quarterly" ? 600 : 400,
+                      fontWeight: fundFreq === "quarterly" ? 700 : 500,
                       transition: "all 0.2s"
                     }}
                   >單季</button>
@@ -1608,11 +1683,11 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
               </div>
 
               {/* Table Content */}
-              <div style={{ flex: 1, overflowY: "auto", padding: "20px", background: isWarm ? "transparent" : "#13131e" }}>
+              <div style={{ flex: 1, overflowY: "auto", padding: "20px", background: isWarm ? "#ffffff" : "#13131e" }}>
                 {fundLoading ? (
                   <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", height: "100%", gap: "12px" }}>
                     <span className="loading-spinner" style={{ width: "36px", height: "36px" }}></span>
-                    <span style={{ color: isWarm ? "#57534e" : "#94a3b8", fontSize: "0.85rem" }}>正在從 Yahoo Finance 獲取財報資料...</span>
+                    <span style={{ color: isWarm ? "#57534e" : "#94a3b8", fontSize: "0.85rem" }}>正在從官方財報資料庫與 Yahoo Finance 獲取最新財報...</span>
                   </div>
                 ) : fundData?.error ? (
                   <div style={{ color: "#ff5252", padding: "20px", background: "rgba(255,82,82,0.05)", border: "1px solid rgba(255,82,82,0.2)", borderRadius: "8px" }}>
@@ -1622,10 +1697,10 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                   <div style={{ overflowX: "auto", borderRadius: "8px", border: isWarm ? "1px solid rgba(140, 110, 80, 0.15)" : "1px solid rgba(255,255,255,0.08)" }}>
                     <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem", textAlign: "left" }}>
                       <thead>
-                        <tr style={{ background: isWarm ? "rgba(140, 110, 80, 0.05)" : "rgba(255,255,255,0.03)", borderBottom: isWarm ? "1px solid rgba(140, 110, 80, 0.15)" : "1px solid rgba(255,255,255,0.08)" }}>
-                          <th style={{ padding: "12px 16px", color: isWarm ? "#57534e" : "#94a3b8", fontWeight: 600, minWidth: "220px", position: "sticky", left: 0, background: isWarm ? "#fafaf9" : "#161622", zIndex: 2 }}>會計項目</th>
+                        <tr style={{ background: isWarm ? "rgba(140, 110, 80, 0.08)" : "rgba(255,255,255,0.03)", borderBottom: isWarm ? "1px solid rgba(140, 110, 80, 0.18)" : "1px solid rgba(255,255,255,0.08)" }}>
+                          <th style={{ padding: "12px 16px", color: isWarm ? "#44403c" : "#94a3b8", fontWeight: 700, minWidth: "220px", position: "sticky", left: 0, background: isWarm ? "#f5f0e6" : "#161622", zIndex: 2 }}>會計項目</th>
                           {dates.map((date: string, idx: number) => (
-                            <th key={idx} style={{ padding: "12px 16px", color: isWarm ? "#18181b" : "var(--text-primary)", fontWeight: 600, textAlign: "right" }}>{date}</th>
+                            <th key={idx} style={{ padding: "12px 16px", color: isWarm ? "#18181b" : "var(--text-primary)", fontWeight: 700, textAlign: "right", whiteSpace: "nowrap" }}>{date}</th>
                           ))}
                         </tr>
                       </thead>
@@ -1634,39 +1709,47 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                           <tr 
                             key={row.keys[0]} 
                             style={{ 
-                              borderBottom: isWarm ? "1px solid rgba(140, 110, 80, 0.08)" : "1px solid rgba(255,255,255,0.04)",
+                              borderBottom: isWarm ? "1px solid rgba(140, 110, 80, 0.1)" : "1px solid rgba(255,255,255,0.04)",
                               transition: "background 0.15s"
                             }}
-                            onMouseEnter={e => e.currentTarget.style.background = isWarm ? "rgba(140, 110, 80, 0.04)" : "rgba(255,255,255,0.02)"}
+                            onMouseEnter={e => e.currentTarget.style.background = isWarm ? "rgba(217, 119, 6, 0.05)" : "rgba(255,255,255,0.02)"}
                             onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                           >
                             <td style={{ 
                               padding: "10px 16px", 
                               color: isWarm ? "#18181b" : "rgba(255,255,255,0.9)", 
-                              fontWeight: row.keys.includes("netIncome") || row.keys.includes("totalRevenue") || row.keys.includes("totalAssets") || row.keys.includes("freeCashFlow") ? 700 : 400,
+                              fontWeight: row.keys.includes("netIncome") || row.keys.includes("totalRevenue") || row.keys.includes("totalAssets") || row.keys.includes("freeCashFlow") || row.keys.includes("eps") ? 700 : 500,
                               position: "sticky", 
                               left: 0, 
                               background: isWarm ? "rgba(255, 252, 245, 0.98)" : "#13131e",
                               zIndex: 1,
-                              borderRight: isWarm ? "1px solid rgba(140, 110, 80, 0.05)" : "1px solid rgba(255,255,255,0.02)"
+                              borderRight: isWarm ? "1px solid rgba(140, 110, 80, 0.12)" : "1px solid rgba(255,255,255,0.02)"
                             }}>
                               {row.label}
                             </td>
                             {statements.map((statement: any, sIdx: number) => {
                               const rawVal = getVal(statement, row);
-                              const isImportantRow = row.keys.includes("netIncome") || row.keys.includes("totalRevenue") || row.keys.includes("totalAssets") || row.keys.includes("freeCashFlow") || row.keys.includes("equityRatio");
+                              const isImportantRow = row.keys.includes("netIncome") || row.keys.includes("totalRevenue") || row.keys.includes("totalAssets") || row.keys.includes("freeCashFlow") || row.keys.includes("equityRatio") || row.keys.includes("eps");
                               const isRatio = (row as any).isRatio;
+                              const isEps = (row as any).isEps;
                               return (
                                 <td 
                                   key={sIdx} 
                                   style={{ 
                                     padding: "10px 16px", 
                                     textAlign: "right",
-                                    color: rawVal !== null && rawVal < 0 ? "var(--accent-green)" : isImportantRow ? "var(--accent-red, #ff5252)" : "rgba(255,255,255,0.75)",
-                                    fontWeight: isImportantRow ? 700 : 400
+                                    whiteSpace: "nowrap",
+                                    color: rawVal !== null && rawVal < 0
+                                      ? (isWarm ? "#15803d" : "var(--accent-green)")
+                                      : isImportantRow
+                                        ? (isWarm ? "#dc2626" : "var(--accent-red, #ff5252)")
+                                        : (isWarm ? "#292524" : "rgba(255,255,255,0.78)"),
+                                    fontWeight: isImportantRow ? 700 : 500
                                   }}
                                 >
-                                  {rawVal !== null && !isNaN(rawVal) ? (isRatio ? `${rawVal.toFixed(2)}%` : fmtNum(rawVal)) : "N/A"}
+                                  {rawVal !== null && !isNaN(rawVal)
+                                    ? (isRatio ? `${rawVal.toFixed(2)}%` : isEps ? `${rawVal.toFixed(2)}` : fmtNum(rawVal))
+                                    : "N/A"}
                                 </td>
                               );
                             })}
@@ -1676,7 +1759,7 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
                     </table>
                   </div>
                 ) : (
-                  <div style={{ textAlign: "center", padding: "40px", color: "#94a3b8" }}>
+                  <div style={{ textAlign: "center", padding: "40px", color: isWarm ? "#57534e" : "#94a3b8" }}>
                     📭 無財報數據 (可能該個股不支援此財報項目)
                   </div>
                 )}
@@ -1685,14 +1768,14 @@ export const AnalysisTab: React.FC<Props> = ({ initialSymbol }) => {
               {/* Footer */}
               <div style={{ 
                 padding: "12px 20px", 
-                borderTop: "1px solid rgba(255,255,255,0.08)", 
+                borderTop: isWarm ? "1px solid rgba(140, 110, 80, 0.15)" : "1px solid rgba(255,255,255,0.08)", 
                 display: "flex", 
                 justifyContent: "space-between", 
                 alignItems: "center",
-                background: "rgba(0,0,0,0.2)"
+                background: isWarm ? "rgba(245, 238, 225, 0.7)" : "rgba(0,0,0,0.2)"
               }}>
-                <span style={{ fontSize: "0.75rem", color: "#94a3b8" }}>
-                  數據來源: Yahoo Finance
+                <span style={{ fontSize: "0.75rem", color: isWarm ? "#57534e" : "#94a3b8" }}>
+                  數據來源: 台灣證券交易所 (MOPS) / FinMind / Yahoo Finance
                 </span>
                 <button className="btn btn-outline btn-sm" onClick={() => setShowFundModal(false)}>關閉</button>
               </div>
